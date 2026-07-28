@@ -1,0 +1,3 @@
+{
+  "extends": "@mze-store/config/tsconfig.base.json"
+}
