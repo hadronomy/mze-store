@@ -1,22 +1,17 @@
 {
-  "name": "web",
+  "name": "storefront",
   "private": true,
   "type": "module",
   "scripts": {
     "build": "vp build",
+    "check-types": "tsc --noEmit",
     "serve": "vp preview",
     "dev": "vp dev"
   },
   "dependencies": {
-    "@mze-store/api": "workspace:*",
     "@mze-store/auth": "workspace:*",
     "@mze-store/env": "workspace:*",
     "@mze-store/ui": "workspace:*",
-    "@orpc/client": "catalog:",
-    "@orpc/openapi": "catalog:",
-    "@orpc/server": "catalog:",
-    "@orpc/tanstack-query": "^1.14.6",
-    "@orpc/zod": "catalog:",
     "@tailwindcss/vite": "^4.3.2",
     "@tanstack/react-form": "^1.33.0",
     "@tanstack/react-query": "^5.101.2",

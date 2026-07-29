@@ -9,9 +9,9 @@ This is recorded because the alternative is genuinely more elegant and someone w
 Medusa's bearer verification is, in full:
 
 ```js
-const verified = verify(token, jwtPublicKey ?? jwtSecret, options)
+const verified = verify(token, jwtPublicKey ?? jwtSecret, options);
 if (isActorTypePermitted(actorTypes, verified.actor_type)) {
-  return verified   // the decoded payload *is* the auth context
+  return verified; // the decoded payload *is* the auth context
 }
 ```
 

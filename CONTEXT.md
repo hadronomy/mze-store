@@ -48,7 +48,7 @@ _Avoid_: token swap, minting, login, handoff
 
 **Variant**:
 The specific purchasable thing a Shopper adds to a Cart — a size, a colour, a configuration. Stock and price attach here, never to the Product.
-_Avoid_: SKU (the SKU is the *code identifying* a Variant, not the Variant)
+_Avoid_: SKU (the SKU is the _code identifying_ a Variant, not the Variant)
 
 **Product**:
 The presentation grouping a Shopper browses. Holds description, imagery, and options. Cannot itself be bought.

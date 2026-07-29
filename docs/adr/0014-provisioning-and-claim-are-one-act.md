@@ -13,7 +13,7 @@ setAuthAppMetadataStep({ authIdentityId, actorType: "customer", value: customer.
 
 That last step is what makes `actor_id` appear in later tokens. There is no resolve-or-adopt branch anywhere in core, so the Claim needs custom work regardless.
 
-Treating the Claim as a separate post-purchase feature would mean two mechanisms that both bind Accounts to Customers, racing on the same `app_metadata`. Modelling it as the *resolve branch* of Provisioning leaves one mechanism with two paths, and one place where binding happens.
+Treating the Claim as a separate post-purchase feature would mean two mechanisms that both bind Accounts to Customers, racing on the same `app_metadata`. Modelling it as the _resolve branch_ of Provisioning leaves one mechanism with two paths, and one place where binding happens.
 
 ## Why one route
 

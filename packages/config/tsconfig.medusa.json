@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "//": "Medusa backend preset. CJS under Node16 with decorators, because Medusa loads all user code through a synchronous require() behind ts-node — see docs/adr/0012. verbatimModuleSyntax and isolatedModules are deliberately absent: medusa-config.ts uses `module.exports =`, and tsc emits the backend itself rather than a bundler.",
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "Node16",
+    "moduleResolution": "Node16",
+    "lib": ["ES2022"],
+    "types": ["node"],
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "jsx": "react-jsx",
+    "inlineSourceMap": true,
+    "declaration": false
+  }
+}

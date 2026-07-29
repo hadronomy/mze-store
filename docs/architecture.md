@@ -29,12 +29,12 @@ mze-store/
 
 Three of four surfaces are Vite+ / rolldown. The backend is the exception, deliberately.
 
-| Surface | Tool | Output |
-|---|---|---|
-| Storefront | Vite+ / rolldown | bundled ESM |
-| `packages/*` | `vp pack` | ESM, plus CJS for anything the backend imports |
-| Medusa admin + extensions | `@medusajs/admin-bundler` (Vite 5) | bundled |
-| Medusa backend | TypeScript compiler API | **unbundled, file-per-file CJS** |
+| Surface                   | Tool                               | Output                                         |
+| ------------------------- | ---------------------------------- | ---------------------------------------------- |
+| Storefront                | Vite+ / rolldown                   | bundled ESM                                    |
+| `packages/*`              | `vp pack`                          | ESM, plus CJS for anything the backend imports |
+| Medusa admin + extensions | `@medusajs/admin-bundler` (Vite 5) | bundled                                        |
+| Medusa backend            | TypeScript compiler API            | **unbundled, file-per-file CJS**               |
 
 The backend is neither bundled nor bundle-able: Medusa discovers routes, subscribers, jobs, workflows, and modules by walking the file tree at runtime. ADR-0012 has the reasoning and the failed ESM experiment.
 
@@ -87,7 +87,7 @@ Region, Tax Region, and Service Zone vary independently. Resolution order on fir
 2. **Province** from geo-IP, defaulting to Canarias → selects the Tax Region → the tax-inclusive price shown, and the Service Zone → available shipping.
 3. Both are held in cookies and surfaced as visible controls.
 
-Province must be resolved *before first paint*, because displayed prices include tax and IGIC differs from VAT. See ADR-0005.
+Province must be resolved _before first paint_, because displayed prices include tax and IGIC differs from VAT. See ADR-0005.
 
 ## Stock
 
@@ -120,7 +120,7 @@ Three rules hold this together:
 
 See ADR-0017 for the issue/deliver split and ADR-0018 for rendering.
 
-Veri*Factu becomes mandatory in 2027 (January for corporations, July otherwise). Compliance is a vendor dependency on Odoo's `l10n_es_edi_verifactu`, not something this codebase implements.
+Veri\*Factu becomes mandatory in 2027 (January for corporations, July otherwise). Compliance is a vendor dependency on Odoo's `l10n_es_edi_verifactu`, not something this codebase implements.
 
 ## Layer discipline
 

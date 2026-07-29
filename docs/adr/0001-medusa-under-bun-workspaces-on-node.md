@@ -1,6 +1,6 @@
 # Medusa runs under bun workspaces, with node as the runtime
 
-The repo uses bun as its package manager, and public reports claim Medusa v2 broke under bun somewhere around 2.13. We verified otherwise by scaffolding a throwaway workspace: Medusa 2.18 builds, migrates, and serves under bun 1.3.14, provided it is *executed* with node rather than the bun runtime.
+The repo uses bun as its package manager, and public reports claim Medusa v2 broke under bun somewhere around 2.13. We verified otherwise by scaffolding a throwaway workspace: Medusa 2.18 builds, migrates, and serves under bun 1.3.14, provided it is _executed_ with node rather than the bun runtime.
 
 ## Consequences
 

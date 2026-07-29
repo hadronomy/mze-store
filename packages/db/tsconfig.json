@@ -1,5 +1,5 @@
 {
-  "extends": "@mze-store/config/tsconfig.base.json",
+  "extends": "@mze-store/config/tsconfig.esm.json",
   "compilerOptions": {
     "declaration": true,
     "declarationMap": true,

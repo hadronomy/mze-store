@@ -4,7 +4,7 @@ Everything in this repo builds with Vite+ and rolldown except the Medusa backend
 
 ## What the backend actually does
 
-`medusa build` calls TypeScript's compiler API directly and emits **file-per-file CJS** into `.medusa/server`. There is no bundler, no esbuild, no swc — `@swc/core` is present only to serve ts-node's transform. The admin dashboard is separate and *is* bundled, with Vite 5, via `@medusajs/admin-bundler`.
+`medusa build` calls TypeScript's compiler API directly and emits **file-per-file CJS** into `.medusa/server`. There is no bundler, no esbuild, no swc — `@swc/core` is present only to serve ts-node's transform. The admin dashboard is separate and _is_ bundled, with Vite 5, via `@medusajs/admin-bundler`.
 
 ## Why ESM does not work
 
@@ -14,7 +14,7 @@ The failure is inside **ts-node**, not Node. Medusa loads all user code — conf
 
 ## Why bundling does not work either
 
-That helper's stated purpose is *"to avoid bundling issues."* Medusa discovers routes, subscribers, jobs, workflows, and modules by **walking the file tree at runtime**. Bundling collapses the tree and destroys the mechanism Medusa uses to find your code. A bundler here is not unsupported — it is incompatible by design.
+That helper's stated purpose is _"to avoid bundling issues."_ Medusa discovers routes, subscribers, jobs, workflows, and modules by **walking the file tree at runtime**. Bundling collapses the tree and destroys the mechanism Medusa uses to find your code. A bundler here is not unsupported — it is incompatible by design.
 
 Changing any of this means replacing Medusa's CLI, loader, and plugin resolution. That is a fork, not configuration.
 

@@ -88,7 +88,7 @@ Moved out of "Later". Odoo is now on the launch path: you cannot sell without in
 
 Degradable before this ships — Operators issue manually in Odoo and nothing delivers automatically. Fine at low volume, not for long.
 
-**Veri*Factu is a requirement, not a deadline.** Enabled in Odoo before the first web Invoice, so the web series is chained from #1 rather than acquiring a seam mid-stream. The statutory dates (Jan/Jul 2027) are the outside limit, not the target.
+**Veri\*Factu is a requirement, not a deadline.** Enabled in Odoo before the first web Invoice, so the web series is chained from #1 rather than acquiring a seam mid-stream. The statutory dates (Jan/Jul 2027) are the outside limit, not the target.
 
 Compliance rides on Odoo core: `l10n_es_edi_verifactu` and `l10n_es_edi_verifactu_pos`, both shipping in Community 19 and already installed. Configuration — certificate, series, submission mode — is the remaining work, and belongs before the first web Invoice rather than "when needed".
 

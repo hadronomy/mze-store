@@ -12,7 +12,7 @@ Mandatory account creation is among the largest measured causes of checkout aban
 
 Two paths could reopen it, and both are closed deliberately:
 
-- **A Shopper redirecting their own Account.** better-auth's `user.changeEmail` with `sendChangeEmailConfirmation` sends approval to the *current* address, so an address cannot be moved silently.
+- **A Shopper redirecting their own Account.** better-auth's `user.changeEmail` with `sendChangeEmailConfirmation` sends approval to the _current_ address, so an address cannot be moved silently.
 - **An Operator editing an email in admin.** The admin plugin writes through `internalAdapter.updateUser`, which sets fields directly and does **not** reset `emailVerified`. Left alone, any Operator — or anyone with a stolen admin session — could point an Account at a stranger's address and inherit their history. So Operator-initiated email changes force `emailVerified` to false and send a verification mail. Support can still fix a mistyped signup address; nobody harvests an order history by typing one in.
 
 ## Consequences

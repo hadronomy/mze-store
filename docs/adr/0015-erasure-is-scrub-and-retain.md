@@ -7,7 +7,7 @@
 Medusa's stock `removeCustomerAccountWorkflow` does **not** erase anything:
 
 ```js
-await service.softDeleteCustomers(ids)   // deleteCustomersStep
+await service.softDeleteCustomers(ids); // deleteCustomersStep
 ```
 
 It soft-deletes. The row survives with `deleted_at` set, and email, name, and phone stay in Postgres indefinitely. Because the Customer vanishes from every admin list, this looks correct while being a compliance failure. Wiring "delete my account" to the stock workflow is the obvious move and the wrong one.
@@ -26,11 +26,11 @@ This works cleanly because `order.email` and order addresses are **snapshots** t
 
 Medusa has **no invoice concept** — no entity, no types, no workflows, and no `invoice` table among the 150+ it creates. Treating an Order as the retained financial record confuses two artifacts with different owners and different clocks:
 
-| Artifact | Owner | Retained because | Clock |
-|---|---|---|---|
-| Account | better-auth | nothing | deleted on request |
-| Order | Medusa | returns, warranty, disputes | operational — short |
-| Invoice | **Odoo** | accounting and tax law | legal — years |
+| Artifact | Owner       | Retained because            | Clock               |
+| -------- | ----------- | --------------------------- | ------------------- |
+| Account  | better-auth | nothing                     | deleted on request  |
+| Order    | Medusa      | returns, warranty, disputes | operational — short |
+| Invoice  | **Odoo**    | accounting and tax law      | legal — years       |
 
 An Erasure therefore does not delete anything in Odoo. GDPR requires telling the Shopper what is retained and why; "your invoices are kept under accounting law for N years" is the lawful and honest response, not a failure to comply.
 
@@ -52,7 +52,7 @@ Medusa owns it — not better-auth, despite better-auth owning Accounts — beca
 
 ## Consequences
 
-- Deleting the Account is a *step inside* the erasure workflow, never the trigger.
+- Deleting the Account is a _step inside_ the erasure workflow, never the trigger.
 - The workflow must be idempotent and compensating: a scrubbed Customer whose Account deletion failed must be retryable without corrupting either side.
 - The scheduled purge runs forever and needs monitoring. A silently dead purge job is the same class of failure as the silent hook.
 - Erasure capability is required at launch, not later. Guest checkout means personal data exists from the first order.
