@@ -1,27 +1,17 @@
-import { fileURLToPath } from "node:url";
-
 import evlog from "evlog/nitro/v3";
 import { defineConfig } from "nitro";
 
-const authPlugin = fileURLToPath(new URL("./server/plugins/evlog-auth.ts", import.meta.url));
-
 export default defineConfig({
+  // Nitro 3 defaults this to false, so `server/` is not scanned at all and
+  // nothing under `server/middleware/` loads. Nitro 2 scanned it by default,
+  // which is what the scaffold assumed.
+  serverDir: "./server",
   experimental: {
     asyncContext: true,
   },
   modules: [
     evlog({
-      env: { service: "mze-store-web" },
+      env: { service: "mze-store-storefront" },
     }),
-    // Registered from a module rather than `plugins` or `serverDir` scanning,
-    // purely for ordering: evlog's module appends its own plugin during setup,
-    // so anything collected earlier hooks `request` first and finds no logger
-    // on the context yet. Running after evlog guarantees one exists.
-    {
-      name: "evlog-auth",
-      setup(nitro) {
-        nitro.options.plugins.push(authPlugin);
-      },
-    },
   ],
 });

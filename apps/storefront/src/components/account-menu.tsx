@@ -13,7 +13,7 @@ import { Link, useNavigate } from "@tanstack/react-router";
 
 import { authClient } from "@/lib/auth-client";
 
-export default function UserMenu() {
+export default function AccountMenu() {
   const navigate = useNavigate();
   const { data: session, isPending } = authClient.useSession();
 

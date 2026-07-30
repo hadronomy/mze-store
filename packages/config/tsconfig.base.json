@@ -1,16 +1,12 @@
 {
   "$schema": "https://json.schemastore.org/tsconfig",
-  "//": "Strictness only. Nothing about modules, targets, or libs belongs here — the Medusa backend and the storefront disagree on all of it (see docs/adr/0012). Extend tsconfig.esm.json or tsconfig.medusa.json instead of this file directly.",
+  "//": "Strictness only. Nothing about modules, targets, libs, or interop belongs here — the Medusa backend and the storefront disagree on all of it (see docs/adr/0012), and `esModuleInterop` in particular is exactly that axis. Extend tsconfig.esm.json or tsconfig.medusa.json instead of this file directly.",
   "compilerOptions": {
     "strict": true,
     "noUncheckedIndexedAccess": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
-    "forceConsistentCasingInFileNames": true,
-    "esModuleInterop": true,
-    "allowSyntheticDefaultImports": true,
-    "resolveJsonModule": true,
-    "skipLibCheck": true
+    "forceConsistentCasingInFileNames": true
   }
 }

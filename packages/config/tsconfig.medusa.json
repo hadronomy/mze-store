@@ -12,6 +12,10 @@
     "emitDecoratorMetadata": true,
     "jsx": "react-jsx",
     "inlineSourceMap": true,
-    "declaration": false
+    "declaration": false,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true
   }
 }

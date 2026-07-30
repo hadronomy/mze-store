@@ -9,7 +9,10 @@ build
 *.tsbuildinfo
 
 # Generated files
-apps/web/src/routeTree.gen.ts
+apps/storefront/src/routeTree.gen.ts
+
+# Agent worktrees
+.claude/worktrees/
 
 # Environment variables
 .env

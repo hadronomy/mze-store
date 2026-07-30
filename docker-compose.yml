@@ -1,7 +1,7 @@
 name: mze-store
 
 services:
-  web:
+  storefront:
     build:
       context: .
       dockerfile: apps/storefront/Dockerfile
