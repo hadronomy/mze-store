@@ -39,6 +39,7 @@
       "@medusajs/ui": "4.2.0",
       "ts-node": "10.9.2",
       "@swc/core": "1.5.7",
+      "ioredis": "5.11.1",
       "better-auth": "1.6.23",
       "@types/react": "^19.2.17",
       "@types/react-dom": "^19.2.3"
@@ -49,6 +50,7 @@
     "dev": "vp run -r dev",
     "build": "vp run -r build",
     "check-types": "vp run -r check-types",
+    "test": "vp run -r test",
     "check": "oxlint && oxfmt --write",
     "lint": "vp lint",
     "format": "vp fmt",

@@ -96,13 +96,18 @@ For more details, see the guide on [Deploying with Docker Compose](https://www.b
 ```
 mze-store/
 ├── apps/
-│   └── web/         # Fullstack application (React + TanStack Start)
+│   ├── medusa/      # Commerce backend + admin (Medusa v2)
+│   └── storefront/  # Storefront (React + TanStack Start)
 ├── packages/
 │   ├── ui/          # Shared shadcn/ui components and styles
-│   ├── api/         # API layer / business logic
 │   ├── auth/        # Authentication configuration & logic
+│   ├── config/      # Shared tsconfig presets
+│   ├── env/         # Validated environment
 │   └── db/          # Database schema & queries
 ```
+
+`docs/architecture.md` describes the shape in full, and `apps/medusa/README.md`
+covers running the backend.
 
 ## Available Scripts
 
@@ -110,6 +115,7 @@ mze-store/
 - `bun run build`: Build all applications
 - `bun run dev:storefront`: Start only the storefront
 - `bun run check-types`: Check TypeScript types across all apps
+- `bun run test`: Run every app's test suite (currently `apps/medusa` only)
 - `bun run db:push`: Push schema changes to database
 - `bun run db:generate`: Generate database client/types
 - `bun run db:migrate`: Run database migrations

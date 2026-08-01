@@ -3,6 +3,7 @@
 
 **/dist
 **/build
+**/.medusa
 **/.next
 **/.nuxt
 **/.output
