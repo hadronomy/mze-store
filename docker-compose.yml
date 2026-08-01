@@ -13,9 +13,11 @@ x-medusa-env: &medusa-env
   # not a refusal: `medusa db:migrate` hangs, then blames the URL.
   DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD:-password}@postgres:5432/mze-store?sslmode=disable
   REDIS_URL: redis://redis:6379
-  STORE_CORS: http://localhost:3001
-  ADMIN_CORS: http://localhost:9000
-  AUTH_CORS: http://localhost:3001,http://localhost:9000
+  # The defaults suit the local stack. A storefront on another origin must
+  # export these, or Medusa rejects its requests, sign-in included.
+  STORE_CORS: ${STORE_CORS:-http://localhost:3001}
+  ADMIN_CORS: ${ADMIN_CORS:-http://localhost:9000}
+  AUTH_CORS: ${AUTH_CORS:-http://localhost:3001,http://localhost:9000}
   # Local defaults so `docker compose up` works from a clean checkout. A
   # deployment supplies real values; these two sign admin sessions and Operator
   # tokens.

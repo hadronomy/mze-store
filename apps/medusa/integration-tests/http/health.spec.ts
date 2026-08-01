@@ -5,29 +5,9 @@ import Redis from "ioredis";
 
 jest.setTimeout(60 * 1000);
 
-// This suite flushes the database it points at, so it must never be the one a
-// developer's `medusa develop` is using. ioredis defaults an absent URL to
-// localhost index 0 — which is exactly that database — so refuse both rather
-// than let a green run quietly cost someone their in-flight workflows.
-function resolveTestRedisUrl(): string {
-  const url = process.env.REDIS_URL;
-  if (!url) {
-    throw new Error(
-      "REDIS_URL must be set to run the integration suite. See apps/medusa/.env.test.",
-    );
-  }
-
-  const databaseIndex = new URL(url).pathname.replace("/", "");
-  if (databaseIndex === "" || databaseIndex === "0") {
-    throw new Error(
-      `REDIS_URL must name a database index other than 0, which development uses. Got: ${url}`,
-    );
-  }
-
-  return url;
-}
-
-const redisUrl = resolveTestRedisUrl();
+// integration-tests/setup.js points this at a Redis database of its own, one
+// per jest worker. The flush below is safe because of that.
+const redisUrl = process.env.REDIS_URL!;
 
 async function withRedis<T>(use: (redis: Redis) => Promise<T>): Promise<T> {
   const redis = new Redis(redisUrl);
@@ -42,8 +22,8 @@ medusaIntegrationTestRunner({
   inApp: true,
   env: {},
   hooks: {
-    // Emptied before the app loads, so anything found in here afterwards was
-    // necessarily put there by this run rather than left by an earlier one.
+    // Empty the database before the backend starts. Every key found after this
+    // point comes from this run, and not from a run before it.
     beforeServerStart: async () => {
       await withRedis((redis) => redis.flushdb());
     },
