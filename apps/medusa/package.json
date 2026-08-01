@@ -1,0 +1,42 @@
+{
+  "name": "medusa",
+  "private": true,
+  "scripts": {
+    "build": "medusa build",
+    "check-types": "tsc --noEmit",
+    "db:migrate": "medusa db:migrate",
+    "db:rollback": "medusa db:rollback",
+    "dev": "medusa develop",
+    "start": "medusa start",
+    "test": "NODE_OPTIONS=--experimental-vm-modules jest --runInBand --forceExit",
+    "user:create": "medusa user"
+  },
+  "dependencies": {
+    "@medusajs/admin-sdk": "catalog:",
+    "@medusajs/admin-shared": "catalog:",
+    "@medusajs/cli": "catalog:",
+    "@medusajs/dashboard": "catalog:",
+    "@medusajs/draft-order": "catalog:",
+    "@medusajs/framework": "catalog:",
+    "@medusajs/medusa": "catalog:"
+  },
+  "devDependencies": {
+    "@medusajs/test-utils": "catalog:",
+    "@mze-store/config": "workspace:*",
+    "@swc/core": "catalog:",
+    "@swc/jest": "^0.2.36",
+    "@types/jest": "^29.5.13",
+    "@types/node": "catalog:",
+    "@types/react": "^18.3.2",
+    "@types/react-dom": "^18.2.25",
+    "ioredis": "5.11.1",
+    "jest": "^29.7.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "ts-node": "catalog:",
+    "typescript": "catalog:"
+  },
+  "engines": {
+    "node": ">=24"
+  }
+}

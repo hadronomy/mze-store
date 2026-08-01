@@ -1,0 +1,5 @@
+# `medusa build` output: file-per-file CJS plus the bundled admin.
+.medusa
+
+/uploads
+.cache

@@ -1,0 +1,17 @@
+{
+  "extends": "@mze-store/config/tsconfig.medusa.json",
+  "compilerOptions": {
+    "outDir": "./.medusa/server",
+    "rootDir": "./",
+    // The preset lists only "node"; integration-tests/ needs jest's globals.
+    "types": ["node", "jest"],
+    "sourceMap": false,
+    "skipDefaultLibCheck": true,
+    "checkJs": false
+  },
+  "ts-node": {
+    "swc": true
+  },
+  "include": ["**/*", ".medusa/types/*"],
+  "exclude": ["node_modules", ".medusa/server", ".medusa/admin", ".cache"]
+}

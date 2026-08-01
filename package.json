@@ -49,6 +49,7 @@
     "dev": "vp run -r dev",
     "build": "vp run -r build",
     "check-types": "vp run -r check-types",
+    "test": "vp run -r test",
     "check": "oxlint && oxfmt --write",
     "lint": "vp lint",
     "format": "vp fmt",
