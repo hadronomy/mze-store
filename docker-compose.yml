@@ -1,7 +1,12 @@
 name: mze-store
 
-# Shared by the backend and the one-shot migration job, which must agree on
-# every one of these or they migrate one database and serve another.
+# The backend and the one-shot migration job are the same image with the same
+# settings; they must agree on every one of these or one migrates a database the
+# other never serves.
+x-medusa-build: &medusa-build
+  context: .
+  dockerfile: apps/medusa/Dockerfile
+
 x-medusa-env: &medusa-env
   # sslmode=disable because Medusa turns SSL on by default for any host that
   # isn't localhost, and the compose Postgres does not speak it. The symptom is
@@ -11,7 +16,6 @@ x-medusa-env: &medusa-env
   STORE_CORS: http://localhost:3001
   ADMIN_CORS: http://localhost:9000
   AUTH_CORS: http://localhost:3001,http://localhost:9000
-  MEDUSA_BACKEND_URL: http://localhost:9000
   # Local defaults so `docker compose up` works from a clean checkout. A
   # deployment supplies real values; these two sign admin sessions and Operator
   # tokens.
@@ -55,9 +59,7 @@ services:
   # this, `docker compose up` on a fresh volume serves an unmigrated database
   # and still reports healthy, because /health does not look at schema.
   medusa-migrate:
-    build:
-      context: .
-      dockerfile: apps/medusa/Dockerfile
+    build: *medusa-build
     command: ["../../node_modules/.bin/medusa", "db:migrate"]
     environment: *medusa-env
     depends_on:
@@ -68,15 +70,13 @@ services:
     restart: "no"
 
   medusa:
-    build:
-      context: .
-      dockerfile: apps/medusa/Dockerfile
+    build: *medusa-build
     init: true
     ports:
       - "9000:9000"
-    env_file:
-      - path: apps/medusa/.env
-        required: false
+    # No env_file: `environment` outranks it, so every key above would be
+    # unoverridable anyway, and apps/medusa/.env holds localhost addresses that
+    # are wrong from inside the network. Override with shell variables instead.
     environment: *medusa-env
     depends_on:
       postgres:

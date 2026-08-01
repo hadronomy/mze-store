@@ -1,25 +1,54 @@
 import { medusaIntegrationTestRunner } from "@medusajs/test-utils";
+import { Modules } from "@medusajs/framework/utils";
+import type { ICacheService, ILockingModule } from "@medusajs/framework/types";
 import Redis from "ioredis";
 
 jest.setTimeout(60 * 1000);
 
-const redisUrl = process.env.REDIS_URL!;
+// This suite flushes the database it points at, so it must never be the one a
+// developer's `medusa develop` is using. ioredis defaults an absent URL to
+// localhost index 0 — which is exactly that database — so refuse both rather
+// than let a green run quietly cost someone their in-flight workflows.
+function resolveTestRedisUrl(): string {
+  const url = process.env.REDIS_URL;
+  if (!url) {
+    throw new Error(
+      "REDIS_URL must be set to run the integration suite. See apps/medusa/.env.test.",
+    );
+  }
+
+  const databaseIndex = new URL(url).pathname.replace("/", "");
+  if (databaseIndex === "" || databaseIndex === "0") {
+    throw new Error(
+      `REDIS_URL must name a database index other than 0, which development uses. Got: ${url}`,
+    );
+  }
+
+  return url;
+}
+
+const redisUrl = resolveTestRedisUrl();
+
+async function withRedis<T>(use: (redis: Redis) => Promise<T>): Promise<T> {
+  const redis = new Redis(redisUrl);
+  try {
+    return await use(redis);
+  } finally {
+    await redis.quit();
+  }
+}
 
 medusaIntegrationTestRunner({
   inApp: true,
   env: {},
   hooks: {
-    // Emptied before the app loads so that anything found in this database
-    // afterwards was necessarily put there by this run. Without it the Redis
-    // assertion below would pass on leftovers from an earlier one. `.env.test`
-    // points at a dedicated database index, so this never touches dev state.
+    // Emptied before the app loads, so anything found in here afterwards was
+    // necessarily put there by this run rather than left by an earlier one.
     beforeServerStart: async () => {
-      const redis = new Redis(redisUrl);
-      await redis.flushdb();
-      await redis.quit();
+      await withRedis((redis) => redis.flushdb());
     },
   },
-  testSuite: ({ api }) => {
+  testSuite: ({ api, getContainer }) => {
     describe("Health", () => {
       it("ping the server health endpoint", async () => {
         const response = await api.get("/health");
@@ -27,24 +56,39 @@ medusaIntegrationTestRunner({
         expect(response.status).toEqual(200);
       });
 
-      it("runs on a real Redis rather than Medusa's in-memory stand-ins", async () => {
-        const redis = new Redis(redisUrl);
-        const keys = await redis.keys("*");
-        await redis.quit();
+      // The check /health cannot make. Unregistered, these modules fall back to
+      // in-memory stand-ins silently; registered but pointed at a dead Redis,
+      // Medusa logs the connection failure and serves anyway. Either way
+      // /health returns 200, so it alone says nothing about ADR-0006.
+      it("runs its event bus and workflow engine on Redis", async () => {
+        // Both queue on boot, so their keys are already there to find.
+        const keys = await withRedis((redis) => redis.keys("*"));
 
-        // The check /health cannot make. Unregistered, these modules fall back
-        // to in-memory stand-ins silently; registered but pointed at a dead
-        // Redis, Medusa logs the connection failure and serves anyway. Either
-        // way /health returns 200, so it alone says nothing about ADR-0006.
-        //
-        // The event bus and the workflow engine are the two of the four that
-        // write to Redis on boot; medusa-config.ts points all four at this same
-        // URL, so finding their queues here means the whole set is live.
-        const eventBusKeys = keys.filter((key) => key.startsWith("RedisEventBusService:"));
-        const workflowEngineKeys = keys.filter((key) => key.startsWith("bull:medusa-workflows"));
+        expect(keys.filter((key) => key.startsWith("RedisEventBusService:"))).not.toHaveLength(0);
+        expect(keys.filter((key) => key.startsWith("bull:medusa-workflows"))).not.toHaveLength(0);
+      });
 
-        expect(eventBusKeys.length).toBeGreaterThan(0);
-        expect(workflowEngineKeys.length).toBeGreaterThan(0);
+      it("caches in Redis", async () => {
+        // Caching and locking write only when used, so unlike the two above
+        // they have to be exercised before Redis can be asked about them.
+        const cache = getContainer().resolve<ICacheService>(Modules.CACHE);
+        await cache.set("mze-store:cache-probe", { probed: true }, 60);
+
+        const cached = await withRedis((redis) => redis.keys("*mze-store:cache-probe*"));
+
+        expect(cached).not.toHaveLength(0);
+      });
+
+      it("takes locks in Redis", async () => {
+        const locking = getContainer().resolve<ILockingModule>(Modules.LOCKING);
+
+        // Sampled from inside the job: the provider releases the key on the way
+        // out, so after `execute` resolves there is nothing left to observe.
+        const keysWhileHeld = await locking.execute("mze-store:lock-probe", () =>
+          withRedis((redis) => redis.keys("*mze-store:lock-probe*")),
+        );
+
+        expect(keysWhileHeld).not.toHaveLength(0);
       });
     });
   },

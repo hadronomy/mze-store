@@ -38,13 +38,16 @@ bun run test
 ```
 
 Jest, because Medusa's test utilities are jest-based and this app is a CJS
-island. The storefront will use vitest when it has tests; the two runners are
-deliberately not unified, and both run under `vp run -r test` — see ADR-0012.
+island (ADR-0012). It is the only suite in the workspace so far; the storefront
+is expected to bring vitest, and the two are not to be unified.
 
 `integration-tests/http/` is the seam every later phase extends:
 `medusaIntegrationTestRunner` boots the real app against a real database, so a
 passing suite is proof that the backend builds, migrates, and serves. It needs
 Postgres and Redis up, and it creates and drops a database per jest worker.
+
+The suite flushes its Redis database before booting, so it refuses to run
+against index 0 — see `.env.test`.
 
 Note that the runner disables the admin dashboard, so `/app` is not reachable
 from a test. That one is verified by running the thing.
