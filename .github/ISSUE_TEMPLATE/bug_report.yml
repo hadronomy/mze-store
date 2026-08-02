@@ -1,0 +1,75 @@
+name: Bug report
+description: Report a reproducible problem in the repository.
+title: ""
+labels:
+  - bug
+  - needs-triage
+body:
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: Before you report
+      options:
+        - label: I searched open and closed issues for this problem.
+          required: true
+        - label: I can reproduce this problem on the current branch or release.
+          required: true
+        - label: This report does not contain a security vulnerability.
+          required: true
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: State the observable problem in one sentence.
+      placeholder: The storefront rejects a valid province code during checkout.
+    validations:
+      required: true
+  - type: textarea
+    id: impact
+    attributes:
+      label: User impact
+      description: State who is affected and which workflow fails.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction
+      description: Give the smallest copy-pastable example or the exact steps.
+      placeholder: |
+        1. Start the services with ...
+        2. Send ...
+        3. Observe ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: Include the exact error, output, or screenshot.
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Include runtime, package versions, operating system, and relevant configuration.
+      placeholder: |
+        - Node:
+        - Bun:
+        - Operating system:
+        - Browser:
+        - Commit or release:
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs and links
+      description: Add relevant logs, a minimal repository, or a CI artifact link. Remove secrets.

@@ -1,4 +1,4 @@
-# mze-store
+# MZE Store
 
 This project was created with [Better-T-Stack](https://github.com/AmanVarshney01/create-better-t-stack), a modern TypeScript stack that combines React, TanStack Start, Self, ORPC, and more.
 

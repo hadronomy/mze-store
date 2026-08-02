@@ -2,6 +2,56 @@
 
 Issues and PRDs for this repo live as GitHub issues. Use the `gh` CLI for all operations.
 
+## Intake
+
+Use the issue chooser in `.github/ISSUE_TEMPLATE` for new work. Blank issues are disabled.
+
+Use the correct form:
+
+- **Bug report**: a reproducible product or code error.
+- **Feature or task**: a bounded change with acceptance criteria.
+- **Documentation**: missing, incorrect, or unclear project documentation.
+- **CI or test failure**: a failing, flaky, or missing automated check.
+
+Use GitHub Discussions for support questions, design questions, and open-ended proposals. The repository must enable Discussions before the link works. Do not use an issue to start a conversation that has no defined deliverable.
+
+Use these Discussion categories:
+
+- **Announcements**: Maintainer updates.
+- **Feature Requests, Ideas**: Early proposals and design discussion.
+- **Issue Triage**: Reports that need clarification, duplicate checks, or maintainer guidance.
+- **Q&A**: Questions about setup, behavior, and project use.
+
+Use **Issue Triage** for uncertain reports. Move a report to an issue when it has a clear result, evidence, and acceptance criteria. Keep security reports out of Discussions.
+
+Before you open an issue, search open and closed issues. Check the roadmap and relevant ADRs when the issue changes architecture or scope.
+
+## Titles
+
+Write titles in this form:
+
+`<component>: <observable failure or requested change>`
+
+Examples:
+
+- `CI: integration tests fail with a clean database`
+- `Auth schema: move account tables out of public`
+- `README: describe Compose as the local stack`
+
+Use a concrete component and a result that a reader can observe. Do not use vague titles such as `Fix this`, `Improve setup`, or `Update backend`.
+
+## Issue quality
+
+Bug reports must include the user impact, reproduction steps, expected behavior, actual behavior, environment, and relevant logs.
+
+Feature and task reports must include the problem, proposed change, acceptance criteria, alternatives, and constraints.
+
+Documentation reports must include the location, problem, proposed correction, and acceptance criteria.
+
+CI and test reports must include the check name, exact failure, expected result, reproduction details, environment, and CI links.
+
+Keep reproduction steps small and copy-pastable. Remove secrets from logs and links.
+
 ## Conventions
 
 - **Create an issue**: `gh issue create --title "..." --body "..."`. Use a heredoc for multi-line bodies.
