@@ -1,4 +1,4 @@
-# mze-store
+# MZE Store
 
 A Medusa v2 storefront and backend for a physical shop selling from the Canary
 Islands into Spain and the EU, with Odoo as the ERP.

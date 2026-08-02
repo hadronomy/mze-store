@@ -29,7 +29,7 @@ export const Route = createRootRouteWithContext<RouterAppContext>()({
         content: "width=device-width, initial-scale=1",
       },
       {
-        title: "mze-store",
+        title: "MZE Store",
       },
     ],
     links: [

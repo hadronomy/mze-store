@@ -1,0 +1,44 @@
+name: Documentation
+description: Report missing, incorrect, or unclear documentation.
+title: "Docs: "
+labels:
+  - documentation
+  - needs-triage
+body:
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: Before you report this
+      options:
+        - label: I searched open and closed issues for this documentation problem.
+          required: true
+        - label: I checked the referenced code or behavior.
+          required: true
+  - type: input
+    id: location
+    attributes:
+      label: Documentation location
+      description: Give the file path, section, or URL.
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: State what is missing, incorrect, or unclear.
+    validations:
+      required: true
+  - type: textarea
+    id: correction
+    attributes:
+      label: Proposed correction
+      description: Provide replacement text or describe the required content.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: State how a reader can tell that the documentation is complete.
+    validations:
+      required: true

@@ -1,0 +1,56 @@
+name: Feature or task
+description: Propose a bounded change with a clear outcome.
+title: ""
+labels:
+  - enhancement
+  - needs-triage
+body:
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: Before you propose this change
+      options:
+        - label: I searched open and closed issues for this proposal.
+          required: true
+        - label: I checked the roadmap and relevant ADRs.
+          required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: State the user or maintainer problem. Do not start with the implementation.
+    validations:
+      required: true
+  - type: textarea
+    id: impact
+    attributes:
+      label: User impact
+      description: State who needs this change and which workflow it improves.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed change
+      description: Describe the smallest change that solves the problem.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: List observable results that prove the work is complete.
+      placeholder: |
+        - [ ] ...
+        - [ ] ...
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives and constraints
+      description: Record rejected approaches, dependencies, blockers, or ADRs.
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context

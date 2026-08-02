@@ -1,4 +1,4 @@
-# mze-store
+# MZE Store
 
 An online storefront for a physical shop selling from the Canary Islands into Spain and the wider EU. Commerce runs on Medusa; the shop floor runs on Odoo.
 

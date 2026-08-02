@@ -1,0 +1,55 @@
+name: CI or test failure
+description: Report a failing, flaky, or missing automated check.
+title: "CI: "
+labels:
+  - bug
+  - needs-triage
+body:
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: Before you report this
+      options:
+        - label: I searched open and closed issues for this failure.
+          required: true
+        - label: I checked whether the failure reproduces locally or in CI.
+          required: true
+  - type: input
+    id: check
+    attributes:
+      label: Check or job
+      description: Name the workflow, job, command, or test.
+    validations:
+      required: true
+  - type: textarea
+    id: failure
+    attributes:
+      label: Failure
+      description: Include the exact error and the CI run link.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected result
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction
+      description: Give the command, test path, commit, or steps that reproduce the failure.
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Include runtime versions, operating system, services, and relevant configuration.
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs and links
+      description: Add logs or CI artifacts. Remove secrets.
