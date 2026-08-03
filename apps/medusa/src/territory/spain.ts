@@ -1,26 +1,27 @@
 /**
  * The Spanish territory model: one Region, two tax regimes, two Service Zones.
  *
- * Canarias cannot be its own Region — it shares country code `es` with the
- * peninsula, and currency and payment methods, the two things a Region exists
- * to vary, are identical across both. What differs is tax and shipping, and
- * both resolve at Province granularity. See ADR-0005.
+ * Canarias cannot be a Region of its own. It shares the country code `es` with
+ * the peninsula, and a country belongs to exactly one Region. A Region varies
+ * two things, currency and payment methods. Both are the same in Canarias and
+ * on the peninsula. Tax and shipping are what differ, and each one resolves at
+ * Province granularity. See ADR-0005.
  *
- * Province codes are ISO 3166-2, lower-cased: the form Medusa stores on Tax
- * Regions and geo zones, and the form the Store API accepts as `province`.
+ * Province codes are ISO 3166-2 in lower case. Medusa stores them in this form
+ * on Tax Regions and geo zones. The Store API accepts them in this form as
+ * `province`.
  */
 
 /** ISO 3166-1 alpha-2, lower-cased the way Medusa stores country codes. */
 export const SPAIN = "es";
 
 /**
- * A tax regime: the rate to charge, and what an Operator sees against it in
- * the admin.
+ * A tax regime: the rate to charge, and the name an Operator sees in the admin.
  *
- * The rates below are UNCONFIRMED. A gestor has to sign each one off before a
- * Shopper sees a price computed from it — EU law puts tax in the displayed
- * price, so a wrong rate is a wrong price on the shelf, not an accounting
- * correction later.
+ * CAUTION: Before a gestor approves these rates, do not show a Shopper a price
+ * that comes from them. EU law puts tax in the displayed price. A wrong rate is
+ * therefore a wrong price for the Shopper. You cannot correct it in the
+ * accounts later.
  */
 export type TaxRegime = {
   name: string;
@@ -34,14 +35,14 @@ export type ProvinceTaxRegime = TaxRegime & {
   provinces: Record<string, string>;
 };
 
-/** What every Spanish Province is charged unless a Province regime names it. */
+/** The rate for every Spanish Province that no Province regime names. */
 export const PENINSULAR_VAT: TaxRegime = {
   name: "IVA general",
   code: "iva-general",
   rate: 21,
 };
 
-/** The two Canarian provinces, both under IGIC. */
+/** The two Canarian Provinces. IGIC applies to both. */
 export const CANARIAS_PROVINCES = {
   "es-gc": "Las Palmas",
   "es-tf": "Santa Cruz de Tenerife",
@@ -55,19 +56,19 @@ export const CANARIAS_IGIC: ProvinceTaxRegime = {
 };
 
 /**
- * Every regime that resolves at Province granularity. Each one gets a Tax
- * Region per Province; everything unnamed falls through to PENINSULAR_VAT.
+ * Every regime that resolves at Province granularity. Each regime gets one Tax
+ * Region for each of its Provinces. Every other Province uses PENINSULAR_VAT.
  *
- * Adding a regime is an entry here and nothing else — which is the whole
- * claim ADR-0005 makes about Ceuta and Melilla.
+ * A new regime is one entry in this list and no other change. This is what
+ * ADR-0005 claims about Ceuta and Melilla.
  */
 export const PROVINCE_TAX_REGIMES: ProvinceTaxRegime[] = [CANARIAS_IGIC];
 
 /**
- * Ceuta and Melilla, which use IPSI — a third regime, and deliberately not one
- * of the above. No rate for it is confirmed and nothing ships there yet, so
- * both Provinces fall through to the country-level Tax Region and are charged
- * peninsular VAT in the meantime.
+ * Ceuta and Melilla, which use IPSI. This is a third regime, and the seed
+ * leaves it out on purpose. No rate for IPSI is confirmed, and the shop does
+ * not ship there yet. Until a regime exists, both Provinces use the
+ * country-level Tax Region and pay peninsular VAT.
  */
 export const IPSI_PROVINCES = {
   "es-ce": "Ceuta",
@@ -75,15 +76,15 @@ export const IPSI_PROVINCES = {
 } as const;
 
 /**
- * Every Spanish province under peninsular VAT, by ISO 3166-2 code.
+ * Every Spanish Province under peninsular VAT, by ISO 3166-2 code.
  *
- * Tax does not need this list — the country-level Tax Region covers each of
- * them by default. Shipping does: a Service Zone scoped to country `es` would
- * swallow Canarias and collapse the split the model exists to make, so the
- * peninsular zone has to name its Provinces one by one.
+ * Tax does not need this list. The country-level Tax Region covers each of
+ * these Provinces by default. Shipping does need it. A Service Zone scoped to
+ * country `es` covers Canarias too, which removes the split that this model
+ * exists to make. The peninsular zone therefore names each Province.
  *
- * Baleares (`es-pm`) rides here. It is not the peninsula, but it is the same
- * tax regime, and its shipping is a later problem than this seed.
+ * Baleares (`es-pm`) is in this list. It is not the peninsula, but it has the
+ * same tax regime. Its shipping is a later problem than this seed.
  */
 export const PENINSULAR_PROVINCES = {
   "es-a": "Alicante",

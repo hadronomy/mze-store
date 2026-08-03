@@ -22,7 +22,7 @@ import {
   SPAIN,
 } from "./spain";
 
-/** What the seed leaves behind, for a caller that has to talk to it. */
+/** The identifiers that a caller needs to use what the seed created. */
 export type SeededTerritory = {
   regionId: string;
   salesChannelId: string;
@@ -32,27 +32,27 @@ export type SeededTerritory = {
 };
 
 /**
- * The probe Variant's price, tax exclusive, in EUR.
+ * The price of the probe Variant, in EUR and without tax.
  *
- * A round hundred so both regimes land on exact cents — 121,00 € against
- * 107,00 € — and a wrong rate is visible at a glance rather than buried in a
- * rounding argument.
+ * A round hundred gives an exact result in both regimes: 121,00 € and
+ * 107,00 €. A wrong rate is therefore easy to see, and no rounding argument
+ * can hide it.
  */
 export const PROBE_PRICE = 100;
 
 const CURRENCY = "eur";
 
 /**
- * The Region carries payment providers, and a Region with none cannot check
- * out. Stripe registration is its own piece of work; until it lands, the
- * system provider keeps the Region valid.
+ * A Region carries payment providers, and a Region without one cannot take a
+ * payment. Stripe registration is separate work. The system provider keeps
+ * this Region valid until Stripe arrives.
  */
 const SYSTEM_PAYMENT_PROVIDER = "pp_system_default";
 
 /**
- * Medusa's built-in tax provider — the one that reads the rates below rather
- * than calling out to a tax service. A Tax Region carries either a parent or a
- * provider and never both, so this belongs on the country-level region alone.
+ * The tax provider that Medusa includes. It reads the rates in this project
+ * and does not call an external tax service. A Tax Region carries a parent or
+ * a provider, never both. Only the country-level Tax Region gets this one.
  */
 const SYSTEM_TAX_PROVIDER = "tp_system";
 
@@ -67,8 +67,9 @@ const PROBE_OPTION = { title: "Size", value: "One size" };
 const SEEDED_BY = "seed";
 
 /**
- * The two Service Zones, each naming its Provinces. A Service Zone scoped to
- * the country would cover both and leave Canarian shipping unable to differ.
+ * The two Service Zones. Each one names its Provinces. A Service Zone scoped
+ * to the country covers both, and then Canarian shipping cannot differ from
+ * peninsular shipping.
  */
 const SERVICE_ZONES = [
   { name: "Peninsula and Baleares", provinces: Object.keys(PENINSULAR_PROVINCES) },
@@ -76,18 +77,18 @@ const SERVICE_ZONES = [
 ];
 
 /**
- * Put the Spanish territory model in the database, and a Variant to prove it
- * against.
+ * Creates the Spanish territory model in the database, with a Variant to test
+ * it against.
  *
- * Idempotent by identity, not by a marker: every piece is looked up by
- * something stable — the Region by the country it carries, a Tax Region by its
- * Province, a Service Zone by name — and created only when it is missing. So a
- * second run adds nothing, and a run against a half-seeded database fills the
- * gaps rather than duplicating what is there.
+ * The seed is idempotent by identity and not by a marker. It finds each piece
+ * by something stable: the Region by the country it carries, a Tax Region by
+ * its Province, a Service Zone by its name. It creates a piece only when that
+ * piece is absent. A second run therefore creates nothing, and a run against a
+ * half-seeded database fills the gaps.
  *
- * It creates; it does not correct. A Region or a rate an Operator has since
- * changed in the admin is left as they left it, which is why nothing here is
- * safe to treat as an enforcement of the model — only as its starting point.
+ * The seed creates, but it does not correct. It keeps a Region or a rate that
+ * an Operator changed in the admin. The seed is the starting point of the
+ * model. It does not enforce the model.
  */
 export async function seedSpanishTerritory(container: MedusaContainer): Promise<SeededTerritory> {
   const salesChannelId = await ensureSalesChannel(container);
@@ -111,8 +112,8 @@ const queryOf = (container: MedusaContainer) => container.resolve(ContainerRegis
 async function ensureSalesChannel(container: MedusaContainer): Promise<string> {
   const query = queryOf(container);
 
-  // Medusa creates a Store and a default Sales Channel on first boot. Taking
-  // that one keeps the seed from adding a second channel the Store ignores.
+  // Medusa creates a Store and a default Sales Channel on first boot. The seed
+  // uses that channel, because the Store ignores any second channel.
   const { data: stores } = await query.graph({
     entity: "store",
     fields: ["default_sales_channel_id"],
@@ -148,8 +149,8 @@ async function ensureRegion(container: MedusaContainer): Promise<string> {
     fields: ["id", "countries.iso_2"],
   });
 
-  // Keyed on the country, not the name: a country belongs to exactly one
-  // Region, so this is what "exactly one Region for Spain" actually means.
+  // The lookup uses the country and not the name. A country belongs to exactly
+  // one Region. That fact is what "exactly one Region for Spain" means.
   const spanish = regions.find((region) =>
     region.countries?.some((country: { iso_2: string }) => country.iso_2 === SPAIN),
   );
@@ -166,9 +167,9 @@ async function ensureRegion(container: MedusaContainer): Promise<string> {
           currency_code: CURRENCY,
           countries: [SPAIN],
           payment_providers: [SYSTEM_PAYMENT_PROVIDER],
-          // Stated rather than left to the default. With this off the Store API
-          // returns a bare price and computes no tax at all, which is the one
-          // thing the whole Province model is here to do.
+          // Set here and not left to the default. If this flag is off, the
+          // Store API returns a price with no tax. Tax is the one thing that
+          // this Province model exists to compute.
           automatic_taxes: true,
         },
       ],
@@ -187,10 +188,10 @@ async function ensureTaxRegions(container: MedusaContainer): Promise<void> {
     filters: { country_code: SPAIN },
   });
 
-  // The country-level Tax Region is not one entry among several: without a
-  // parent region for `es`, Medusa returns no tax lines for any Spanish
-  // address, Province or not. It also carries peninsular VAT as the default
-  // every unnamed Province falls through to.
+  // The country-level Tax Region is not one entry among many. If no parent
+  // region for `es` exists, Medusa returns no tax line for any Spanish address,
+  // with or without a Province. This region also carries peninsular VAT, which
+  // every Province without a regime uses.
   let parent = taxRegions.find((region) => region.province_code === null);
 
   if (!parent) {
@@ -253,8 +254,8 @@ async function ensureStockLocation(
   let location = await findStockLocation(container, { name: STOCK_LOCATION_NAME });
 
   if (!location) {
-    // No address: the shop's own is an Operator's to enter, and shipping
-    // resolves off the Service Zones rather than off this.
+    // The location has no address. An Operator enters the address of the shop.
+    // Shipping resolves from the Service Zones and not from this location.
     await createStockLocationsWorkflow(container).run({
       input: { locations: [{ name: STOCK_LOCATION_NAME }] },
     });
@@ -281,9 +282,9 @@ async function ensureServiceZones(
     (set: { name: string }) => set.name === FULFILLMENT_SET_NAME,
   );
 
-  // Service Zones hang off a fulfillment set, and a fulfillment set an Operator
-  // can find hangs off a stock location. Neither is interesting in itself; both
-  // are what it takes for the two zones below to exist and be editable.
+  // A Service Zone belongs to a fulfillment set, and a fulfillment set belongs
+  // to a stock location. Neither one is interesting on its own. Both exist so
+  // that an Operator can find and edit the two zones.
   if (!fulfillmentSet) {
     await createLocationFulfillmentSetWorkflow(container).run({
       input: {
@@ -377,12 +378,12 @@ async function ensureProbeProduct(
             {
               title: PROBE_OPTION.value,
               sku: "TAX-MODEL-PROBE",
-              // Nothing is sold from this Variant, and stock arrives from the
-              // ERP rather than from a seed.
+              // Nobody sells this Variant, and stock comes from the ERP and not
+              // from a seed.
               manage_inventory: false,
               options: { [PROBE_OPTION.title]: PROBE_OPTION.value },
-              // Stored tax exclusive: one price, and the Province decides what
-              // a Shopper is shown on top of it.
+              // Stored without tax. There is one price, and the Province
+              // decides the tax that a Shopper sees on top of it.
               prices: [{ amount: PROBE_PRICE, currency_code: CURRENCY }],
             },
           ],
@@ -447,9 +448,9 @@ async function ensureStoreDefaults(
   const currencies = store.supported_currencies ?? [];
   const update: Record<string, unknown> = {};
 
-  // EUR has to be a supported currency before an Operator can price a Variant
-  // in it at all. Appended rather than assigned: a currency somebody added in
-  // the admin is theirs, not the seed's to drop.
+  // An Operator can price a Variant in EUR only when EUR is a supported
+  // currency. The seed appends and does not assign. A currency that somebody
+  // added in the admin stays.
   if (
     !currencies.some((currency: { currency_code: string }) => currency.currency_code === CURRENCY)
   ) {
@@ -465,9 +466,9 @@ async function ensureStoreDefaults(
     update.default_sales_channel_id = defaults.salesChannelId;
   }
 
-  // What lets the Store API resolve a price when a request arrives with no
-  // region_id — which is every request the storefront makes before a Shopper
-  // has picked anything.
+  // The default Region lets the Store API resolve a price when a request has
+  // no region_id. The storefront sends such a request before a Shopper selects
+  // anything.
   if (!store.default_region_id) {
     update.default_region_id = defaults.regionId;
   }

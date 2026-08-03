@@ -34,36 +34,46 @@ config and the admin bundle live. Starting it from the wrong one fails with
 
 ## The seed
 
-`bun run seed` puts the Spanish territory model in the database: one Region for
-Spain, Tax Regions for peninsular VAT and Canarian IGIC, Province-scoped Service
-Zones, and a probe Product whose single Variant carries a price to read.
-[ADR-0005](../../docs/adr/0005-canarias-is-a-province-not-a-region.md) is why the
-model has that shape; `src/territory/spain.ts` holds the rates and the Province
-lists, and is the only place a rate is written.
+`bun run seed` creates the Spanish territory model in the database:
 
-**The rates are unconfirmed.** A gestor has to sign off 21% and 7% before a
-Shopper sees a price, because EU law puts tax in the displayed price — a wrong
-rate is a wrong price on the shelf, not an accounting correction later.
+- One Region for Spain.
+- Tax Regions for peninsular VAT and for Canarian IGIC.
+- Two Service Zones, each one scoped to Provinces.
+- A probe Product with one Variant that carries a price.
 
-Run it as often as you like. Every piece is looked up by something stable before
-it is created, so a second run adds nothing and a run against a half-seeded
-database fills the gaps. It creates but never corrects: a Region or a rate you
-have since edited in the admin stays as you left it, so re-running the seed is
-not a way to put the model back.
+[ADR-0005](../../docs/adr/0005-canarias-is-a-province-not-a-region.md) gives the
+reason for this shape. `src/territory/spain.ts` holds the rates and the Province
+lists. It is the only place that writes a rate.
 
-To see the thing it exists to prove, with the backend up:
+**CAUTION: Before a gestor approves the rates, do not show a Shopper a price
+that comes from them.** EU law puts tax in the displayed price. A wrong rate is
+therefore a wrong price for the Shopper. You cannot correct it in the accounts
+later.
+
+You can run the seed as many times as you want. It finds each piece by something
+stable before it creates that piece. A second run therefore creates nothing, and
+a run against a half-seeded database fills the gaps.
+
+The seed creates, but it does not correct. It keeps a Region or a rate that you
+edited in the admin. To put the model back, edit it in the admin.
+
+To see the result that the seed exists to prove, start the backend. Then run
+this command:
 
 ```sh
 curl "http://localhost:9000/store/products?handle=tax-model-probe&country_code=es&province=es-tf&fields=*variants.calculated_price" \
-  -H "x-publishable-api-key: <the key the seed prints>"
+  -H "x-publishable-api-key: <the key that the seed prints>"
 ```
 
-`calculated_amount_with_tax` comes back 107 against a stored 100. Swap `es-tf`
-for `es-m` and it is 121. Same Variant, same Region, same stored price.
+`calculated_amount_with_tax` returns 107 for a stored price of 100. Change
+`es-tf` to `es-m`, and it returns 121. The Variant, the Region, and the stored
+price are the same in both requests.
 
-An Operator gets there through the admin: **Settings → Tax Regions** for the
-rates, **Settings → Locations & Shipping** for the two Service Zones, and any
-Variant's price for the figure the two Provinces are computed from.
+An Operator sees the same model in the admin:
+
+- **Settings → Tax Regions** shows the rates.
+- **Settings → Locations & Shipping** shows the two Service Zones.
+- The price of a Variant is the number that both Provinces compute from.
 
 ## Tests
 
