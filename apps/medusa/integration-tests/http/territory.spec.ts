@@ -27,11 +27,14 @@ const PENINSULAR_PROVINCE = "es-m";
 const CANARIAN_PROVINCE = "es-tf";
 
 /**
- * The two prices that a Shopper sees, written out and not derived from the
- * rates that the seed writes. A test that repeats the arithmetic of the seed
- * also repeats a typo in it. A change to a rate must change these two numbers
- * as well. Nobody can therefore change what a Shopper pays without an edit
- * here.
+ * The two prices that a freshly seeded database returns, written out and not
+ * derived from the rates that the seed writes. A test that repeats the
+ * arithmetic of the seed also repeats a typo in it.
+ *
+ * These two numbers say nothing about a live store. A rate is authoritative in
+ * the database, an Operator edits it in the admin, and this suite never reads
+ * that database. What the assertion protects is the shape of the model: two
+ * Provinces, two regimes, one stored price.
  */
 const PENINSULAR_PRICE = 121;
 const CANARIAN_PRICE = 107;

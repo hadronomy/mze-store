@@ -18,8 +18,13 @@ export const SPAIN = "es";
 /**
  * A tax regime: the rate to charge, and the name an Operator sees in the admin.
  *
- * CAUTION: Before a gestor approves these rates, do not show a Shopper a price
- * that comes from them. EU law puts tax in the displayed price. A wrong rate is
+ * These rates start a new database. They are not the policy. The Tax Region
+ * row is authoritative, an Operator edits it in the admin, and nothing here is
+ * read at run time. A rate changes by law on a date that a release cannot
+ * predict, so the change belongs in a form and not in a deploy.
+ *
+ * CAUTION: Before a Shopper sees a price, a gestor must approve the rate that
+ * the admin shows. EU law puts tax in the displayed price. A wrong rate is
  * therefore a wrong price for the Shopper. You cannot correct it in the
  * accounts later.
  */

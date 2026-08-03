@@ -43,10 +43,17 @@ config and the admin bundle live. Starting it from the wrong one fails with
 
 [ADR-0005](../../docs/adr/0005-canarias-is-a-province-not-a-region.md) gives the
 reason for this shape. `src/territory/spain.ts` holds the rates and the Province
-lists. It is the only place that writes a rate.
+lists that a new database starts from.
 
-**CAUTION: Before a gestor approves the rates, do not show a Shopper a price
-that comes from them.** EU law puts tax in the displayed price. A wrong rate is
+**The database is authoritative, not the code.** After the first seed, an
+Operator owns the model in the admin: **Settings → Tax Regions** edits a rate,
+adds a Province, or adds an override. Nothing reads `spain.ts` at run time. A
+rate changes by law on a date that a release cannot predict, so an Operator
+changes it in a form and not through a deploy. The seed never writes over that
+edit.
+
+**CAUTION: Before a Shopper sees a price, a gestor must approve the rate that
+the admin shows.** EU law puts tax in the displayed price. A wrong rate is
 therefore a wrong price for the Shopper. You cannot correct it in the accounts
 later.
 
@@ -65,14 +72,19 @@ curl "http://localhost:9000/store/products?handle=tax-model-probe&country_code=e
   -H "x-publishable-api-key: <the key that the seed prints>"
 ```
 
-`calculated_amount_with_tax` returns 107 for a stored price of 100. Change
-`es-tf` to `es-m`, and it returns 121. The Variant, the Region, and the stored
-price are the same in both requests.
+On a database that only the seed has touched, `calculated_amount_with_tax`
+returns 107 for a stored price of 100. Change `es-tf` to `es-m`, and it returns
+121. The Variant, the Region, and the stored price are the same in both
+requests. A store whose rates an Operator has since edited returns the rates
+that the admin shows.
 
-An Operator sees the same model in the admin:
+An Operator owns the model in the admin, and needs no release to change it:
 
-- **Settings → Tax Regions** shows the rates.
-- **Settings → Locations & Shipping** shows the two Service Zones.
+- **Settings → Tax Regions** edits a rate, adds a Province such as `es-ce`, and
+  adds an override for a Product.
+- **Settings → Locations & Shipping** edits the two Service Zones and the
+  Provinces in each one.
+- **Settings → Regions** edits the currency and the payment providers.
 - The price of a Variant is the number that both Provinces compute from.
 
 ## Tests
