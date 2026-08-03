@@ -13,6 +13,7 @@ why it is neither bundled nor bundle-able.
 docker compose up -d postgres redis    # from the repo root
 cp .env.template .env
 bun run db:migrate
+bun run seed
 bun run user:create -e you@example.com -p yourpassword
 bun run dev                            # admin at http://localhost:9000/app
 ```
@@ -30,6 +31,39 @@ image runs — runs from `.medusa/server`, because that is where the compiled
 config and the admin bundle live. Starting it from the wrong one fails with
 "Could not find index.html in the admin build directory", which is why
 `bun run start` is only meaningful after a build, from that directory.
+
+## The seed
+
+`bun run seed` puts the Spanish territory model in the database: one Region for
+Spain, Tax Regions for peninsular VAT and Canarian IGIC, Province-scoped Service
+Zones, and a probe Product whose single Variant carries a price to read.
+[ADR-0005](../../docs/adr/0005-canarias-is-a-province-not-a-region.md) is why the
+model has that shape; `src/territory/spain.ts` holds the rates and the Province
+lists, and is the only place a rate is written.
+
+**The rates are unconfirmed.** A gestor has to sign off 21% and 7% before a
+Shopper sees a price, because EU law puts tax in the displayed price — a wrong
+rate is a wrong price on the shelf, not an accounting correction later.
+
+Run it as often as you like. Every piece is looked up by something stable before
+it is created, so a second run adds nothing and a run against a half-seeded
+database fills the gaps. It creates but never corrects: a Region or a rate you
+have since edited in the admin stays as you left it, so re-running the seed is
+not a way to put the model back.
+
+To see the thing it exists to prove, with the backend up:
+
+```sh
+curl "http://localhost:9000/store/products?handle=tax-model-probe&country_code=es&province=es-tf&fields=*variants.calculated_price" \
+  -H "x-publishable-api-key: <the key the seed prints>"
+```
+
+`calculated_amount_with_tax` comes back 107 against a stored 100. Swap `es-tf`
+for `es-m` and it is 121. Same Variant, same Region, same stored price.
+
+An Operator gets there through the admin: **Settings → Tax Regions** for the
+rates, **Settings → Locations & Shipping** for the two Service Zones, and any
+Variant's price for the figure the two Provinces are computed from.
 
 ## Tests
 
