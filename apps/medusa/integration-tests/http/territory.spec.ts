@@ -248,10 +248,11 @@ medusaIntegrationTestRunner({
           expect(probeAgain).toEqual(probe);
         });
 
-        // What a new tax regime needs: its Provinces reach an existing Service
-        // Zone. A seed that matched on the name of the zone alone would leave
-        // them with no shipping, and no re-run could repair it.
-        it("puts back a Province that a Service Zone lost", async () => {
+        // The seed runs on every deploy, so this is the property production
+        // needs: an Operator who stops shipping to a Province is not undone by
+        // the next release. The seed cannot tell that removal from a gap it
+        // never filled, so it leaves an existing zone alone.
+        it("leaves a Province an Operator removed from a Service Zone removed", async () => {
           const zoneWith = async (province: string) => {
             const zones = await graph("service_zone", [
               "id",
@@ -278,14 +279,9 @@ medusaIntegrationTestRunner({
             },
           });
 
-          expect(await zoneWith(CANARIAN_PROVINCE)).toBeUndefined();
-
           await seedSpanishTerritory(getContainer());
 
-          const repaired = await zoneWith(CANARIAN_PROVINCE);
-
-          expect(repaired?.id).toEqual(canarian.id);
-          expect(repaired!.geo_zones).toHaveLength(canarian.geo_zones.length);
+          expect(await zoneWith(CANARIAN_PROVINCE)).toBeUndefined();
         });
       });
     });

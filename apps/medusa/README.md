@@ -70,10 +70,17 @@ later.
 
 You can run either command as many times as you want. Each one finds a piece by
 something stable before it creates that piece. A second run therefore creates
-nothing, and a run against a half-seeded database fills the gaps.
+nothing, and a run against a database that has some of the model creates the
+rest.
 
-The seed creates, but it does not correct. It keeps a Region or a rate that you
-edited in the admin. To put the model back, edit it in the admin.
+The seed creates, but it does not correct. It keeps a Region, a rate, or a
+Service Zone that you edited in the admin. To put the model back, edit it in the
+admin.
+
+This matters because the seed belongs beside `db:migrate` in a deployment, where
+it runs again on every update. A seed that put back what an Operator removed
+would undo that Operator on the next release. It cannot tell a Province you took
+out from one it never added, so it leaves an existing Service Zone alone.
 
 To see the result that the model exists to prove, run both seeds. Then start the
 backend and run this command:

@@ -8,7 +8,6 @@ import {
   createStockLocationsWorkflow,
   createTaxRegionsWorkflow,
   linkSalesChannelsToStockLocationWorkflow,
-  updateServiceZonesWorkflow,
   updateStoresWorkflow,
 } from "@medusajs/medusa/core-flows";
 import {
@@ -57,23 +56,22 @@ const SERVICE_ZONES = [
 ];
 
 /**
- * Creates the Spanish territory model in the database, with a Variant to test
- * it against.
+ * Creates the Spanish territory model in the database. It creates nothing that
+ * a Shopper sees, so it is safe against a live store. `./probe.ts` is not.
  *
  * The seed is idempotent by identity and not by a marker. It finds each piece
  * by something stable: the Region by the country it carries, a Tax Region by
  * its Province, a Service Zone by its name. It creates a piece only when that
  * piece is absent. A second run therefore creates nothing, and a run against a
- * half-seeded database fills the gaps.
+ * database that has some of the model creates the rest.
  *
  * The seed creates, but it does not correct. It keeps a Region or a rate that
  * an Operator changed in the admin. This is deliberate: the database is
  * authoritative, and the constants in `./spain.ts` only start a new one. A seed
  * that converges reverts a lawful rate change at the next deploy.
  *
- * A Service Zone is the one exception. The seed adds a Province that the zone
- * does not have yet, because a new tax regime adds Provinces to a zone that
- * already exists. It never removes a Province from a zone.
+ * This holds for a Service Zone too. The seed creates a zone that is absent,
+ * and it never edits one that is there. `ensureServiceZones` says why.
  */
 export async function seedSpanishTerritory(container: MedusaContainer): Promise<SeededTerritory> {
   const salesChannelId = await ensureSalesChannel(container);
@@ -214,10 +212,7 @@ const STOCK_LOCATION_FIELDS = [
   "sales_channels.id",
   "fulfillment_sets.id",
   "fulfillment_sets.name",
-  "fulfillment_sets.service_zones.id",
   "fulfillment_sets.service_zones.name",
-  "fulfillment_sets.service_zones.geo_zones.id",
-  "fulfillment_sets.service_zones.geo_zones.province_code",
 ];
 
 /**
@@ -322,52 +317,27 @@ async function ensureServiceZones(
     (zone) => !existingZones.some((existing) => existing.name === zone.name),
   );
 
-  if (newZones.length) {
-    await createServiceZonesWorkflow(container).run({
-      input: {
-        data: newZones.map((zone) => ({
-          name: zone.name,
-          fulfillment_set_id: fulfillmentSetId,
-          geo_zones: zone.provinces.map(provinceGeoZone),
-        })),
-      },
-    });
+  if (!newZones.length) {
+    return;
   }
 
-  // A zone that already exists can still be missing a Province, because a new
-  // tax regime adds Provinces to a zone that the seed created before. A match
-  // on the name of the zone alone therefore leaves those Provinces with no
-  // shipping.
-  for (const zone of SERVICE_ZONES) {
-    const existing = existingZones.find((candidate) => candidate.name === zone.name);
-
-    if (!existing) {
-      continue;
-    }
-
-    const geoZones = (existing.geo_zones ?? []).filter((geoZone) => !!geoZone);
-    const present = new Set(geoZones.map((geoZone) => geoZone.province_code));
-    const absent = zone.provinces.filter((province) => !present.has(province));
-
-    if (!absent.length) {
-      continue;
-    }
-
-    await updateServiceZonesWorkflow(container).run({
-      input: {
-        selector: { id: existing.id },
-        update: {
-          // The update replaces the collection of geo zones. Each geo zone that
-          // stays therefore needs its id here. A geo zone that is absent from
-          // this list is one that Medusa deletes.
-          geo_zones: [
-            ...geoZones.map((geoZone) => ({ id: geoZone.id })),
-            ...absent.map(provinceGeoZone),
-          ],
-        },
-      },
-    });
-  }
+  // A zone the seed creates gets its Provinces. A zone that exists gets
+  // nothing, not even a Province this list has and the zone does not.
+  //
+  // The seed cannot tell a gap from a removal: an Operator who stops shipping
+  // to a Province leaves a hole that looks exactly like one the seed never
+  // filled. It runs on every deploy, so a seed that filled holes would undo
+  // that Operator on the next one, every time, with no way to make the change
+  // stick. Provinces a zone needs and does not have are added in the admin.
+  await createServiceZonesWorkflow(container).run({
+    input: {
+      data: newZones.map((zone) => ({
+        name: zone.name,
+        fulfillment_set_id: fulfillmentSetId,
+        geo_zones: zone.provinces.map(provinceGeoZone),
+      })),
+    },
+  });
 }
 
 async function ensureStoreDefaults(

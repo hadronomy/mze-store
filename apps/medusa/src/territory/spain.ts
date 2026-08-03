@@ -69,8 +69,11 @@ export const CANARIAS_IGIC: ProvinceTaxRegime = {
  *
  * A new regime is one entry in this list. It needs no change to a data model
  * and no migration, which is what ADR-0005 claims about Ceuta and Melilla.
+ *
  * Shipping is a separate decision, because tax and shipping vary
- * independently: a new regime also needs its Provinces in a Service Zone.
+ * independently. The entry gives a new regime its Tax Regions. An Operator
+ * adds the same Provinces to a Service Zone in the admin, under
+ * Settings → Locations & Shipping. The seed never edits a zone that exists.
  */
 export const PROVINCE_TAX_REGIMES: ProvinceTaxRegime[] = [CANARIAS_IGIC];
 
