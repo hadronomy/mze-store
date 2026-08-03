@@ -12,11 +12,11 @@
   },
   "iconLibrary": "lucide",
   "aliases": {
-    "components": "@/components",
+    "components": "~/components",
     "utils": "@mze-store/ui/lib/utils",
     "ui": "@mze-store/ui/components",
-    "lib": "@/lib",
-    "hooks": "@/hooks"
+    "lib": "~/lib",
+    "hooks": "~/hooks"
   },
   "menuColor": "default",
   "menuAccent": "subtle",

@@ -11,7 +11,7 @@ import {
 import { Skeleton } from "@mze-store/ui/components/skeleton";
 import { Link, useNavigate } from "@tanstack/react-router";
 
-import { authClient } from "@/lib/auth-client";
+import { authClient } from "~/lib/auth-client";
 
 export default function AccountMenu() {
   const navigate = useNavigate();
