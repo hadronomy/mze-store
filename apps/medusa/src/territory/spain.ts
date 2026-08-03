@@ -59,8 +59,10 @@ export const CANARIAS_IGIC: ProvinceTaxRegime = {
  * Every regime that resolves at Province granularity. Each regime gets one Tax
  * Region for each of its Provinces. Every other Province uses PENINSULAR_VAT.
  *
- * A new regime is one entry in this list and no other change. This is what
- * ADR-0005 claims about Ceuta and Melilla.
+ * A new regime is one entry in this list. It needs no change to a data model
+ * and no migration, which is what ADR-0005 claims about Ceuta and Melilla.
+ * Shipping is a separate decision, because tax and shipping vary
+ * independently: a new regime also needs its Provinces in a Service Zone.
  */
 export const PROVINCE_TAX_REGIMES: ProvinceTaxRegime[] = [CANARIAS_IGIC];
 

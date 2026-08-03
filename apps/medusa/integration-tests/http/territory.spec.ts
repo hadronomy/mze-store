@@ -1,6 +1,7 @@
 import { medusaIntegrationTestRunner } from "@medusajs/test-utils";
 import { ContainerRegistrationKeys } from "@medusajs/framework/utils";
 import type { MedusaContainer } from "@medusajs/framework/types";
+import { updateServiceZonesWorkflow } from "@medusajs/medusa/core-flows";
 import {
   CANARIAS_IGIC,
   CANARIAS_PROVINCES,
@@ -9,7 +10,13 @@ import {
   PENINSULAR_VAT,
   SPAIN,
 } from "../../src/territory/spain";
-import { PROBE_PRICE, seedSpanishTerritory, type SeededTerritory } from "../../src/territory/seed";
+import {
+  CURRENCY,
+  PROBE_OPTION,
+  PROBE_PRICE,
+  seedSpanishTerritory,
+  type SeededTerritory,
+} from "../../src/territory/seed";
 import { signInAsOperator } from "../utils/operator";
 
 jest.setTimeout(120 * 1000);
@@ -78,7 +85,7 @@ medusaIntegrationTestRunner({
           );
 
           expect(spanish).toHaveLength(1);
-          expect(spanish[0]!.currency_code).toEqual("eur");
+          expect(spanish[0]!.currency_code).toEqual(CURRENCY);
           expect(spanish[0]!.payment_providers.length).toBeGreaterThan(0);
         });
 
@@ -177,13 +184,13 @@ medusaIntegrationTestRunner({
               status: "published",
               shipping_profile_id: seeded.shippingProfileId,
               sales_channels: [{ id: seeded.salesChannelId }],
-              options: [{ title: "Size", values: ["One size"] }],
+              options: [{ title: PROBE_OPTION.title, values: [PROBE_OPTION.value] }],
               variants: [
                 {
-                  title: "One size",
-                  options: { Size: "One size" },
+                  title: PROBE_OPTION.value,
+                  options: { [PROBE_OPTION.title]: PROBE_OPTION.value },
                   manage_inventory: false,
-                  prices: [{ amount: PROBE_PRICE, currency_code: "eur" }],
+                  prices: [{ amount: PROBE_PRICE, currency_code: CURRENCY }],
                 },
               ],
             },
@@ -228,6 +235,46 @@ medusaIntegrationTestRunner({
 
           expect(await count()).toEqual(before);
           expect(again).toEqual(seeded);
+        });
+
+        // What a new tax regime needs: its Provinces reach an existing Service
+        // Zone. A seed that matched on the name of the zone alone would leave
+        // them with no shipping, and no re-run could repair it.
+        it("puts back a Province that a Service Zone lost", async () => {
+          const zoneWith = async (province: string) => {
+            const zones = await graph("service_zone", [
+              "id",
+              "geo_zones.id",
+              "geo_zones.province_code",
+            ]);
+
+            return zones.find((zone) =>
+              zone.geo_zones.some(
+                (geoZone: { province_code: string }) => geoZone.province_code === province,
+              ),
+            );
+          };
+
+          const canarian = (await zoneWith(CANARIAN_PROVINCE))!;
+          const kept = canarian.geo_zones.filter(
+            (geoZone: { province_code: string }) => geoZone.province_code !== CANARIAN_PROVINCE,
+          );
+
+          await updateServiceZonesWorkflow(getContainer()).run({
+            input: {
+              selector: { id: canarian.id },
+              update: { geo_zones: kept.map((geoZone: { id: string }) => ({ id: geoZone.id })) },
+            },
+          });
+
+          expect(await zoneWith(CANARIAN_PROVINCE)).toBeUndefined();
+
+          await seedSpanishTerritory(getContainer());
+
+          const repaired = await zoneWith(CANARIAN_PROVINCE);
+
+          expect(repaired?.id).toEqual(canarian.id);
+          expect(repaired!.geo_zones).toHaveLength(canarian.geo_zones.length);
         });
       });
     });

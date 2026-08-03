@@ -1,4 +1,4 @@
-import type { MedusaContainer } from "@medusajs/framework/types";
+import type { MedusaContainer, UpdateStoreDTO } from "@medusajs/framework/types";
 import { ContainerRegistrationKeys, ProductStatus } from "@medusajs/framework/utils";
 import {
   createApiKeysWorkflow,
@@ -12,6 +12,7 @@ import {
   createTaxRegionsWorkflow,
   linkSalesChannelsToApiKeyWorkflow,
   linkSalesChannelsToStockLocationWorkflow,
+  updateServiceZonesWorkflow,
   updateStoresWorkflow,
 } from "@medusajs/medusa/core-flows";
 import {
@@ -40,7 +41,7 @@ export type SeededTerritory = {
  */
 export const PROBE_PRICE = 100;
 
-const CURRENCY = "eur";
+export const CURRENCY = "eur";
 
 /**
  * A Region carries payment providers, and a Region without one cannot take a
@@ -63,7 +64,7 @@ const FULFILLMENT_SET_NAME = "Shipping";
 const SHIPPING_PROFILE_NAME = "Default";
 const PUBLISHABLE_KEY_TITLE = "Storefront";
 const PROBE_PRODUCT_HANDLE = "tax-model-probe";
-const PROBE_OPTION = { title: "Size", value: "One size" };
+export const PROBE_OPTION = { title: "Size", value: "One size" };
 const SEEDED_BY = "seed";
 
 /**
@@ -89,6 +90,10 @@ const SERVICE_ZONES = [
  * The seed creates, but it does not correct. It keeps a Region or a rate that
  * an Operator changed in the admin. The seed is the starting point of the
  * model. It does not enforce the model.
+ *
+ * A Service Zone is the one exception. The seed adds a Province that the zone
+ * does not have yet, because a new tax regime adds Provinces to a zone that
+ * already exists. It never removes a Province from a zone.
  */
 export async function seedSpanishTerritory(container: MedusaContainer): Promise<SeededTerritory> {
   const salesChannelId = await ensureSalesChannel(container);
@@ -130,7 +135,7 @@ async function ensureSalesChannel(container: MedusaContainer): Promise<string> {
     filters: { name: SALES_CHANNEL_NAME },
   });
 
-  if (channels.length) {
+  if (channels[0]) {
     return channels[0].id;
   }
 
@@ -152,7 +157,7 @@ async function ensureRegion(container: MedusaContainer): Promise<string> {
   // The lookup uses the country and not the name. A country belongs to exactly
   // one Region. That fact is what "exactly one Region for Spain" means.
   const spanish = regions.find((region) =>
-    region.countries?.some((country: { iso_2: string }) => country.iso_2 === SPAIN),
+    region.countries?.some((country) => country?.iso_2 === SPAIN),
   );
 
   if (spanish) {
@@ -192,9 +197,9 @@ async function ensureTaxRegions(container: MedusaContainer): Promise<void> {
   // region for `es` exists, Medusa returns no tax line for any Spanish address,
   // with or without a Province. This region also carries peninsular VAT, which
   // every Province without a regime uses.
-  let parent = taxRegions.find((region) => region.province_code === null);
+  let parentId = taxRegions.find((region) => region.province_code === null)?.id;
 
-  if (!parent) {
+  if (!parentId) {
     const { result } = await createTaxRegionsWorkflow(container).run({
       input: [
         {
@@ -206,7 +211,7 @@ async function ensureTaxRegions(container: MedusaContainer): Promise<void> {
       ],
     });
 
-    parent = result[0];
+    parentId = result[0]!.id;
   }
 
   const missing = PROVINCE_TAX_REGIMES.flatMap((regime) =>
@@ -215,7 +220,7 @@ async function ensureTaxRegions(container: MedusaContainer): Promise<void> {
       .map((province) => ({
         country_code: SPAIN,
         province_code: province,
-        parent_id: parent.id,
+        parent_id: parentId,
         default_tax_rate: { name: regime.name, code: regime.code, rate: regime.rate },
         created_by: SEEDED_BY,
       })),
@@ -235,8 +240,17 @@ const STOCK_LOCATION_FIELDS = [
   "fulfillment_sets.name",
   "fulfillment_sets.service_zones.id",
   "fulfillment_sets.service_zones.name",
+  "fulfillment_sets.service_zones.geo_zones.id",
+  "fulfillment_sets.service_zones.geo_zones.province_code",
 ];
 
+/**
+ * Finds the stock location, and fails loudly when it is absent.
+ *
+ * The seed creates the location before it reads it back, so an absent location
+ * means the create failed without an error. That is worth a stack trace here
+ * and not a `TypeError` three lines later.
+ */
 const findStockLocation = async (container: MedusaContainer, filters: Record<string, string>) => {
   const { data } = await queryOf(container).graph({
     entity: "stock_location",
@@ -246,6 +260,27 @@ const findStockLocation = async (container: MedusaContainer, filters: Record<str
 
   return data[0];
 };
+
+const requireStockLocation = async (
+  container: MedusaContainer,
+  filters: Record<string, string>,
+) => {
+  const location = await findStockLocation(container, filters);
+
+  if (!location) {
+    throw new Error(
+      `The seed created the stock location ${STOCK_LOCATION_NAME}, but it cannot find it again.`,
+    );
+  }
+
+  return location;
+};
+
+const provinceGeoZone = (province: string) => ({
+  type: "province" as const,
+  country_code: SPAIN,
+  province_code: province,
+});
 
 async function ensureStockLocation(
   container: MedusaContainer,
@@ -260,10 +295,10 @@ async function ensureStockLocation(
       input: { locations: [{ name: STOCK_LOCATION_NAME }] },
     });
 
-    location = await findStockLocation(container, { name: STOCK_LOCATION_NAME });
+    location = await requireStockLocation(container, { name: STOCK_LOCATION_NAME });
   }
 
-  if (!location.sales_channels?.some((channel: { id: string }) => channel.id === salesChannelId)) {
+  if (!location.sales_channels?.some((channel) => channel?.id === salesChannelId)) {
     await linkSalesChannelsToStockLocationWorkflow(container).run({
       input: { id: location.id, add: [salesChannelId] },
     });
@@ -276,11 +311,12 @@ async function ensureServiceZones(
   container: MedusaContainer,
   stockLocationId: string,
 ): Promise<void> {
-  let location = await findStockLocation(container, { id: stockLocationId });
+  let location = await requireStockLocation(container, { id: stockLocationId });
 
-  let fulfillmentSet = location.fulfillment_sets?.find(
-    (set: { name: string }) => set.name === FULFILLMENT_SET_NAME,
-  );
+  const setNamed = (candidate: { name?: string | null } | null) =>
+    candidate?.name === FULFILLMENT_SET_NAME;
+
+  let fulfillmentSet = location.fulfillment_sets?.find(setNamed);
 
   // A Service Zone belongs to a fulfillment set, and a fulfillment set belongs
   // to a stock location. Neither one is interesting on its own. Both exist so
@@ -293,36 +329,69 @@ async function ensureServiceZones(
       },
     });
 
-    location = await findStockLocation(container, { id: stockLocationId });
-    fulfillmentSet = location.fulfillment_sets.find(
-      (set: { name: string }) => set.name === FULFILLMENT_SET_NAME,
+    location = await requireStockLocation(container, { id: stockLocationId });
+    fulfillmentSet = location.fulfillment_sets?.find(setNamed);
+  }
+
+  if (!fulfillmentSet) {
+    throw new Error(
+      `The seed created the fulfillment set ${FULFILLMENT_SET_NAME}, but it cannot find it again.`,
     );
   }
 
-  const missing = SERVICE_ZONES.filter(
-    (zone) =>
-      !fulfillmentSet.service_zones?.some(
-        (existing: { name: string }) => existing.name === zone.name,
-      ),
+  const fulfillmentSetId = fulfillmentSet.id;
+  const existingZones = (fulfillmentSet.service_zones ?? []).filter((zone) => !!zone);
+
+  const newZones = SERVICE_ZONES.filter(
+    (zone) => !existingZones.some((existing) => existing.name === zone.name),
   );
 
-  if (!missing.length) {
-    return;
+  if (newZones.length) {
+    await createServiceZonesWorkflow(container).run({
+      input: {
+        data: newZones.map((zone) => ({
+          name: zone.name,
+          fulfillment_set_id: fulfillmentSetId,
+          geo_zones: zone.provinces.map(provinceGeoZone),
+        })),
+      },
+    });
   }
 
-  await createServiceZonesWorkflow(container).run({
-    input: {
-      data: missing.map((zone) => ({
-        name: zone.name,
-        fulfillment_set_id: fulfillmentSet.id,
-        geo_zones: zone.provinces.map((province) => ({
-          type: "province" as const,
-          country_code: SPAIN,
-          province_code: province,
-        })),
-      })),
-    },
-  });
+  // A zone that already exists can still be missing a Province, because a new
+  // tax regime adds Provinces to a zone that the seed created before. A match
+  // on the name of the zone alone therefore leaves those Provinces with no
+  // shipping.
+  for (const zone of SERVICE_ZONES) {
+    const existing = existingZones.find((candidate) => candidate.name === zone.name);
+
+    if (!existing) {
+      continue;
+    }
+
+    const geoZones = (existing.geo_zones ?? []).filter((geoZone) => !!geoZone);
+    const present = new Set(geoZones.map((geoZone) => geoZone.province_code));
+    const absent = zone.provinces.filter((province) => !present.has(province));
+
+    if (!absent.length) {
+      continue;
+    }
+
+    await updateServiceZonesWorkflow(container).run({
+      input: {
+        selector: { id: existing.id },
+        update: {
+          // The update replaces the collection of geo zones. Each geo zone that
+          // stays therefore needs its id here. A geo zone that is absent from
+          // this list is one that Medusa deletes.
+          geo_zones: [
+            ...geoZones.map((geoZone) => ({ id: geoZone.id })),
+            ...absent.map(provinceGeoZone),
+          ],
+        },
+      },
+    });
+  }
 }
 
 async function ensureShippingProfile(container: MedusaContainer): Promise<string> {
@@ -334,7 +403,7 @@ async function ensureShippingProfile(container: MedusaContainer): Promise<string
     filters: { name: SHIPPING_PROFILE_NAME },
   });
 
-  if (profiles.length) {
+  if (profiles[0]) {
     return profiles[0].id;
   }
 
@@ -357,7 +426,7 @@ async function ensureProbeProduct(
     filters: { handle: PROBE_PRODUCT_HANDLE },
   });
 
-  if (products.length) {
+  if (products[0]) {
     return products[0].id;
   }
 
@@ -407,19 +476,32 @@ async function ensurePublishableKey(
     filters: { title: PUBLISHABLE_KEY_TITLE, type: "publishable" },
   });
 
-  let key = keys[0];
+  const existing = keys[0];
 
-  if (!key) {
-    const { result } = await createApiKeysWorkflow(container).run({
-      input: {
-        api_keys: [{ type: "publishable", title: PUBLISHABLE_KEY_TITLE, created_by: SEEDED_BY }],
-      },
-    });
+  // Only the id, the token, and the linked channels matter here, so the two
+  // branches agree on those three and not on a whole entity. The workflow
+  // returns a DTO and the query returns a model, and the two do not match.
+  const key = existing
+    ? {
+        id: existing.id,
+        token: existing.token,
+        salesChannels: (existing.sales_channels ?? []).map((channel) => channel?.id),
+      }
+    : await createApiKeysWorkflow(container)
+        .run({
+          input: {
+            api_keys: [
+              { type: "publishable", title: PUBLISHABLE_KEY_TITLE, created_by: SEEDED_BY },
+            ],
+          },
+        })
+        .then(({ result }) => ({
+          id: result[0]!.id,
+          token: result[0]!.token,
+          salesChannels: [] as (string | undefined)[],
+        }));
 
-    key = { ...result[0], sales_channels: [] };
-  }
-
-  if (!key.sales_channels?.some((channel: { id: string }) => channel.id === salesChannelId)) {
+  if (!key.salesChannels.includes(salesChannelId)) {
     await linkSalesChannelsToApiKeyWorkflow(container).run({
       input: { id: key.id, add: [salesChannelId] },
     });
@@ -445,19 +527,22 @@ async function ensureStoreDefaults(
   });
 
   const store = stores[0];
-  const currencies = store.supported_currencies ?? [];
-  const update: Record<string, unknown> = {};
+
+  if (!store) {
+    throw new Error("Medusa creates a Store on first boot, but the seed cannot find one.");
+  }
+
+  const currencies = (store.supported_currencies ?? []).flatMap((currency) =>
+    currency?.currency_code ? [currency.currency_code] : [],
+  );
+  const update: UpdateStoreDTO = {};
 
   // An Operator can price a Variant in EUR only when EUR is a supported
   // currency. The seed appends and does not assign. A currency that somebody
   // added in the admin stays.
-  if (
-    !currencies.some((currency: { currency_code: string }) => currency.currency_code === CURRENCY)
-  ) {
+  if (!currencies.includes(CURRENCY)) {
     update.supported_currencies = [
-      ...currencies.map((currency: { currency_code: string }) => ({
-        currency_code: currency.currency_code,
-      })),
+      ...currencies.map((currency_code) => ({ currency_code })),
       { currency_code: CURRENCY, is_default: !currencies.length },
     ];
   }

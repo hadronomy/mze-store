@@ -81,24 +81,27 @@ An Operator sees the same model in the admin:
 bun run test
 ```
 
-Jest, because Medusa's test utilities are jest-based and this app is a CJS
-island (ADR-0012). It is the only suite in the workspace so far; the storefront
-is expected to bring vitest, and the two are not to be unified.
+The suite uses jest, because Medusa's test utilities are jest-based and this app
+is a CJS island (ADR-0012). It is the only suite in the workspace today. The
+storefront brings vitest later, and the two do not merge.
 
-`integration-tests/http/` is the seam every later phase extends:
-`medusaIntegrationTestRunner` boots the real app against a real database, so a
-passing suite is proof that the backend builds, migrates, and serves. It needs
-Postgres and Redis up, and it creates and drops a database per jest worker.
+`integration-tests/http/` is the seam that every later phase extends.
+`medusaIntegrationTestRunner` boots the real app against a real database. A
+passing suite is therefore proof that the backend builds, migrates, and serves.
+It needs Postgres and Redis, and it creates and drops one database for each jest
+worker.
 
-The suite flushes its Redis database before booting, so it refuses to run
-against index 0 — see `.env.test`.
+Each jest worker also gets a Redis database of its own, and
+`integration-tests/setup.js` numbers them from 1. The suite flushes that database
+before the backend starts. Database 0 holds the state of `medusa develop`, and no
+worker can reach it. See `.env.test`.
 
-Note that the runner disables the admin dashboard, so `/app` is not reachable
-from a test. That one is verified by running the thing.
+The runner disables the admin dashboard, so a test cannot reach `/app`. You
+verify that one when you run the backend.
 
-`ioredis` is pinned to the exact version Medusa resolves, for the same reason
-ADR-0001 forbids declaring `@mikro-orm/*`: the test client and the modules under
-test should be talking to Redis through one copy of the driver, not two.
+`ioredis` is pinned to the exact version that Medusa resolves, for the same
+reason that ADR-0001 forbids a direct `@mikro-orm/*`: the test client and the
+modules under test must use one copy of the driver, and not two.
 
 ## React is pinned to 18
 
