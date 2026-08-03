@@ -14,17 +14,17 @@ import { signInAsOperator } from "../utils/operator";
 
 jest.setTimeout(120 * 1000);
 
-/** A Province the seed leaves to the country-level Tax Region: Madrid. */
+/** Madrid, a Province that the seed leaves to the country-level Tax Region. */
 const PENINSULAR_PROVINCE = "es-m";
-/** Santa Cruz de Tenerife — a Province with a Tax Region of its own. */
+/** Santa Cruz de Tenerife, a Province with a Tax Region of its own. */
 const CANARIAN_PROVINCE = "es-tf";
 
 /**
- * The figures on the shelf, written out rather than derived from the rates the
- * seed writes — a test that recomputes the seed's own arithmetic would pass a
- * typo straight through. Changing a rate has to change these too, deliberately,
- * which is the point: no rate reaches a Shopper without someone editing the
- * number they will be charged.
+ * The two prices that a Shopper sees, written out and not derived from the
+ * rates that the seed writes. A test that repeats the arithmetic of the seed
+ * also repeats a typo in it. A change to a rate must change these two numbers
+ * as well. Nobody can therefore change what a Shopper pays without an edit
+ * here.
  */
 const PENINSULAR_PRICE = 121;
 const CANARIAN_PRICE = 107;
@@ -35,8 +35,9 @@ medusaIntegrationTestRunner({
   testSuite: ({ api, getContainer }) => {
     let seeded: SeededTerritory;
 
-    // Seeded once, before the runner snapshots the database, so every test
-    // below starts from the same seeded state and none can pollute another.
+    // The seed runs once, before the runner makes a snapshot of the database.
+    // Each test therefore starts from the same seeded state, and no test can
+    // affect another one.
     beforeAll(async () => {
       seeded = await seedSpanishTerritory(getContainer());
     });
@@ -123,8 +124,8 @@ medusaIntegrationTestRunner({
           );
 
           expect(zones).toHaveLength(2);
-          // A country geo zone would cover Canarias too, collapsing the split
-          // this whole model exists to make.
+          // A country geo zone covers Canarias too, and that removes the split
+          // that this model exists to make.
           expect(new Set(types)).toEqual(new Set(["province"]));
 
           const canarian = zones.find((zone) => provincesOf(zone).includes(CANARIAN_PROVINCE))!;
@@ -138,8 +139,8 @@ medusaIntegrationTestRunner({
       });
 
       describe("prices", () => {
-        // The assertion phase 2 exists to make. If this fails, ADR-0005 is
-        // wrong and the storefront's whole territory story goes with it.
+        // The assertion that phase 2 exists to make. If this test fails,
+        // ADR-0005 is wrong, and the storefront cannot use this territory model.
         it("shows a Canarian Shopper a different, correct tax-inclusive price from a peninsular one", async () => {
           const canarian = await priceIn(CANARIAN_PROVINCE);
           const peninsular = await priceIn(PENINSULAR_PROVINCE);
@@ -147,13 +148,14 @@ medusaIntegrationTestRunner({
           expect(canarian.calculated_amount_with_tax).toBeCloseTo(CANARIAN_PRICE, 2);
           expect(peninsular.calculated_amount_with_tax).toBeCloseTo(PENINSULAR_PRICE, 2);
 
-          // Same Variant, same Region, same stored price — only the tax moved.
+          // The Variant, the Region, and the stored price are the same. Only
+          // the tax changed.
           expect(canarian.calculated_amount).toEqual(PROBE_PRICE);
           expect(peninsular.calculated_amount).toEqual(PROBE_PRICE);
         });
 
-        // Not a price anyone wants: it records what the unseeded case does
-        // today, so that seeding IPSI has to come here and say so.
+        // Nobody wants this price. The test records what an unseeded Province
+        // does today, so that a new IPSI regime must come here and change it.
         it("charges peninsular VAT in Ceuta until IPSI is modelled", async () => {
           const ceuta = await priceIn("es-ce");
 
@@ -190,9 +192,9 @@ medusaIntegrationTestRunner({
 
           const productId = created.data.product.id;
 
-          // What the admin itself shows an Operator: the one stored price,
-          // tax exclusive. The two figures a Shopper sees are the Store API's
-          // to compute, which is why the reads below go through it.
+          // The admin shows an Operator one stored price, without tax. The
+          // Store API computes the two prices that a Shopper sees, and the two
+          // reads that follow therefore go through it.
           const admin = await api.get(
             `/admin/products/${productId}?fields=*variants.prices`,
             operator,

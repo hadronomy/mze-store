@@ -7,12 +7,13 @@ type Api = {
 };
 
 /**
- * Create an Operator and sign it in, returning headers that authenticate admin
- * requests as it.
+ * Creates an Operator, signs them in, and returns headers that authenticate
+ * admin requests as that Operator.
  *
- * Mirrors what `medusa user` does — a User and an emailpass auth identity
- * bound to it by `app_metadata.user_id`. There is no admin route that creates
- * the first Operator, so a test that needs one has to do both halves itself.
+ * This function does what `medusa user` does. It creates a User and an
+ * emailpass auth identity, and it binds them with `app_metadata.user_id`. No
+ * admin route creates the first Operator. A test that needs one must therefore
+ * do both parts itself.
  */
 export async function signInAsOperator(
   container: MedusaContainer,
