@@ -15,6 +15,9 @@
 /** ISO 3166-1 alpha-2, lower-cased the way Medusa stores country codes. */
 export const SPAIN = "es";
 
+/** What a Spanish Shopper pays in. One Region, one currency. */
+export const CURRENCY = "eur";
+
 /**
  * A tax regime: the rate to charge, and the name an Operator sees in the admin.
  *

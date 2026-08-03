@@ -5,18 +5,19 @@ import { updateServiceZonesWorkflow } from "@medusajs/medusa/core-flows";
 import {
   CANARIAS_IGIC,
   CANARIAS_PROVINCES,
+  CURRENCY,
   IPSI_PROVINCES,
   PENINSULAR_PROVINCES,
   PENINSULAR_VAT,
   SPAIN,
 } from "../../src/territory/spain";
+import { seedSpanishTerritory, type SeededTerritory } from "../../src/territory/seed";
 import {
-  CURRENCY,
   PROBE_OPTION,
   PROBE_PRICE,
-  seedSpanishTerritory,
-  type SeededTerritory,
-} from "../../src/territory/seed";
+  seedTerritoryProbe,
+  type SeededProbe,
+} from "../../src/territory/probe";
 import { signInAsOperator } from "../utils/operator";
 
 jest.setTimeout(120 * 1000);
@@ -44,12 +45,17 @@ medusaIntegrationTestRunner({
   env: {},
   testSuite: ({ api, getContainer }) => {
     let seeded: SeededTerritory;
+    let probe: SeededProbe;
 
-    // The seed runs once, before the runner makes a snapshot of the database.
+    // Both seeds run once, before the runner makes a snapshot of the database.
     // Each test therefore starts from the same seeded state, and no test can
     // affect another one.
+    //
+    // The probe is a fixture and the territory is policy, which is why they are
+    // two calls. Only this suite and a development database get the probe.
     beforeAll(async () => {
       seeded = await seedSpanishTerritory(getContainer());
+      probe = await seedTerritoryProbe(getContainer(), seeded);
     });
 
     const graph = async <T = Record<string, any>>(
@@ -62,12 +68,12 @@ medusaIntegrationTestRunner({
       return data as T[];
     };
 
-    const priceIn = async (province: string, productId = seeded.productId) => {
+    const priceIn = async (province: string, productId = probe.productId) => {
       const response = await api.get(
         `/store/products/${productId}` +
           `?region_id=${seeded.regionId}&country_code=${SPAIN}&province=${province}` +
           `&fields=*variants.calculated_price`,
-        { headers: { "x-publishable-api-key": seeded.publishableKey } },
+        { headers: { "x-publishable-api-key": probe.publishableKey } },
       );
 
       return response.data.product.variants[0].calculated_price;
@@ -185,7 +191,7 @@ medusaIntegrationTestRunner({
             {
               title: "Operator probe",
               status: "published",
-              shipping_profile_id: seeded.shippingProfileId,
+              shipping_profile_id: probe.shippingProfileId,
               sales_channels: [{ id: seeded.salesChannelId }],
               options: [{ title: PROBE_OPTION.title, values: [PROBE_OPTION.value] }],
               variants: [
@@ -235,9 +241,11 @@ medusaIntegrationTestRunner({
 
           const before = await count();
           const again = await seedSpanishTerritory(getContainer());
+          const probeAgain = await seedTerritoryProbe(getContainer(), again);
 
           expect(await count()).toEqual(before);
           expect(again).toEqual(seeded);
+          expect(probeAgain).toEqual(probe);
         });
 
         // What a new tax regime needs: its Provinces reach an existing Service

@@ -14,6 +14,7 @@ docker compose up -d postgres redis    # from the repo root
 cp .env.template .env
 bun run db:migrate
 bun run seed
+bun run seed:probe                     # development only, see below
 bun run user:create -e you@example.com -p yourpassword
 bun run dev                            # admin at http://localhost:9000/app
 ```
@@ -39,7 +40,17 @@ config and the admin bundle live. Starting it from the wrong one fails with
 - One Region for Spain.
 - Tax Regions for peninsular VAT and for Canarian IGIC.
 - Two Service Zones, each one scoped to Provinces.
-- A probe Product with one Variant that carries a price.
+
+It creates nothing that a Shopper sees, so it is safe against any database.
+
+`bun run seed:probe` adds a Product, a Variant with a price, and a publishable
+API key. Together they read a price back from the Store API.
+
+**CAUTION: Do not run `bun run seed:probe` against a live store.** The Product
+is published and it is in the Sales Channel, so a Shopper sees it and can buy
+it. Use it on a development or a test database. The two commands are separate
+for this reason: one carries the tax model, which is policy, and the other
+carries a fixture.
 
 [ADR-0005](../../docs/adr/0005-canarias-is-a-province-not-a-region.md) gives the
 reason for this shape. `src/territory/spain.ts` holds the rates and the Province
@@ -57,26 +68,26 @@ the admin shows.** EU law puts tax in the displayed price. A wrong rate is
 therefore a wrong price for the Shopper. You cannot correct it in the accounts
 later.
 
-You can run the seed as many times as you want. It finds each piece by something
-stable before it creates that piece. A second run therefore creates nothing, and
-a run against a half-seeded database fills the gaps.
+You can run either command as many times as you want. Each one finds a piece by
+something stable before it creates that piece. A second run therefore creates
+nothing, and a run against a half-seeded database fills the gaps.
 
 The seed creates, but it does not correct. It keeps a Region or a rate that you
 edited in the admin. To put the model back, edit it in the admin.
 
-To see the result that the seed exists to prove, start the backend. Then run
-this command:
+To see the result that the model exists to prove, run both seeds. Then start the
+backend and run this command:
 
 ```sh
 curl "http://localhost:9000/store/products?handle=tax-model-probe&country_code=es&province=es-tf&fields=*variants.calculated_price" \
-  -H "x-publishable-api-key: <the key that the seed prints>"
+  -H "x-publishable-api-key: <the key that seed:probe prints>"
 ```
 
-On a database that only the seed has touched, `calculated_amount_with_tax`
+On a database that only the seeds have touched, `calculated_amount_with_tax`
 returns 107 for a stored price of 100. Change `es-tf` to `es-m`, and it
 returns 121. The Variant, the Region, and the stored price are the same in
-both requests. A store whose rates an Operator has since edited returns the rates
-that the admin shows.
+both requests. A store whose rates an Operator has since edited returns the
+rates that the admin shows.
 
 An Operator owns the model in the admin, and needs no release to change it:
 
