@@ -73,8 +73,7 @@ curl "http://localhost:9000/store/products?handle=tax-model-probe&country_code=e
 ```
 
 On a database that only the seed has touched, `calculated_amount_with_tax`
-returns 107 for a stored price of 100. Change `es-tf` to `es-m`, and it returns
-121. The Variant, the Region, and the stored price are the same in both
+returns 107 for a stored price of 100. Change `es-tf` to `es-m`, and it returns 121. The Variant, the Region, and the stored price are the same in both
 requests. A store whose rates an Operator has since edited returns the rates
 that the admin shows.
 

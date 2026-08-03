@@ -90,7 +90,7 @@ const SERVICE_ZONES = [
  * The seed creates, but it does not correct. It keeps a Region or a rate that
  * an Operator changed in the admin. This is deliberate: the database is
  * authoritative, and the constants in `./spain.ts` only start a new one. A seed
- * that converged would revert a lawful rate change at the next deploy.
+ * that converges reverts a lawful rate change at the next deploy.
  *
  * A Service Zone is the one exception. The seed adds a Province that the zone
  * does not have yet, because a new tax regime adds Provinces to a zone that
