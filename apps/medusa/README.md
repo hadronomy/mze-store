@@ -41,7 +41,9 @@ config and the admin bundle live. Starting it from the wrong one fails with
 - Tax Regions for peninsular VAT and for Canarian IGIC.
 - Two Service Zones, each one scoped to Provinces.
 
-It creates nothing that a Shopper sees, so it is safe against any database.
+It creates nothing that a Shopper sees, so it is safe against any database. A
+deployment does not need it: `db:migrate` creates the same model through a
+migration script. Use this command against a database you are working on.
 
 `bun run seed:probe` adds a Product, a Variant with a price, and a publishable
 API key. Together they read a price back from the Store API.
@@ -77,10 +79,25 @@ The seed creates, but it does not correct. It keeps a Region, a rate, or a
 Service Zone that you edited in the admin. To put the model back, edit it in the
 admin.
 
-This matters because the seed belongs beside `db:migrate` in a deployment, where
-it runs again on every update. A seed that put back what an Operator removed
-would undo that Operator on the next release. It cannot tell a Province you took
+This matters because a deployment runs the model too, through
+`src/migration-scripts/001-spanish-territory.ts`. A seed that put back what an
+Operator removed would undo that Operator. It cannot tell a Province you took
 out from one it never added, so it leaves an existing Service Zone alone.
+
+## A deployment creates the model for itself
+
+`medusa db:migrate` runs the files in `src/migration-scripts/` after it migrates
+the schema, so `docker compose up` needs no seed step. Medusa records each file
+by name in `script_migrations` and never runs it again. A script that throws is
+not recorded, and the next `db:migrate` runs it again.
+
+Two things follow. A deployment starts no second application to write nothing,
+because the scripts run in the process that is already migrating. A release
+after the first cannot fail on the seed, because there is nothing left to run.
+
+A later change to the model is a new file beside the first, and not an edit to
+it. The file name is the record, so a rename runs the script again against every
+database that already has it.
 
 To see the result that the model exists to prove, run both seeds. Then start the
 backend and run this command:
