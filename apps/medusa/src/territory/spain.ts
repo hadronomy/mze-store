@@ -24,7 +24,7 @@ export const CURRENCY = "eur";
  * These rates start a new database. They are not the policy. The Tax Region
  * row is authoritative, an Operator edits it in the admin, and nothing here is
  * read at run time. A rate changes by law on a date that a release cannot
- * predict, so the change belongs in a form and not in a deploy.
+ * predict, so the change belongs in a form and not in a deploy. See ADR-0019.
  *
  * CAUTION: Before a Shopper sees a price, a gestor must approve the rate that
  * the admin shows. EU law puts tax in the displayed price. A wrong rate is
