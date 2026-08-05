@@ -72,6 +72,10 @@ _Avoid_: shipping zone, delivery area
 **Province**:
 An ISO 3166-2 subdivision. The finest granularity at which tax and shipping differ, and the reason Canarias cannot be modelled as its own Region — it shares country code `ES` with the peninsula.
 
+**Territory Declaration**:
+The declared set of Regions, Tax Regions, and Service Zones for one country, with the rate each Tax Region starts with. A starting state, never the policy: once a Declaration has been applied, the database is authoritative and an Operator owns the rows.
+_Avoid_: territory model (ADR-0019 uses that for the whole thing, constants and rows together), seed (the act of applying a Declaration, not the thing applied), territory config, tax config
+
 ### Invoicing
 
 Two verbs that sound interchangeable and are not. Conflating them is how a storefront accidentally acquires a fiscal obligation.
