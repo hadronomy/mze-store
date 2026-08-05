@@ -8,8 +8,8 @@ permissions:
   contents: read
 
 env:
-  # The checks create no payment session. The value only lets the provider
-  # initialize while the suite and the Docker smoke test start the backend.
+  # Integration tests route this test-shaped key to local Emulate and block
+  # real Stripe traffic. The Docker smoke test only initializes the provider.
   STRIPE_API_KEY: sk_test_ci
 
 jobs:

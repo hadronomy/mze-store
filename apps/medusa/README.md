@@ -150,6 +150,13 @@ The suite uses jest, because Medusa's test utilities are jest-based and this app
 is a CJS island (ADR-0012). It is the only suite in the workspace today. The
 storefront brings vitest later, and the two do not merge.
 
+The Stripe integration test starts and stops a local Emulate service from
+Jest. It needs no Stripe account, real Stripe key, Emulate CLI process, or CI
+service. Nock blocks real Stripe traffic and forwards only Payment Intent
+creation to Emulate. See the
+[Emulate research note](../../docs/research/emulate-stripe-integration.md) for
+the supported operations and fidelity limits.
+
 `integration-tests/http/` is the seam that every later phase extends.
 `medusaIntegrationTestRunner` boots the real app against a real database. A
 passing suite is therefore proof that the backend builds, migrates, and serves.
