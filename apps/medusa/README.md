@@ -33,6 +33,18 @@ config and the admin bundle live. Starting it from the wrong one fails with
 "Could not find index.html in the admin build directory", which is why
 `bun run start` is only meaningful after a build, from that directory.
 
+## Compile gate
+
+Run this command from the repository root:
+
+```sh
+bun run check-types
+```
+
+CI runs the same command. The Medusa workspace maps its task to `medusa build`.
+This build generates `.medusa/types` before it compiles the backend and the
+admin dashboard. A bare `tsc --noEmit` does not prove that the backend builds.
+
 ## The seed
 
 `bun run seed` creates the Spanish territory model in the database:

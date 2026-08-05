@@ -3,7 +3,7 @@
   "private": true,
   "scripts": {
     "build": "medusa build",
-    "check-types": "tsc --noEmit",
+    "check-types": "medusa build",
     "db:migrate": "medusa db:migrate",
     "db:rollback": "medusa db:rollback",
     "dev": "medusa develop",
