@@ -112,6 +112,10 @@ bun add --dev --exact emulate@0.9.0 nock@13.5.6
 
 Use the `emulate` package because it exports `createEmulator`. The scoped `@emulators/stripe` package exposes the lower-level service plugin. [Programmatic API](https://emulate.dev/docs/programmatic-api)
 
+The Medusa Jest suite emits CommonJS. Configure SWC with `module.ignoreDynamic: true`, then load Emulate with a direct dynamic import.
+
+This setting preserves Node's standard ESM boundary without a CommonJS wrapper. See [Loading Emulate in the Medusa Jest suite](./emulate-esm-loading.md).
+
 Do not add a production script or a GitHub Actions service. The Jest suite starts and closes Emulate in its process.
 
 No seed file is necessary for the first test. The Payment Intent collection starts empty after Emulate applies its default seed.

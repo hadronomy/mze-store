@@ -3,7 +3,6 @@ import nock from "nock";
 import { seedTerritoryProbe, type SeededProbe } from "../../src/territory/probe";
 import { seedSpanishTerritory, type SeededTerritory } from "../../src/territory/seed";
 import { CURRENCY, SPAIN } from "../../src/territory/spain";
-import { createEmulator, type Emulator } from "../utils/emulate.cjs";
 
 jest.setTimeout(120 * 1000);
 
@@ -11,16 +10,23 @@ const PENINSULAR_PROVINCE = "es-m";
 const STRIPE_EMULATOR_PORT = 4_009;
 const STRIPE_PAYMENT_PROVIDER_ID = "pp_stripe_stripe";
 
+const startStripeEmulator = async () => {
+  const { createEmulator } = await import("emulate");
+  return createEmulator({ service: "stripe", port: STRIPE_EMULATOR_PORT });
+};
+
+type StripeEmulator = Awaited<ReturnType<typeof startStripeEmulator>>;
+
 medusaIntegrationTestRunner({
   inApp: true,
   env: {},
   testSuite: ({ api, getContainer }) => {
     let seeded: SeededTerritory;
     let probe: SeededProbe;
-    let stripeEmulator: Emulator;
+    let stripeEmulator: StripeEmulator;
 
     beforeAll(async () => {
-      stripeEmulator = await createEmulator({ service: "stripe", port: STRIPE_EMULATOR_PORT });
+      stripeEmulator = await startStripeEmulator();
       seeded = await seedSpanishTerritory(getContainer());
       probe = await seedTerritoryProbe(getContainer(), seeded);
     });
