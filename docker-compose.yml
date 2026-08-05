@@ -23,6 +23,9 @@ x-medusa-env: &medusa-env
   # tokens.
   JWT_SECRET: ${JWT_SECRET:-local-development-only}
   COOKIE_SECRET: ${COOKIE_SECRET:-local-development-only}
+  # Supply this through the shell or the root .env file. The backend rejects an
+  # empty value before it starts.
+  STRIPE_API_KEY: ${STRIPE_API_KEY:-}
 
 services:
   storefront:

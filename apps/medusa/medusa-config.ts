@@ -1,8 +1,15 @@
 import { defineConfig, loadEnv } from "@medusajs/framework/utils";
+import { z } from "@medusajs/framework/zod";
+import { STRIPE_MODULE_ID } from "./src/payment/stripe";
 
 loadEnv(process.env.NODE_ENV || "development", process.cwd());
 
 const redisUrl = process.env.REDIS_URL;
+const stripeEnv = z
+  .object({
+    STRIPE_API_KEY: z.string().startsWith("sk_", "STRIPE_API_KEY must be a Stripe secret key"),
+  })
+  .parse(process.env);
 
 module.exports = defineConfig({
   projectConfig: {
@@ -24,6 +31,18 @@ module.exports = defineConfig({
   // stock and losing in-flight workflows across a restart. All four modules
   // throw when `redisUrl` is absent, so a missing Redis fails loudly instead.
   modules: [
+    {
+      resolve: "@medusajs/medusa/payment",
+      options: {
+        providers: [
+          {
+            resolve: "@medusajs/medusa/payment-stripe",
+            id: STRIPE_MODULE_ID,
+            options: { apiKey: stripeEnv.STRIPE_API_KEY },
+          },
+        ],
+      },
+    },
     {
       resolve: "@medusajs/medusa/cache-redis",
       options: { redisUrl },

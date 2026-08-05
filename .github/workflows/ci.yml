@@ -7,6 +7,11 @@ on:
 permissions:
   contents: read
 
+env:
+  # Integration tests route this test-shaped key to local Emulate and block
+  # real Stripe traffic. The Docker smoke test only initializes the provider.
+  STRIPE_API_KEY: sk_test_ci
+
 jobs:
   checks:
     name: Types, lint, and tests

@@ -18,6 +18,9 @@ module.exports = {
           // does not recognise. ES2022 is what tsconfig.medusa.json compiles to.
           target: "es2022",
         },
+        // The suite stays CommonJS, but ESM-only test dependencies need Node's
+        // import loader. Preserve import() instead of rewriting it to require().
+        module: { ignoreDynamic: true },
       },
     ],
   },

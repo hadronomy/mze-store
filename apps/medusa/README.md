@@ -22,6 +22,10 @@ bun run dev                            # admin at http://localhost:9000/app
 Or `docker compose up medusa` from the root to run the whole thing in
 containers, migrations included.
 
+Set `STRIPE_API_KEY` in `apps/medusa/.env` before you run Medusa directly. For
+Compose, set it in the shell or in the root `.env` file. Use a Stripe test
+secret key for local development.
+
 Go through `bun run`, not the `medusa` binary directly: bun links it into this
 package's own `node_modules/.bin`, never the workspace root (ADR-0001), so a
 path guessed from the root will not resolve. `bun run` still executes it under
@@ -145,6 +149,13 @@ bun run test
 The suite uses jest, because Medusa's test utilities are jest-based and this app
 is a CJS island (ADR-0012). It is the only suite in the workspace today. The
 storefront brings vitest later, and the two do not merge.
+
+The Stripe integration test starts and stops a local Emulate service from
+Jest. It needs no Stripe account, real Stripe key, Emulate CLI process, or CI
+service. Nock blocks real Stripe traffic and forwards only Payment Intent
+creation to Emulate. See the
+[Emulate research note](../../docs/research/emulate-stripe-integration.md) for
+the supported operations and fidelity limits.
 
 `integration-tests/http/` is the seam that every later phase extends.
 `medusaIntegrationTestRunner` boots the real app against a real database. A

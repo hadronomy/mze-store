@@ -19,19 +19,13 @@ import {
   PROVINCE_TAX_REGIMES,
   SPAIN,
 } from "./spain";
+import { STRIPE_PAYMENT_PROVIDER_ID } from "../payment/stripe";
 
 /** The identifiers that a caller needs to use what the seed created. */
 export type SeededTerritory = {
   regionId: string;
   salesChannelId: string;
 };
-
-/**
- * A Region carries payment providers, and a Region without one cannot take a
- * payment. Stripe registration is separate work. The system provider keeps
- * this Region valid until Stripe arrives.
- */
-const SYSTEM_PAYMENT_PROVIDER = "pp_system_default";
 
 /**
  * The tax provider that Medusa includes. It reads the rates in this project
@@ -146,7 +140,7 @@ async function ensureRegion(container: MedusaContainer): Promise<string> {
           name: REGION_NAME,
           currency_code: CURRENCY,
           countries: [SPAIN],
-          payment_providers: [SYSTEM_PAYMENT_PROVIDER],
+          payment_providers: [STRIPE_PAYMENT_PROVIDER_ID],
           // Set here and not left to the default. If this flag is off, the
           // Store API returns a price with no tax. Tax is the one thing that
           // this Province model exists to compute.
