@@ -85,7 +85,7 @@ jobs:
             local url="$1"
             local status
 
-            status="$(curl --silent --show-error --location --output /dev/null --write-out '%{http_code}' "$url")"
+            status="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' "$url")"
             if [[ "$status" != "200" ]]; then
               echo "::error::$url returned HTTP $status"
               return 1
