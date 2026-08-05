@@ -6,6 +6,7 @@ import {
   createSalesChannelsWorkflow,
   createServiceZonesWorkflow,
   createStockLocationsWorkflow,
+  createStoresWorkflow,
   createTaxRegionsWorkflow,
   linkSalesChannelsToStockLocationWorkflow,
   updateStoresWorkflow,
@@ -358,8 +359,27 @@ async function ensureStoreDefaults(
 
   const store = stores[0];
 
+  // Medusa creates the Store when the application boots, and `db:migrate` runs
+  // before any boot. So on a database that has never served a request there is
+  // no Store to update, and the seed makes it.
+  //
+  // Medusa's own default step takes the first Store it finds and creates one
+  // only when there is none, so the boot that follows adopts this one rather
+  // than adding a second.
   if (!store) {
-    throw new Error("Medusa creates a Store on first boot, but the seed cannot find one.");
+    await createStoresWorkflow(container).run({
+      input: {
+        stores: [
+          {
+            supported_currencies: [{ currency_code: CURRENCY, is_default: true }],
+            default_sales_channel_id: defaults.salesChannelId,
+            default_region_id: defaults.regionId,
+          },
+        ],
+      },
+    });
+
+    return;
   }
 
   const currencies = (store.supported_currencies ?? []).flatMap((currency) =>
