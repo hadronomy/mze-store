@@ -7,6 +7,11 @@ on:
 permissions:
   contents: read
 
+env:
+  # The checks create no payment session. The value only lets the provider
+  # initialize while the suite and the Docker smoke test start the backend.
+  STRIPE_API_KEY: sk_test_ci
+
 jobs:
   checks:
     name: Types, lint, and tests

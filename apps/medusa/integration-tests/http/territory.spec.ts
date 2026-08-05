@@ -179,6 +179,19 @@ medusaIntegrationTestRunner({
         });
       });
 
+      describe("payments", () => {
+        it("lists Stripe for the Spain Region in the Store API", async () => {
+          const response = await api.get(`/store/payment-providers?region_id=${seeded.regionId}`, {
+            headers: { "x-publishable-api-key": probe.publishableKey },
+          });
+
+          expect(response.status).toEqual(200);
+          expect(response.data.payment_providers.map(({ id }: { id: string }) => id)).toContain(
+            "pp_stripe_stripe",
+          );
+        });
+      });
+
       describe("an Operator", () => {
         it("creates a Variant in the admin and reads both prices back", async () => {
           const operator = await signInAsOperator(getContainer(), api, {
