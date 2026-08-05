@@ -7,6 +7,8 @@
     "db:migrate": "medusa db:migrate",
     "db:rollback": "medusa db:rollback",
     "dev": "medusa develop",
+    "seed": "medusa exec ./src/scripts/seed.ts",
+    "seed:probe": "medusa exec ./src/scripts/seed-probe.ts",
     "start": "medusa start",
     "test": "NODE_OPTIONS=--experimental-vm-modules jest --runInBand --forceExit",
     "user:create": "medusa user"

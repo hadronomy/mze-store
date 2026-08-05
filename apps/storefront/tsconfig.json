@@ -9,7 +9,7 @@
     "noEmit": true,
     "noUncheckedSideEffectImports": true,
     "paths": {
-      "@/*": ["./src/*"],
+      "~/*": ["./src/*"],
       "@mze-store/ui/*": ["../../packages/ui/src/*"]
     }
   }
