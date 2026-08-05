@@ -61,7 +61,8 @@ lists that a new database starts from.
 **The database is authoritative, not the code.** See
 [ADR-0019](../../docs/adr/0019-the-database-owns-the-territory-model.md). After
 the first seed, an Operator owns the model in the admin. **Settings → Tax
-Regions** edits a rate, adds a Province, or adds an override. Nothing reads `spain.ts` at run time. A
+Regions** edits a rate, adds a Province, or adds an override. Nothing reads
+`spain.ts` at run time. A
 rate changes by law on a date that a release cannot predict, so an Operator
 changes it in a form and not through a deploy. The seed never writes over that
 edit.
