@@ -1,10 +1,9 @@
-import { env } from "@mze-store/env/server";
 import { drizzle } from "drizzle-orm/node-postgres";
 
 import * as schema from "./schema";
 
-export function createDb() {
-  return drizzle(env.DATABASE_URL, { schema });
+export function createDb(connectionUrl: string) {
+  return drizzle(connectionUrl, { schema });
 }
 
-export const db = createDb();
+export type Db = ReturnType<typeof createDb>;

@@ -1,4 +1,4 @@
-import { auth } from "@mze-store/auth";
+import { getAuth } from "@mze-store/auth/instance";
 import type { H3EventContext } from "evlog";
 import { type BetterAuthInstance, createAuthMiddleware } from "evlog/better-auth";
 import { defineMiddleware } from "nitro";
@@ -8,10 +8,16 @@ import { defineMiddleware } from "nitro";
 // and that everywhere else — Nuxt, and equally TanStack Start — plugin hook
 // ordering can leave the logger absent in the `request` hook. Middleware runs
 // during handling, after every `request` hook, so the logger is always there.
-const identify = createAuthMiddleware(auth as BetterAuthInstance, {
-  exclude: ["/api/auth/**"],
-  maskEmail: true,
-});
+let identify: ReturnType<typeof createAuthMiddleware> | undefined;
+
+function getIdentify() {
+  identify ??= createAuthMiddleware(getAuth() as BetterAuthInstance, {
+    exclude: ["/api/auth/**"],
+    maskEmail: true,
+  });
+
+  return identify;
+}
 
 export default defineMiddleware(async (event, next) => {
   // The same logger the documented `useRequest().context.log` accessor returns;
@@ -20,7 +26,7 @@ export default defineMiddleware(async (event, next) => {
   const { log } = event.req.context as H3EventContext;
 
   if (log) {
-    await identify(log, event.req.headers, event.url.pathname);
+    await getIdentify()(log, event.req.headers, event.url.pathname);
   }
 
   return next();

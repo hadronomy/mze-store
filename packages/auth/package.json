@@ -10,7 +10,8 @@
     }
   },
   "scripts": {
-    "check-types": "tsc -b"
+    "check-types": "tsc -b",
+    "test": "node --test src/*.test.ts"
   },
   "dependencies": {
     "@mze-store/db": "workspace:*",

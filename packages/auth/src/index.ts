@@ -1,27 +1,32 @@
-import { createDb } from "@mze-store/db";
+import type { Db } from "@mze-store/db";
 import * as schema from "@mze-store/db/schema/auth";
-import { env } from "@mze-store/env/server";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { tanstackStartCookies } from "better-auth/tanstack-start";
 
-export function createAuth() {
-  const db = createDb();
+export interface AuthOptions {
+  database?: Db;
+  secret: string;
+  baseURL: string;
+  trustedOrigins: string[];
+}
 
+export function createAuth({ database, secret, baseURL, trustedOrigins }: AuthOptions) {
   return betterAuth({
-    database: drizzleAdapter(db, {
-      provider: "pg",
-
-      schema: schema,
-    }),
-    trustedOrigins: [env.CORS_ORIGIN],
+    ...(database
+      ? {
+          database: drizzleAdapter(database, {
+            provider: "pg",
+            schema,
+          }),
+        }
+      : {}),
+    trustedOrigins,
     emailAndPassword: {
       enabled: true,
     },
-    secret: env.BETTER_AUTH_SECRET,
-    baseURL: env.BETTER_AUTH_URL,
+    secret,
+    baseURL,
     plugins: [tanstackStartCookies()],
   });
 }
-
-export const auth = createAuth();
