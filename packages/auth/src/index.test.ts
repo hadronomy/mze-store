@@ -1,5 +1,4 @@
-import assert from "node:assert/strict";
-import test from "node:test";
+import { expect, test } from "vitest";
 
 const authModuleUrl = new URL("./index.ts", import.meta.url).href;
 const baseURL = "http://localhost:3000";
@@ -59,26 +58,24 @@ test("an in-memory Account survives sign-up, sign-in, and a session read", async
     email,
     password,
   });
-  assert.equal(signUpResponse.status, 200);
+  expect(signUpResponse.status).toBe(200);
 
   const signInResponse = await postJson(auth, "sign-in/email", { email, password });
-  assert.equal(signInResponse.status, 200);
+  expect(signInResponse.status).toBe(200);
 
   const cookie = signInResponse.headers
     .getSetCookie()
     .map((value) => value.split(";", 1)[0])
     .join("; ");
-  assert.notEqual(cookie, "");
+  expect(cookie).not.toBe("");
 
   const sessionResponse = await auth.handler(
     new Request(`${baseURL}/api/auth/get-session`, {
       headers: { cookie },
     }),
   );
-  assert.equal(sessionResponse.status, 200);
+  expect(sessionResponse.status).toBe(200);
 
   const session: unknown = await sessionResponse.json();
-  assert(session && typeof session === "object" && "user" in session);
-  assert(session.user && typeof session.user === "object" && "email" in session.user);
-  assert.equal(session.user.email, email);
+  expect(session).toMatchObject({ user: { email } });
 });
