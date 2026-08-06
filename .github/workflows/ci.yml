@@ -67,9 +67,9 @@ jobs:
       - name: Lint
         run: vp lint
 
-      # Only Medusa has behavior tests. The storefront and auth, db, env, and
-      # ui packages use their type-check gates until they gain test suites.
-      - name: Run declared tests (Medusa only)
+      # Auth uses Vite+'s Vitest runner. Medusa keeps Jest because its test
+      # utilities require Jest.
+      - name: Run declared tests
         run: vp run -r test
 
   docker:

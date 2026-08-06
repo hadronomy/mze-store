@@ -17,11 +17,9 @@
     "check-types": "tsc -b"
   },
   "dependencies": {
-    "@mze-store/env": "workspace:*",
     "dotenv": "catalog:",
     "drizzle-orm": "^0.45.2",
-    "pg": "^8.22.0",
-    "zod": "catalog:"
+    "pg": "^8.22.0"
   },
   "devDependencies": {
     "@mze-store/config": "workspace:*",

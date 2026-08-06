@@ -1,5 +1,5 @@
 import { relations } from "drizzle-orm";
-import { boolean, index, pgSchema, text, timestamp } from "drizzle-orm/pg-core";
+import { pgSchema, text, timestamp, boolean, index, uniqueIndex } from "drizzle-orm/pg-core";
 
 const authSchema = pgSchema("auth");
 
@@ -39,6 +39,7 @@ export const account = authSchema.table(
   "account",
   {
     id: text("id").primaryKey(),
+    issuer: text("issuer").notNull(),
     accountId: text("account_id").notNull(),
     providerId: text("provider_id").notNull(),
     userId: text("user_id")
@@ -56,7 +57,10 @@ export const account = authSchema.table(
       .$onUpdate(() => /* @__PURE__ */ new Date())
       .notNull(),
   },
-  (table) => [index("account_userId_idx").on(table.userId)],
+  (table) => [
+    uniqueIndex("account_issuer_accountId_uidx").on(table.issuer, table.accountId),
+    index("account_userId_idx").on(table.userId),
+  ],
 );
 
 export const verification = authSchema.table(
