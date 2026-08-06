@@ -40,7 +40,9 @@
       "ts-node": "10.9.2",
       "@swc/core": "1.5.7",
       "ioredis": "5.11.1",
-      "better-auth": "1.6.23",
+      "better-auth": "1.7.0-rc.4",
+      "@better-auth/drizzle-adapter": "1.7.0-rc.4",
+      "auth": "1.7.0-rc.4",
       "@types/react": "^19.2.17",
       "@types/react-dom": "^19.2.3"
     }
@@ -61,6 +63,7 @@
     "db:studio": "vp run --filter @mze-store/db db:studio",
     "db:generate": "vp run --filter @mze-store/db db:generate",
     "db:migrate": "vp run --filter @mze-store/db db:migrate",
+    "auth:schema": "vp run --filter @mze-store/auth auth:schema && vp fmt --write packages/db/src/schema/auth.ts",
     "db:start": "docker compose up -d postgres",
     "db:watch": "docker compose up postgres",
     "db:stop": "docker compose stop postgres",

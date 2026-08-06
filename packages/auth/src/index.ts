@@ -1,7 +1,7 @@
 import type { Db } from "@mze-store/db";
 import * as schema from "@mze-store/db/schema/auth";
+import { drizzleAdapter } from "@better-auth/drizzle-adapter";
 import { betterAuth } from "better-auth";
-import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { tanstackStartCookies } from "better-auth/tanstack-start";
 
 export interface AuthOptions {
@@ -18,6 +18,7 @@ export function createAuth({ database, secret, baseURL, trustedOrigins }: AuthOp
           database: drizzleAdapter(database, {
             provider: "pg",
             schema,
+            schemaName: "auth",
           }),
         }
       : {}),

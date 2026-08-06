@@ -20,6 +20,10 @@ The cost is narrow and real: two auth configurations cannot be alive in one proc
 
 - **The entry is split so the pure half stays pure.** `getAuth` cannot live beside `createAuth`, because a module-scope `import { env }` validates on import and would put the failure back where it was. `packages/db` loses its env import for the same reason — `createDb` takes a URL — since `packages/auth` imports it and would otherwise inherit the validation transitively.
 
+- **The accessor keeps the storefront Docker build safe.** The build uses `SKIP_ENV_VALIDATION=1`, so server environment values can be undefined while it evaluates modules. The `/instance` entry validates the environment when validation is enabled, but it does not call `createDb` or `createAuth` until the first `getAuth()` call. The build can therefore evaluate the server bundle without constructing an invalid production instance.
+
+- **The Better Auth CLI has a separate eager entry.** `packages/auth/auth.ts` exports a static `auth` value because the CLI must analyze one. This entry uses fixed build-time values and an unreachable loopback database URL. It reads no production environment and does not connect during schema generation.
+
 - **Omitting the database gives a second adapter for free.** better-auth falls back to `@better-auth/memory-adapter` when `database` is undefined, and that package is already a direct dependency of `better-auth`. The seam is real rather than hypothetical: Drizzle over Postgres in production, memory in tests, and a Postgres-backed Drizzle instance for the few tests that must prove the mapping.
 
 - **The interface is the better-auth instance, not a facade.** `evlog`'s `createAuthMiddleware` takes the instance, so a narrower surface would have to expose it again immediately. `packages/auth` owns configuration. Domain operations that Erasure and Claim need are added beside the instance, not in front of it.

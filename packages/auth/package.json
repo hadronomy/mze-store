@@ -10,10 +10,12 @@
     }
   },
   "scripts": {
+    "auth:schema": "auth generate --config auth.ts --output ../db/src/schema/auth.ts --yes",
     "check-types": "tsc -b",
     "test": "vp test --dir src"
   },
   "dependencies": {
+    "@better-auth/drizzle-adapter": "catalog:",
     "@mze-store/db": "workspace:*",
     "@mze-store/env": "workspace:*",
     "better-auth": "catalog:",
@@ -22,6 +24,7 @@
   },
   "devDependencies": {
     "@mze-store/config": "workspace:*",
+    "auth": "catalog:",
     "typescript": "catalog:"
   }
 }
