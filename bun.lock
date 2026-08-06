@@ -103,7 +103,6 @@
       "devDependencies": {
         "@mze-store/config": "workspace:*",
         "typescript": "catalog:",
-        "vitest": "catalog:",
       },
     },
     "packages/config": {
@@ -204,7 +203,6 @@
     "ts-node": "10.9.2",
     "typescript": "^6",
     "vite-plus": "0.2.6",
-    "vitest": "^4.1.10",
     "zod": "^4.4.3",
   },
   "packages": {

@@ -11,7 +11,7 @@
   },
   "scripts": {
     "check-types": "tsc -b",
-    "test": "vitest run --dir src"
+    "test": "vp test --dir src"
   },
   "dependencies": {
     "@mze-store/db": "workspace:*",
@@ -22,7 +22,6 @@
   },
   "devDependencies": {
     "@mze-store/config": "workspace:*",
-    "typescript": "catalog:",
-    "vitest": "catalog:"
+    "typescript": "catalog:"
   }
 }

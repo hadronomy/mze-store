@@ -1,4 +1,4 @@
-import { expect, test } from "vitest";
+import { expect, test } from "vite-plus/test";
 
 const authModuleUrl = new URL("./index.ts", import.meta.url).href;
 const baseURL = "http://localhost:3000";
