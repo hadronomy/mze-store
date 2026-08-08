@@ -8,15 +8,17 @@ import { defineMiddleware } from "nitro";
 // and that everywhere else — Nuxt, and equally TanStack Start — plugin hook
 // ordering can leave the logger absent in the `request` hook. Middleware runs
 // during handling, after every `request` hook, so the logger is always there.
-let identify: ReturnType<typeof createAuthMiddleware> | undefined;
+type Identify = ReturnType<typeof createAuthMiddleware>;
 
-function getIdentify() {
-  identify ??= createAuthMiddleware(getAuth() as BetterAuthInstance, {
+let identifyRequest: Identify | undefined;
+
+function identify(...args: Parameters<Identify>) {
+  identifyRequest ??= createAuthMiddleware(getAuth() as BetterAuthInstance, {
     exclude: ["/api/auth/**"],
     maskEmail: true,
   });
 
-  return identify;
+  return identifyRequest(...args);
 }
 
 export default defineMiddleware(async (event, next) => {
@@ -26,7 +28,7 @@ export default defineMiddleware(async (event, next) => {
   const { log } = event.req.context as H3EventContext;
 
   if (log) {
-    await getIdentify()(log, event.req.headers, event.url.pathname);
+    await identify(log, event.req.headers, event.url.pathname);
   }
 
   return next();
