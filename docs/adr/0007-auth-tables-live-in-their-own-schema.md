@@ -11,3 +11,7 @@ We move better-auth rather than Medusa because it is the small, fully-controlled
 There is a second, independent reason this is right: schema tooling. Drizzle would otherwise operate in a namespace containing 150 tables it does not manage, which is a permanently noisy and mildly dangerous place to run migrations and studio.
 
 The two systems can still be joined for reporting if ever needed, which a separate database would prevent.
+
+The Better Auth CLI owns the auth schema in `packages/db/src/schema/auth.ts`. Its CLI-only auth configuration passes `schemaName: "auth"`, so generated tables stay in this namespace. `bun run auth:schema` updates the Drizzle schema after a Better Auth version or plugin change. Drizzle Kit then creates the SQL migration with `bun run db:generate`.
+
+Generated SQL still needs review. Better Auth cannot infer trusted identity-provider issuers or resolve collisions in existing Account rows. A schema-generation test fails if the committed Drizzle schema differs from the CLI output.
