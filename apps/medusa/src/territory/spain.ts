@@ -43,6 +43,19 @@ export type ProvinceTaxRegime = TaxRegime & {
   provinces: Record<string, string>;
 };
 
+export type TerritoryDeclaration = {
+  /** ISO 3166-1 alpha-2, lower case. */
+  country: string;
+  currency: string;
+  regionName: string;
+  stockLocationName: string;
+  /** Applies at country level. */
+  defaultRegime: TaxRegime;
+  /** One Tax Region per named Province. */
+  provinceRegimes: ProvinceTaxRegime[];
+  serviceZones: { name: string; provinces: string[] }[];
+};
+
 /** The rate for every Spanish Province that no Province regime names. */
 export const PENINSULAR_VAT: TaxRegime = {
   name: "IVA general",
@@ -149,3 +162,17 @@ export const PENINSULAR_PROVINCES = {
   "es-z": "Zaragoza",
   "es-za": "Zamora",
 } as const;
+
+/** The starting state for the Spanish Region, Tax Regions, and Service Zones. */
+export const SPAIN_DECLARATION: TerritoryDeclaration = {
+  country: SPAIN,
+  currency: CURRENCY,
+  regionName: "Spain",
+  stockLocationName: "Canarias",
+  defaultRegime: PENINSULAR_VAT,
+  provinceRegimes: PROVINCE_TAX_REGIMES,
+  serviceZones: [
+    { name: "Peninsula and Baleares", provinces: Object.keys(PENINSULAR_PROVINCES) },
+    { name: "Canarias", provinces: Object.keys(CANARIAS_PROVINCES) },
+  ],
+};

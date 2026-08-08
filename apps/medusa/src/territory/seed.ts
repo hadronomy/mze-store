@@ -11,14 +11,7 @@ import {
   linkSalesChannelsToStockLocationWorkflow,
   updateStoresWorkflow,
 } from "@medusajs/medusa/core-flows";
-import {
-  CANARIAS_PROVINCES,
-  CURRENCY,
-  PENINSULAR_PROVINCES,
-  PENINSULAR_VAT,
-  PROVINCE_TAX_REGIMES,
-  SPAIN,
-} from "./spain";
+import { SPAIN_DECLARATION } from "./spain";
 import { STRIPE_PAYMENT_PROVIDER_ID } from "../payment/stripe";
 
 /** The identifiers that a caller needs to use what the seed created. */
@@ -34,21 +27,9 @@ export type SeededTerritory = {
  */
 const SYSTEM_TAX_PROVIDER = "tp_system";
 
-const REGION_NAME = "Spain";
 const SALES_CHANNEL_NAME = "Default Sales Channel";
-const STOCK_LOCATION_NAME = "Canarias";
 const FULFILLMENT_SET_NAME = "Shipping";
 const SEEDED_BY = "seed";
-
-/**
- * The two Service Zones. Each one names its Provinces. A Service Zone scoped
- * to the country covers both, and then Canarian shipping cannot differ from
- * peninsular shipping.
- */
-const SERVICE_ZONES = [
-  { name: "Peninsula and Baleares", provinces: Object.keys(PENINSULAR_PROVINCES) },
-  { name: "Canarias", provinces: Object.keys(CANARIAS_PROVINCES) },
-];
 
 /**
  * Creates the Spanish territory model in the database. It creates nothing that
@@ -126,7 +107,7 @@ async function ensureRegion(container: MedusaContainer): Promise<string> {
   // The lookup uses the country and not the name. A country belongs to exactly
   // one Region. That fact is what "exactly one Region for Spain" means.
   const spanish = regions.find((region) =>
-    region.countries?.some((country) => country?.iso_2 === SPAIN),
+    region.countries?.some((country) => country?.iso_2 === SPAIN_DECLARATION.country),
   );
 
   if (spanish) {
@@ -137,9 +118,9 @@ async function ensureRegion(container: MedusaContainer): Promise<string> {
     input: {
       regions: [
         {
-          name: REGION_NAME,
-          currency_code: CURRENCY,
-          countries: [SPAIN],
+          name: SPAIN_DECLARATION.regionName,
+          currency_code: SPAIN_DECLARATION.currency,
+          countries: [SPAIN_DECLARATION.country],
           payment_providers: [STRIPE_PAYMENT_PROVIDER_ID],
           // Set here and not left to the default. If this flag is off, the
           // Store API returns a price with no tax. Tax is the one thing that
@@ -159,7 +140,7 @@ async function ensureTaxRegions(container: MedusaContainer): Promise<void> {
   const { data: taxRegions } = await query.graph({
     entity: "tax_region",
     fields: ["id", "province_code"],
-    filters: { country_code: SPAIN },
+    filters: { country_code: SPAIN_DECLARATION.country },
   });
 
   // The country-level Tax Region is not one entry among many. If no parent
@@ -172,9 +153,9 @@ async function ensureTaxRegions(container: MedusaContainer): Promise<void> {
     const { result } = await createTaxRegionsWorkflow(container).run({
       input: [
         {
-          country_code: SPAIN,
+          country_code: SPAIN_DECLARATION.country,
           provider_id: SYSTEM_TAX_PROVIDER,
-          default_tax_rate: { ...PENINSULAR_VAT },
+          default_tax_rate: { ...SPAIN_DECLARATION.defaultRegime },
           created_by: SEEDED_BY,
         },
       ],
@@ -183,11 +164,11 @@ async function ensureTaxRegions(container: MedusaContainer): Promise<void> {
     parentId = result[0]!.id;
   }
 
-  const missing = PROVINCE_TAX_REGIMES.flatMap((regime) =>
+  const missing = SPAIN_DECLARATION.provinceRegimes.flatMap((regime) =>
     Object.keys(regime.provinces)
       .filter((province) => !taxRegions.some((region) => region.province_code === province))
       .map((province) => ({
-        country_code: SPAIN,
+        country_code: SPAIN_DECLARATION.country,
         province_code: province,
         parent_id: parentId,
         default_tax_rate: { name: regime.name, code: regime.code, rate: regime.rate },
@@ -235,7 +216,7 @@ const requireStockLocation = async (
 
   if (!location) {
     throw new Error(
-      `The seed created the stock location ${STOCK_LOCATION_NAME}, but it cannot find it again.`,
+      `The seed created the stock location ${SPAIN_DECLARATION.stockLocationName}, but it cannot find it again.`,
     );
   }
 
@@ -244,7 +225,7 @@ const requireStockLocation = async (
 
 const provinceGeoZone = (province: string) => ({
   type: "province" as const,
-  country_code: SPAIN,
+  country_code: SPAIN_DECLARATION.country,
   province_code: province,
 });
 
@@ -252,16 +233,18 @@ async function ensureStockLocation(
   container: MedusaContainer,
   salesChannelId: string,
 ): Promise<string> {
-  let location = await findStockLocation(container, { name: STOCK_LOCATION_NAME });
+  let location = await findStockLocation(container, { name: SPAIN_DECLARATION.stockLocationName });
 
   if (!location) {
     // The location has no address. An Operator enters the address of the shop.
     // Shipping resolves from the Service Zones and not from this location.
     await createStockLocationsWorkflow(container).run({
-      input: { locations: [{ name: STOCK_LOCATION_NAME }] },
+      input: { locations: [{ name: SPAIN_DECLARATION.stockLocationName }] },
     });
 
-    location = await requireStockLocation(container, { name: STOCK_LOCATION_NAME });
+    location = await requireStockLocation(container, {
+      name: SPAIN_DECLARATION.stockLocationName,
+    });
   }
 
   if (!location.sales_channels?.some((channel) => channel?.id === salesChannelId)) {
@@ -308,7 +291,7 @@ async function ensureServiceZones(
   const fulfillmentSetId = fulfillmentSet.id;
   const existingZones = (fulfillmentSet.service_zones ?? []).filter((zone) => !!zone);
 
-  const newZones = SERVICE_ZONES.filter(
+  const newZones = SPAIN_DECLARATION.serviceZones.filter(
     (zone) => !existingZones.some((existing) => existing.name === zone.name),
   );
 
@@ -365,7 +348,7 @@ async function ensureStoreDefaults(
       input: {
         stores: [
           {
-            supported_currencies: [{ currency_code: CURRENCY, is_default: true }],
+            supported_currencies: [{ currency_code: SPAIN_DECLARATION.currency, is_default: true }],
             default_sales_channel_id: defaults.salesChannelId,
             default_region_id: defaults.regionId,
           },
@@ -384,10 +367,10 @@ async function ensureStoreDefaults(
   // An Operator can price a Variant in EUR only when EUR is a supported
   // currency. The seed appends and does not assign. A currency that somebody
   // added in the admin stays.
-  if (!currencies.includes(CURRENCY)) {
+  if (!currencies.includes(SPAIN_DECLARATION.currency)) {
     update.supported_currencies = [
       ...currencies.map((currency_code) => ({ currency_code })),
-      { currency_code: CURRENCY, is_default: !currencies.length },
+      { currency_code: SPAIN_DECLARATION.currency, is_default: !currencies.length },
     ];
   }
 
