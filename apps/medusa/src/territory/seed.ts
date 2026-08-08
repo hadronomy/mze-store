@@ -11,13 +11,14 @@ import {
   linkSalesChannelsToStockLocationWorkflow,
   updateStoresWorkflow,
 } from "@medusajs/medusa/core-flows";
-import { SPAIN_DECLARATION } from "./spain";
 import { STRIPE_PAYMENT_PROVIDER_ID } from "../payment/stripe";
+import type { TerritoryDeclaration } from "./declaration";
 
 /** The identifiers that a caller needs to use what the seed created. */
 export type SeededTerritory = {
   regionId: string;
   salesChannelId: string;
+  currency: string;
 };
 
 /**
@@ -32,8 +33,8 @@ const FULFILLMENT_SET_NAME = "Shipping";
 const SEEDED_BY = "seed";
 
 /**
- * Creates the Spanish territory model in the database. It creates nothing that
- * a Shopper sees, so it is safe against a live store. `./probe.ts` is not.
+ * Applies a Territory Declaration to the database. It creates nothing that a
+ * Shopper sees, so it is safe against a live store. `./probe.ts` is not.
  *
  * The seed is idempotent by identity and not by a marker. It finds each piece
  * by something stable: the Region by the country it carries, a Tax Region by
@@ -43,23 +44,26 @@ const SEEDED_BY = "seed";
  *
  * The seed creates, but it does not correct. It keeps a Region or a rate that
  * an Operator changed in the admin. This is deliberate: the database is
- * authoritative, and the constants in `./spain.ts` only start a new one. A seed
- * that converges reverts a lawful rate change at the next deploy.
+ * authoritative, and the Declaration only starts a new one. A seed that
+ * converges reverts a lawful rate change at the next deploy.
  *
  * This holds for a Service Zone too. The seed creates a zone that is absent,
  * and it never edits one that is there. `ensureServiceZones` says why.
  */
-export async function seedSpanishTerritory(container: MedusaContainer): Promise<SeededTerritory> {
+export async function seedTerritory(
+  container: MedusaContainer,
+  declaration: TerritoryDeclaration,
+): Promise<SeededTerritory> {
   const salesChannelId = await ensureSalesChannel(container);
-  const regionId = await ensureRegion(container);
-  await ensureTaxRegions(container);
+  const regionId = await ensureRegion(container, declaration);
+  await ensureTaxRegions(container, declaration);
 
-  const stockLocationId = await ensureStockLocation(container, salesChannelId);
-  await ensureServiceZones(container, stockLocationId);
+  const stockLocationId = await ensureStockLocation(container, salesChannelId, declaration);
+  await ensureServiceZones(container, stockLocationId, declaration);
 
-  await ensureStoreDefaults(container, { salesChannelId, regionId });
+  await ensureStoreDefaults(container, { salesChannelId, regionId }, declaration);
 
-  return { regionId, salesChannelId };
+  return { regionId, salesChannelId, currency: declaration.currency };
 }
 
 const queryOf = (container: MedusaContainer) => container.resolve(ContainerRegistrationKeys.QUERY);
@@ -96,7 +100,10 @@ async function ensureSalesChannel(container: MedusaContainer): Promise<string> {
   return result[0]!.id;
 }
 
-async function ensureRegion(container: MedusaContainer): Promise<string> {
+async function ensureRegion(
+  container: MedusaContainer,
+  declaration: TerritoryDeclaration,
+): Promise<string> {
   const query = queryOf(container);
 
   const { data: regions } = await query.graph({
@@ -105,22 +112,22 @@ async function ensureRegion(container: MedusaContainer): Promise<string> {
   });
 
   // The lookup uses the country and not the name. A country belongs to exactly
-  // one Region. That fact is what "exactly one Region for Spain" means.
-  const spanish = regions.find((region) =>
-    region.countries?.some((country) => country?.iso_2 === SPAIN_DECLARATION.country),
+  // one Region.
+  const existing = regions.find((region) =>
+    region.countries?.some((country) => country?.iso_2 === declaration.country),
   );
 
-  if (spanish) {
-    return spanish.id;
+  if (existing) {
+    return existing.id;
   }
 
   const { result } = await createRegionsWorkflow(container).run({
     input: {
       regions: [
         {
-          name: SPAIN_DECLARATION.regionName,
-          currency_code: SPAIN_DECLARATION.currency,
-          countries: [SPAIN_DECLARATION.country],
+          name: declaration.regionName,
+          currency_code: declaration.currency,
+          countries: [declaration.country],
           payment_providers: [STRIPE_PAYMENT_PROVIDER_ID],
           // Set here and not left to the default. If this flag is off, the
           // Store API returns a price with no tax. Tax is the one thing that
@@ -134,28 +141,31 @@ async function ensureRegion(container: MedusaContainer): Promise<string> {
   return result[0]!.id;
 }
 
-async function ensureTaxRegions(container: MedusaContainer): Promise<void> {
+async function ensureTaxRegions(
+  container: MedusaContainer,
+  declaration: TerritoryDeclaration,
+): Promise<void> {
   const query = queryOf(container);
 
   const { data: taxRegions } = await query.graph({
     entity: "tax_region",
     fields: ["id", "province_code"],
-    filters: { country_code: SPAIN_DECLARATION.country },
+    filters: { country_code: declaration.country },
   });
 
   // The country-level Tax Region is not one entry among many. If no parent
-  // region for `es` exists, Medusa returns no tax line for any Spanish address,
-  // with or without a Province. This region also carries peninsular VAT, which
-  // every Province without a regime uses.
+  // region exists, Medusa returns no tax line for an address in the declared
+  // country. This region also carries the default regime, which every Province
+  // without its own regime uses.
   let parentId = taxRegions.find((region) => region.province_code === null)?.id;
 
   if (!parentId) {
     const { result } = await createTaxRegionsWorkflow(container).run({
       input: [
         {
-          country_code: SPAIN_DECLARATION.country,
+          country_code: declaration.country,
           provider_id: SYSTEM_TAX_PROVIDER,
-          default_tax_rate: { ...SPAIN_DECLARATION.defaultRegime },
+          default_tax_rate: { ...declaration.defaultRegime },
           created_by: SEEDED_BY,
         },
       ],
@@ -164,11 +174,11 @@ async function ensureTaxRegions(container: MedusaContainer): Promise<void> {
     parentId = result[0]!.id;
   }
 
-  const missing = SPAIN_DECLARATION.provinceRegimes.flatMap((regime) =>
+  const missing = declaration.provinceRegimes.flatMap((regime) =>
     Object.keys(regime.provinces)
       .filter((province) => !taxRegions.some((region) => region.province_code === province))
       .map((province) => ({
-        country_code: SPAIN_DECLARATION.country,
+        country_code: declaration.country,
         province_code: province,
         parent_id: parentId,
         default_tax_rate: { name: regime.name, code: regime.code, rate: regime.rate },
@@ -211,40 +221,44 @@ const findStockLocation = async (container: MedusaContainer, filters: Record<str
 const requireStockLocation = async (
   container: MedusaContainer,
   filters: Record<string, string>,
+  declaration: TerritoryDeclaration,
 ) => {
   const location = await findStockLocation(container, filters);
 
   if (!location) {
     throw new Error(
-      `The seed created the stock location ${SPAIN_DECLARATION.stockLocationName}, but it cannot find it again.`,
+      `The seed created the stock location ${declaration.stockLocationName}, but it cannot find it again.`,
     );
   }
 
   return location;
 };
 
-const provinceGeoZone = (province: string) => ({
+const provinceGeoZone = (country: string, province: string) => ({
   type: "province" as const,
-  country_code: SPAIN_DECLARATION.country,
+  country_code: country,
   province_code: province,
 });
 
 async function ensureStockLocation(
   container: MedusaContainer,
   salesChannelId: string,
+  declaration: TerritoryDeclaration,
 ): Promise<string> {
-  let location = await findStockLocation(container, { name: SPAIN_DECLARATION.stockLocationName });
+  let location = await findStockLocation(container, { name: declaration.stockLocationName });
 
   if (!location) {
     // The location has no address. An Operator enters the address of the shop.
     // Shipping resolves from the Service Zones and not from this location.
     await createStockLocationsWorkflow(container).run({
-      input: { locations: [{ name: SPAIN_DECLARATION.stockLocationName }] },
+      input: { locations: [{ name: declaration.stockLocationName }] },
     });
 
-    location = await requireStockLocation(container, {
-      name: SPAIN_DECLARATION.stockLocationName,
-    });
+    location = await requireStockLocation(
+      container,
+      { name: declaration.stockLocationName },
+      declaration,
+    );
   }
 
   if (!location.sales_channels?.some((channel) => channel?.id === salesChannelId)) {
@@ -259,8 +273,9 @@ async function ensureStockLocation(
 async function ensureServiceZones(
   container: MedusaContainer,
   stockLocationId: string,
+  declaration: TerritoryDeclaration,
 ): Promise<void> {
-  let location = await requireStockLocation(container, { id: stockLocationId });
+  let location = await requireStockLocation(container, { id: stockLocationId }, declaration);
 
   const setNamed = (candidate: { name?: string | null } | null) =>
     candidate?.name === FULFILLMENT_SET_NAME;
@@ -278,7 +293,7 @@ async function ensureServiceZones(
       },
     });
 
-    location = await requireStockLocation(container, { id: stockLocationId });
+    location = await requireStockLocation(container, { id: stockLocationId }, declaration);
     fulfillmentSet = location.fulfillment_sets?.find(setNamed);
   }
 
@@ -291,7 +306,7 @@ async function ensureServiceZones(
   const fulfillmentSetId = fulfillmentSet.id;
   const existingZones = (fulfillmentSet.service_zones ?? []).filter((zone) => !!zone);
 
-  const newZones = SPAIN_DECLARATION.serviceZones.filter(
+  const newZones = declaration.serviceZones.filter(
     (zone) => !existingZones.some((existing) => existing.name === zone.name),
   );
 
@@ -312,7 +327,7 @@ async function ensureServiceZones(
       data: newZones.map((zone) => ({
         name: zone.name,
         fulfillment_set_id: fulfillmentSetId,
-        geo_zones: zone.provinces.map(provinceGeoZone),
+        geo_zones: zone.provinces.map((province) => provinceGeoZone(declaration.country, province)),
       })),
     },
   });
@@ -321,6 +336,7 @@ async function ensureServiceZones(
 async function ensureStoreDefaults(
   container: MedusaContainer,
   defaults: { salesChannelId: string; regionId: string },
+  declaration: TerritoryDeclaration,
 ): Promise<void> {
   const query = queryOf(container);
 
@@ -348,7 +364,7 @@ async function ensureStoreDefaults(
       input: {
         stores: [
           {
-            supported_currencies: [{ currency_code: SPAIN_DECLARATION.currency, is_default: true }],
+            supported_currencies: [{ currency_code: declaration.currency, is_default: true }],
             default_sales_channel_id: defaults.salesChannelId,
             default_region_id: defaults.regionId,
           },
@@ -364,13 +380,13 @@ async function ensureStoreDefaults(
   );
   const update: UpdateStoreDTO = {};
 
-  // An Operator can price a Variant in EUR only when EUR is a supported
-  // currency. The seed appends and does not assign. A currency that somebody
-  // added in the admin stays.
-  if (!currencies.includes(SPAIN_DECLARATION.currency)) {
+  // An Operator can price a Variant in the declared currency only when the
+  // Store supports it. The seed appends and does not assign. A currency that
+  // somebody added in the admin stays.
+  if (!currencies.includes(declaration.currency)) {
     update.supported_currencies = [
       ...currencies.map((currency_code) => ({ currency_code })),
-      { currency_code: SPAIN_DECLARATION.currency, is_default: !currencies.length },
+      { currency_code: declaration.currency, is_default: !currencies.length },
     ];
   }
 

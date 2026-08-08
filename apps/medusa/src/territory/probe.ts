@@ -6,7 +6,6 @@ import {
   createShippingProfilesWorkflow,
   linkSalesChannelsToApiKeyWorkflow,
 } from "@medusajs/medusa/core-flows";
-import { CURRENCY } from "./spain";
 
 /** The identifiers that a caller needs to read a price back. */
 export type SeededProbe = {
@@ -39,17 +38,18 @@ const SEEDED_BY = "seed";
  * it is in the Sales Channel, so a Shopper sees it and can buy it. It exists to
  * prove the territory model, and a real catalogue replaces it.
  *
- * This is why it is not part of `seedSpanishTerritory`. That seed carries the
+ * This is why it is not part of `seedTerritory`. That seed carries the
  * tax model, which is policy and safe anywhere. This one carries a fixture.
  */
 export async function seedTerritoryProbe(
   container: MedusaContainer,
-  territory: { salesChannelId: string },
+  territory: { salesChannelId: string; currency: string },
 ): Promise<SeededProbe> {
   const shippingProfileId = await ensureShippingProfile(container);
   const productId = await ensureProbeProduct(container, {
     salesChannelId: territory.salesChannelId,
     shippingProfileId,
+    currency: territory.currency,
   });
   const publishableKey = await ensurePublishableKey(container, territory.salesChannelId);
 
@@ -82,7 +82,7 @@ async function ensureShippingProfile(container: MedusaContainer): Promise<string
 
 async function ensureProbeProduct(
   container: MedusaContainer,
-  links: { salesChannelId: string; shippingProfileId: string },
+  productInputs: { salesChannelId: string; shippingProfileId: string; currency: string },
 ): Promise<string> {
   const query = queryOf(container);
 
@@ -108,8 +108,8 @@ async function ensureProbeProduct(
           // Published on purpose: an unpublished Product returns no price from
           // the Store API, and the price is the whole point of this Product.
           status: ProductStatus.PUBLISHED,
-          shipping_profile_id: links.shippingProfileId,
-          sales_channels: [{ id: links.salesChannelId }],
+          shipping_profile_id: productInputs.shippingProfileId,
+          sales_channels: [{ id: productInputs.salesChannelId }],
           options: [{ title: PROBE_OPTION.title, values: [PROBE_OPTION.value] }],
           variants: [
             {
@@ -121,7 +121,7 @@ async function ensureProbeProduct(
               options: { [PROBE_OPTION.title]: PROBE_OPTION.value },
               // Stored without tax. There is one price, and the Province
               // decides the tax that a Shopper sees on top of it.
-              prices: [{ amount: PROBE_PRICE, currency_code: CURRENCY }],
+              prices: [{ amount: PROBE_PRICE, currency_code: productInputs.currency }],
             },
           ],
         },

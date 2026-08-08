@@ -1,8 +1,8 @@
 import { medusaIntegrationTestRunner } from "@medusajs/test-utils";
 import nock from "nock";
 import { seedTerritoryProbe, type SeededProbe } from "../../src/territory/probe";
-import { seedSpanishTerritory, type SeededTerritory } from "../../src/territory/seed";
-import { CURRENCY, SPAIN } from "../../src/territory/spain";
+import { seedTerritory, type SeededTerritory } from "../../src/territory/seed";
+import { CURRENCY, SPAIN, SPAIN_DECLARATION } from "../../src/territory/spain";
 
 jest.setTimeout(120 * 1000);
 
@@ -27,7 +27,7 @@ medusaIntegrationTestRunner({
 
     beforeAll(async () => {
       stripeEmulator = await startStripeEmulator();
-      seeded = await seedSpanishTerritory(getContainer());
+      seeded = await seedTerritory(getContainer(), SPAIN_DECLARATION);
       probe = await seedTerritoryProbe(getContainer(), seeded);
     });
 

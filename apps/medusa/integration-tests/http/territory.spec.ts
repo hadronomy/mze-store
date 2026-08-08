@@ -10,8 +10,9 @@ import {
   PENINSULAR_PROVINCES,
   PENINSULAR_VAT,
   SPAIN,
+  SPAIN_DECLARATION,
 } from "../../src/territory/spain";
-import { seedSpanishTerritory, type SeededTerritory } from "../../src/territory/seed";
+import { seedTerritory, type SeededTerritory } from "../../src/territory/seed";
 import {
   PROBE_OPTION,
   PROBE_PRICE,
@@ -54,7 +55,7 @@ medusaIntegrationTestRunner({
     // The probe is a fixture and the territory is policy, which is why they are
     // two calls. Only this suite and a development database get the probe.
     beforeAll(async () => {
-      seeded = await seedSpanishTerritory(getContainer());
+      seeded = await seedTerritory(getContainer(), SPAIN_DECLARATION);
       probe = await seedTerritoryProbe(getContainer(), seeded);
     });
 
@@ -253,7 +254,7 @@ medusaIntegrationTestRunner({
           });
 
           const before = await count();
-          const again = await seedSpanishTerritory(getContainer());
+          const again = await seedTerritory(getContainer(), SPAIN_DECLARATION);
           const probeAgain = await seedTerritoryProbe(getContainer(), again);
 
           expect(await count()).toEqual(before);
@@ -292,7 +293,7 @@ medusaIntegrationTestRunner({
             },
           });
 
-          await seedSpanishTerritory(getContainer());
+          await seedTerritory(getContainer(), SPAIN_DECLARATION);
 
           expect(await zoneWith(CANARIAN_PROVINCE)).toBeUndefined();
         });
