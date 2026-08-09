@@ -1,6 +1,6 @@
 # The Medusa backend is a tsc island in a Vite+ workspace
 
-Everything in this repo builds with Vite+ and rolldown except the Medusa backend, which builds with the TypeScript compiler and emits CommonJS. This is a constraint imposed by Medusa, not a preference, and it is recorded because a reader who sees a rolldown monorepo with one hand-rolled exception will reasonably assume it's an oversight.
+Both application frontends build with Vite+ and rolldown. The Medusa backend builds with the TypeScript compiler and emits CommonJS. This is a constraint imposed by Medusa, not a preference, and it is recorded because a reader who sees a rolldown monorepo with one hand-rolled exception will reasonably assume it's an oversight.
 
 ## What the backend actually does
 
@@ -22,5 +22,6 @@ Changing any of this means replacing Medusa's CLI, loader, and plugin resolution
 
 - **Any shared package the backend imports must emit CJS.** This is a `vp pack` output-format requirement, and it is the real reason ADR-0011 keeps template markup out of shared packages.
 - The two apps cannot share a tsconfig. `packages/config` carries only the strictness flags both agree on.
+- TypeScript does not rewrite `~/*` paths in emitted JavaScript. The Medusa build runs `tsc-alias` after `medusa build` for that reason. The admin Vite config and the Jest mapper resolve the same alias in their separate runtimes.
 - Treat the boundary as stable rather than temporary. Medusa would have to drop ts-node for `tsx` or `jiti` and rewrite that loader to `await import()` before ESM is possible; neither is signalled in the 2.19 preview.
 - Re-test on major Medusa upgrades. The experiment is cheap — flip `type`, `module`, and the config export, then run `medusa build`.

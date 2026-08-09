@@ -68,9 +68,9 @@ jobs:
         run: vp lint
 
       # Auth uses Vite+'s Vitest runner. Medusa keeps Jest because its test
-      # utilities require Jest.
+      # utilities require Jest. The root script also tests the lint plugin.
       - name: Run declared tests
-        run: vp run -r test
+        run: bun run test
 
   docker:
     name: Docker smoke test
@@ -80,10 +80,10 @@ jobs:
       - name: Check out the repository
         uses: actions/checkout@v7
 
-      - name: Build and start Medusa
-        run: docker compose up --detach --build --wait --wait-timeout 180 medusa
+      - name: Build and start the applications
+        run: docker compose up --detach --build --wait --wait-timeout 180 medusa storefront
 
-      - name: Check /health and /app
+      - name: Check the applications
         shell: bash
         run: |
           assert_http_200() {
@@ -99,6 +99,7 @@ jobs:
 
           assert_http_200 http://localhost:9000/health
           assert_http_200 http://localhost:9000/app
+          assert_http_200 http://localhost:3001/
 
       - name: Show Compose logs
         if: failure()

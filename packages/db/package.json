@@ -3,18 +3,25 @@
   "type": "module",
   "exports": {
     ".": {
+      "types": "./dist/src/index.d.ts",
+      "development": "./src/index.ts",
+      "node": "./dist/src/index.js",
       "default": "./src/index.ts"
     },
     "./*": {
+      "types": "./dist/src/*.d.ts",
+      "development": "./src/*.ts",
+      "node": "./dist/src/*.js",
       "default": "./src/*.ts"
     }
   },
   "scripts": {
+    "build": "tsc -b && tsc-alias -p tsconfig.json",
     "db:push": "drizzle-kit push",
     "db:generate": "drizzle-kit generate",
     "db:studio": "drizzle-kit studio",
     "db:migrate": "drizzle-kit migrate",
-    "check-types": "tsc -b"
+    "check-types": "tsc --noEmit"
   },
   "dependencies": {
     "dotenv": "catalog:",

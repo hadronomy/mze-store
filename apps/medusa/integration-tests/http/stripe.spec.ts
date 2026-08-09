@@ -1,8 +1,8 @@
 import { medusaIntegrationTestRunner } from "@medusajs/test-utils";
 import nock from "nock";
-import { seedTerritoryProbe, type SeededProbe } from "../../src/territory/probe";
-import { seedTerritory, type SeededTerritory } from "../../src/territory/seed";
-import { CURRENCY, SPAIN, SPAIN_DECLARATION } from "../../src/territory/spain";
+import { seedTerritoryProbe, type SeededProbe } from "~/territory/probe";
+import { seedTerritory, type SeededTerritory } from "~/territory/seed";
+import { CURRENCY, SPAIN, SPAIN_DECLARATION } from "~/territory/spain";
 
 jest.setTimeout(120 * 1000);
 

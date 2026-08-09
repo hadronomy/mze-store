@@ -2,7 +2,7 @@
   "name": "medusa",
   "private": true,
   "scripts": {
-    "build": "SKIP_ENV_VALIDATION=1 medusa build",
+    "build": "SKIP_ENV_VALIDATION=1 medusa build && tsc-alias -p tsconfig.json",
     "check-types": "SKIP_ENV_VALIDATION=1 medusa build",
     "db:migrate": "vp run @mze-store/env#build && medusa db:migrate",
     "db:rollback": "vp run @mze-store/env#build && medusa db:rollback",

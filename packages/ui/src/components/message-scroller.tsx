@@ -1,7 +1,7 @@
 "use client";
 
-import { Button } from "@mze-store/ui/components/button";
-import { cn } from "@mze-store/ui/lib/utils";
+import { Button } from "./button";
+import { cn } from "~/lib/utils";
 import {
   MessageScroller as MessageScrollerPrimitive,
   useMessageScroller,

@@ -1,8 +1,8 @@
 import type { MedusaContainer } from "@medusajs/framework/types";
 import { ContainerRegistrationKeys } from "@medusajs/framework/utils";
 import { medusaIntegrationTestRunner } from "@medusajs/test-utils";
-import type { TerritoryDeclaration } from "../src/territory/declaration";
-import { seedTerritory } from "../src/territory/seed";
+import type { TerritoryDeclaration } from "~/territory/declaration";
+import { seedTerritory } from "~/territory/seed";
 
 jest.setTimeout(120 * 1000);
 

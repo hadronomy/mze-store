@@ -1,7 +1,8 @@
 import { defineConfig, loadEnv } from "@medusajs/framework/utils";
 import { z } from "@medusajs/framework/zod";
 import { parse } from "@mze-store/env/medusa";
-import { STRIPE_MODULE_ID } from "./src/payment/stripe";
+import { resolve } from "node:path";
+import { STRIPE_MODULE_ID } from "~/payment/stripe";
 
 loadEnv(process.env.NODE_ENV || "development", process.cwd());
 
@@ -14,6 +15,23 @@ const stripeEnv = z
   .parse(process.env);
 
 module.exports = defineConfig({
+  admin: {
+    vite: (config) => ({
+      ...config,
+      resolve: {
+        ...config.resolve,
+        alias: [
+          { find: "~", replacement: resolve(process.cwd(), "src/admin") },
+          ...(Array.isArray(config.resolve?.alias)
+            ? config.resolve.alias
+            : Object.entries(config.resolve?.alias ?? {}).map(([find, replacement]) => ({
+                find,
+                replacement,
+              }))),
+        ],
+      },
+    }),
+  },
   projectConfig: {
     databaseUrl: env.DATABASE_URL,
     redisUrl,

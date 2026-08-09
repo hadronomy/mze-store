@@ -5,12 +5,28 @@
   "type": "module",
   "exports": {
     "./globals.css": "./src/styles/globals.css",
-    "./lib/*": "./src/lib/*.ts",
-    "./components/*": "./src/components/*.tsx",
-    "./hooks/*": "./src/hooks/*.ts",
+    "./lib/*": {
+      "types": "./dist/src/lib/*.d.ts",
+      "development": "./src/lib/*.ts",
+      "node": "./dist/src/lib/*.js",
+      "default": "./src/lib/*.ts"
+    },
+    "./components/*": {
+      "types": "./dist/src/components/*.d.ts",
+      "development": "./src/components/*.tsx",
+      "node": "./dist/src/components/*.js",
+      "default": "./src/components/*.tsx"
+    },
+    "./hooks/*": {
+      "types": "./dist/src/hooks/*.d.ts",
+      "development": "./src/hooks/*.ts",
+      "node": "./dist/src/hooks/*.js",
+      "default": "./src/hooks/*.ts"
+    },
     "./postcss.config": "./postcss.config.mjs"
   },
   "scripts": {
+    "build": "tsc -b && tsc-alias -p tsconfig.json",
     "check-types": "tsc --noEmit"
   },
   "dependencies": {

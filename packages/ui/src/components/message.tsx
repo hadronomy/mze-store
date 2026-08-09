@@ -1,4 +1,4 @@
-import { cn } from "@mze-store/ui/lib/utils";
+import { cn } from "~/lib/utils";
 import * as React from "react";
 
 function MessageGroup({ className, ...props }: React.ComponentProps<"div">) {

@@ -14,11 +14,27 @@ const ignorePatterns = [
 ];
 
 export default defineConfig({
+  resolve: {
+    tsconfigPaths: true,
+  },
   lint: {
+    plugins: ["typescript", "unicorn", "oxc"],
+    categories: {
+      correctness: "error",
+    },
+    env: {
+      builtin: true,
+    },
     ignorePatterns,
+    jsPlugins: ["./tooling/oxlint/index.ts"],
     options: {
+      reportUnusedDisableDirectives: "error",
       typeAware: false,
       typeCheck: false,
+    },
+    rules: {
+      "hadronomy/prefer-tilde-imports": "error",
+      "unicorn/no-abusive-eslint-disable": "error",
     },
   },
   fmt: {

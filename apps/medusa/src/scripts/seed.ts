@@ -1,7 +1,7 @@
 import type { ExecArgs } from "@medusajs/framework/types";
 import { ContainerRegistrationKeys } from "@medusajs/framework/utils";
-import { seedTerritory } from "../territory/seed";
-import { SPAIN_DECLARATION } from "../territory/spain";
+import { seedTerritory } from "~/territory/seed";
+import { SPAIN_DECLARATION } from "~/territory/spain";
 
 /**
  * Creates the territory model, and nothing that a Shopper sees. This is safe

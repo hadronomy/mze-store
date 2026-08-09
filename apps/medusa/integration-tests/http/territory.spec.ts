@@ -11,14 +11,9 @@ import {
   PENINSULAR_VAT,
   SPAIN,
   SPAIN_DECLARATION,
-} from "../../src/territory/spain";
-import { seedTerritory, type SeededTerritory } from "../../src/territory/seed";
-import {
-  PROBE_OPTION,
-  PROBE_PRICE,
-  seedTerritoryProbe,
-  type SeededProbe,
-} from "../../src/territory/probe";
+} from "~/territory/spain";
+import { seedTerritory, type SeededTerritory } from "~/territory/seed";
+import { PROBE_OPTION, PROBE_PRICE, seedTerritoryProbe, type SeededProbe } from "~/territory/probe";
 import { signInAsOperator } from "../utils/operator";
 
 jest.setTimeout(120 * 1000);

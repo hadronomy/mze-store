@@ -1,9 +1,9 @@
 "use client";
 
-import { Button } from "@mze-store/ui/components/button";
-import { Input } from "@mze-store/ui/components/input";
-import { Textarea } from "@mze-store/ui/components/textarea";
-import { cn } from "@mze-store/ui/lib/utils";
+import { Button } from "./button";
+import { Input } from "./input";
+import { Textarea } from "./textarea";
+import { cn } from "~/lib/utils";
 import { cva, type VariantProps } from "class-variance-authority";
 import * as React from "react";
 
