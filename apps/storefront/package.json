@@ -6,7 +6,8 @@
     "build": "vp build",
     "check-types": "tsc --noEmit",
     "serve": "vp preview",
-    "dev": "vp dev"
+    "dev": "vp run @mze-store/env#build && vp run dev:raw",
+    "dev:raw": "vp dev"
   },
   "dependencies": {
     "@mze-store/auth": "workspace:*",

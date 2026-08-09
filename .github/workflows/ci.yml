@@ -62,7 +62,7 @@ jobs:
         run: echo "$GITHUB_WORKSPACE/node_modules/.bin" >> "$GITHUB_PATH"
 
       - name: Check types
-        run: vp run -r check-types
+        run: bun run check-types
 
       - name: Lint
         run: vp lint

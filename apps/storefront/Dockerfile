@@ -9,7 +9,7 @@ COPY . .
 RUN --mount=type=cache,target=/root/.bun/install/cache bun install
 
 ENV NODE_ENV=production
-RUN cd apps/storefront && bun run build
+RUN ./node_modules/.bin/vp run -t storefront#build
 ENV SKIP_ENV_VALIDATION=
 
 ENV HOST=0.0.0.0

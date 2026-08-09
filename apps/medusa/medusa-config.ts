@@ -4,6 +4,7 @@ import { STRIPE_MODULE_ID } from "./src/payment/stripe";
 
 loadEnv(process.env.NODE_ENV || "development", process.cwd());
 
+const { env } = require("@mze-store/env/server") as typeof import("@mze-store/env/server");
 const redisUrl = process.env.REDIS_URL;
 const stripeEnv = z
   .object({
@@ -13,7 +14,7 @@ const stripeEnv = z
 
 module.exports = defineConfig({
   projectConfig: {
-    databaseUrl: process.env.DATABASE_URL,
+    databaseUrl: env.DATABASE_URL,
     redisUrl,
     http: {
       storeCors: process.env.STORE_CORS!,
