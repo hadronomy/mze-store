@@ -1,3 +1,5 @@
+import type { ProvinceTaxRegime, TaxRegime, TerritoryDeclaration } from "./declaration";
+
 /**
  * The Spanish territory model: one Region, two tax regimes, two Service Zones.
  *
@@ -19,8 +21,6 @@ export const SPAIN = "es";
 export const CURRENCY = "eur";
 
 /**
- * A tax regime: the rate to charge, and the name an Operator sees in the admin.
- *
  * These rates start a new database. They are not the policy. The Tax Region
  * row is authoritative, an Operator edits it in the admin, and nothing here is
  * read at run time. A rate changes by law on a date that a release cannot
@@ -31,30 +31,6 @@ export const CURRENCY = "eur";
  * therefore a wrong price for the Shopper. You cannot correct it in the
  * accounts later.
  */
-export type TaxRegime = {
-  name: string;
-  code: string;
-  /** Percent, the way Medusa stores a tax rate. */
-  rate: number;
-};
-
-/** A regime that applies to named Provinces rather than to the whole country. */
-export type ProvinceTaxRegime = TaxRegime & {
-  provinces: Record<string, string>;
-};
-
-export type TerritoryDeclaration = {
-  /** ISO 3166-1 alpha-2, lower case. */
-  country: string;
-  currency: string;
-  regionName: string;
-  stockLocationName: string;
-  /** Applies at country level. */
-  defaultRegime: TaxRegime;
-  /** One Tax Region per named Province. */
-  provinceRegimes: ProvinceTaxRegime[];
-  serviceZones: { name: string; provinces: string[] }[];
-};
 
 /** The rate for every Spanish Province that no Province regime names. */
 export const PENINSULAR_VAT: TaxRegime = {

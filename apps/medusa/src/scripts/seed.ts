@@ -1,6 +1,7 @@
 import type { ExecArgs } from "@medusajs/framework/types";
 import { ContainerRegistrationKeys } from "@medusajs/framework/utils";
-import { seedSpanishTerritory } from "../territory/seed";
+import { seedTerritory } from "../territory/seed";
+import { SPAIN_DECLARATION } from "../territory/spain";
 
 /**
  * Creates the territory model, and nothing that a Shopper sees. This is safe
@@ -11,7 +12,7 @@ export default async function seed({ container }: ExecArgs) {
 
   logger.info("Seeding the Spanish territory model...");
 
-  const seeded = await seedSpanishTerritory(container);
+  const seeded = await seedTerritory(container, SPAIN_DECLARATION);
 
   logger.info(`Region: ${seeded.regionId}`);
   logger.info("Done. The admin owns the rates from here. See src/territory/spain.ts.");

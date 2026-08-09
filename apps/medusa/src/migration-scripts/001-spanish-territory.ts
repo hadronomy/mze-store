@@ -1,6 +1,7 @@
 import type { MedusaContainer } from "@medusajs/framework/types";
 import { ContainerRegistrationKeys } from "@medusajs/framework/utils";
-import { seedSpanishTerritory } from "../territory/seed";
+import { seedTerritory } from "../territory/seed";
+import { SPAIN_DECLARATION } from "../territory/spain";
 
 /**
  * Puts the Spanish territory model in the database on the deploy that first
@@ -26,7 +27,7 @@ export default async function createSpanishTerritory({
 }) {
   const logger = container.resolve(ContainerRegistrationKeys.LOGGER);
 
-  const seeded = await seedSpanishTerritory(container);
+  const seeded = await seedTerritory(container, SPAIN_DECLARATION);
 
   logger.info(`Spanish territory model ready. Region: ${seeded.regionId}`);
 }

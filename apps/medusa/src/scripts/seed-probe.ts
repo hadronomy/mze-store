@@ -1,7 +1,8 @@
 import type { ExecArgs } from "@medusajs/framework/types";
 import { ContainerRegistrationKeys } from "@medusajs/framework/utils";
 import { seedTerritoryProbe } from "../territory/probe";
-import { seedSpanishTerritory } from "../territory/seed";
+import { seedTerritory } from "../territory/seed";
+import { SPAIN_DECLARATION } from "../territory/spain";
 
 /**
  * CAUTION: Do not run this against a live store. It publishes a Product that a
@@ -11,7 +12,7 @@ import { seedSpanishTerritory } from "../territory/seed";
 export default async function seedProbe({ container }: ExecArgs) {
   const logger = container.resolve(ContainerRegistrationKeys.LOGGER);
 
-  const territory = await seedSpanishTerritory(container);
+  const territory = await seedTerritory(container, SPAIN_DECLARATION);
   const probe = await seedTerritoryProbe(container, territory);
 
   logger.info(`Probe Product: ${probe.productId}`);
