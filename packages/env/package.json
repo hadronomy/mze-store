@@ -4,11 +4,25 @@
   "private": true,
   "type": "module",
   "exports": {
-    "./server": "./src/server.ts",
-    "./client": "./src/client.ts"
+    "./server": {
+      "import": {
+        "types": "./dist/server.d.mts",
+        "default": "./dist/server.mjs"
+      },
+      "require": {
+        "types": "./dist/server.d.cts",
+        "default": "./dist/server.cjs"
+      }
+    },
+    "./client": {
+      "types": "./dist/client.d.mts",
+      "import": "./dist/client.mjs"
+    }
   },
   "scripts": {
-    "check-types": "tsc --noEmit"
+    "build": "vp pack src/server.ts src/client.ts --dts --format esm && vp pack src/server.ts --dts --format cjs --no-clean --deps.alwaysBundle @t3-oss/env-core",
+    "check-types": "tsc --noEmit",
+    "test": "vp run build && vp test --dir test"
   },
   "dependencies": {
     "@t3-oss/env-core": "^0.13.11",

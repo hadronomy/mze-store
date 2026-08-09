@@ -2,16 +2,17 @@
   "name": "medusa",
   "private": true,
   "scripts": {
-    "build": "medusa build",
-    "check-types": "medusa build",
-    "db:migrate": "medusa db:migrate",
-    "db:rollback": "medusa db:rollback",
-    "dev": "medusa develop",
-    "seed": "medusa exec ./src/scripts/seed.ts",
-    "seed:probe": "medusa exec ./src/scripts/seed-probe.ts",
+    "build": "SKIP_ENV_VALIDATION=1 medusa build",
+    "check-types": "SKIP_ENV_VALIDATION=1 medusa build",
+    "db:migrate": "vp run @mze-store/env#build && medusa db:migrate",
+    "db:rollback": "vp run @mze-store/env#build && medusa db:rollback",
+    "dev": "vp run @mze-store/env#build && vp run dev:raw",
+    "dev:raw": "medusa develop",
+    "seed": "vp run @mze-store/env#build && medusa exec ./src/scripts/seed.ts",
+    "seed:probe": "vp run @mze-store/env#build && medusa exec ./src/scripts/seed-probe.ts",
     "start": "medusa start",
-    "test": "NODE_OPTIONS=--experimental-vm-modules jest --runInBand --forceExit",
-    "user:create": "medusa user"
+    "test": "vp run @mze-store/env#build && NODE_OPTIONS=--experimental-vm-modules jest --runInBand --forceExit",
+    "user:create": "vp run @mze-store/env#build && medusa user"
   },
   "dependencies": {
     "@medusajs/admin-sdk": "catalog:",
@@ -20,7 +21,8 @@
     "@medusajs/dashboard": "catalog:",
     "@medusajs/draft-order": "catalog:",
     "@medusajs/framework": "catalog:",
-    "@medusajs/medusa": "catalog:"
+    "@medusajs/medusa": "catalog:",
+    "@mze-store/env": "workspace:*"
   },
   "devDependencies": {
     "@medusajs/test-utils": "catalog:",

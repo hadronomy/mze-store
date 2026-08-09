@@ -13,6 +13,9 @@ x-medusa-env: &medusa-env
   # not a refusal: `medusa db:migrate` hangs, then blames the URL.
   DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD:-password}@postgres:5432/mze-store?sslmode=disable
   REDIS_URL: redis://redis:6379
+  BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:-local-development-auth-secret-32-characters}
+  BETTER_AUTH_URL: ${BETTER_AUTH_URL:-http://localhost:3001}
+  CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3001}
   # The defaults suit the local stack. A storefront on another origin must
   # export these, or Medusa rejects its requests, sign-in included.
   STORE_CORS: ${STORE_CORS:-http://localhost:3001}

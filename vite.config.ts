@@ -14,18 +14,6 @@ const ignorePatterns = [
 ];
 
 export default defineConfig({
-  tasks: {
-    // A package must not build against stale declarations from a workspace
-    // dependency. No package emits a build yet, so this only starts doing work
-    // once `vp pack` lands for the shared packages — declared now so ordering
-    // is never the thing that has to be discovered later.
-    build: {
-      dependsOn: [{ task: "build", from: "dependencies" }],
-    },
-    "check-types": {
-      dependsOn: [{ task: "build", from: "dependencies" }],
-    },
-  },
   lint: {
     ignorePatterns,
     options: {

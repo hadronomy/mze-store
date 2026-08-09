@@ -29,6 +29,7 @@
         "@medusajs/draft-order": "catalog:",
         "@medusajs/framework": "catalog:",
         "@medusajs/medusa": "catalog:",
+        "@mze-store/env": "workspace:*",
       },
       "devDependencies": {
         "@medusajs/test-utils": "catalog:",

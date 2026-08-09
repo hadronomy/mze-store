@@ -6,11 +6,11 @@ COPY . .
 RUN --mount=type=cache,target=/root/.bun/install/cache bun install --frozen-lockfile
 
 # `medusa build` emits file-per-file CJS into .medusa/server and bundles the
-# admin beside it. See docs/adr/0012 for why nothing here is bundled.
+# admin beside it. See docs/adr/0012 for why the backend remains unbundled.
 ENV NODE_ENV=production
 # The build loads medusa-config.ts but does not start a payment provider. The
 # runtime receives the real key from Compose or the deployment environment.
-RUN cd apps/medusa && STRIPE_API_KEY=sk_test_build_time_placeholder bun run build
+RUN STRIPE_API_KEY=sk_test_build_time_placeholder ./node_modules/.bin/vp run -t medusa#build
 
 ENV HOST=0.0.0.0
 ENV PORT=9000
