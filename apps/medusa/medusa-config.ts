@@ -1,10 +1,11 @@
 import { defineConfig, loadEnv } from "@medusajs/framework/utils";
 import { z } from "@medusajs/framework/zod";
+import { parse } from "@mze-store/env/medusa";
 import { STRIPE_MODULE_ID } from "./src/payment/stripe";
 
 loadEnv(process.env.NODE_ENV || "development", process.cwd());
 
-const { env } = require("@mze-store/env/server") as typeof import("@mze-store/env/server");
+const env = parse(process.env);
 const redisUrl = process.env.REDIS_URL;
 const stripeEnv = z
   .object({
@@ -17,9 +18,9 @@ module.exports = defineConfig({
     databaseUrl: env.DATABASE_URL,
     redisUrl,
     http: {
-      storeCors: process.env.STORE_CORS!,
-      adminCors: process.env.ADMIN_CORS!,
-      authCors: process.env.AUTH_CORS!,
+      storeCors: env.STORE_CORS,
+      adminCors: env.ADMIN_CORS,
+      authCors: env.AUTH_CORS,
       jwtSecret: process.env.JWT_SECRET,
       cookieSecret: process.env.COOKIE_SECRET,
     },
