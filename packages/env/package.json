@@ -14,13 +14,23 @@
         "default": "./dist/server.cjs"
       }
     },
+    "./medusa": {
+      "import": {
+        "types": "./dist/medusa.d.mts",
+        "default": "./dist/medusa.mjs"
+      },
+      "require": {
+        "types": "./dist/medusa.d.cts",
+        "default": "./dist/medusa.cjs"
+      }
+    },
     "./client": {
       "types": "./dist/client.d.mts",
       "import": "./dist/client.mjs"
     }
   },
   "scripts": {
-    "build": "vp pack src/server.ts src/client.ts --dts --format esm && vp pack src/server.ts --dts --format cjs --no-clean --deps.alwaysBundle @t3-oss/env-core",
+    "build": "vp pack",
     "check-types": "tsc --noEmit",
     "test": "vp run build && vp test --dir test"
   },

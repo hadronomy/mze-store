@@ -5,22 +5,36 @@ import { expect, test } from "vite-plus/test";
 const packageDirectory = fileURLToPath(new URL("../", import.meta.url));
 const environment = {
   ...process.env,
+  ADMIN_CORS: "http://localhost:9000",
+  AUTH_CORS: "http://localhost:3001,http://localhost:9000",
   BETTER_AUTH_SECRET: "test-secret-with-at-least-32-characters",
   BETTER_AUTH_URL: "http://localhost:3000",
   CORS_ORIGIN: "http://localhost:3000",
   DATABASE_URL: "postgresql://postgres:password@localhost:5432/mze-store",
   DOTENV_CONFIG_QUIET: "true",
   NODE_ENV: "test",
+  SKIP_ENV_VALIDATION: undefined,
+  STORE_CORS: "http://localhost:3001",
 };
+const commonJsServerSource = `
+  const modulePath = require.resolve("@mze-store/env/server");
+  const { env } = require(modulePath);
+  process.stdout.write(JSON.stringify({ modulePath, nodeEnv: env.NODE_ENV }));
+`;
 
-function runNode(moduleType: "module" | "commonjs", source: string) {
+function runNode(
+  moduleType: "module" | "commonjs",
+  source: string,
+  environmentVariables: NodeJS.ProcessEnv = environment,
+) {
   const output = execFileSync(process.execPath, [`--input-type=${moduleType}`, "--eval", source], {
     cwd: packageDirectory,
     encoding: "utf8",
-    env: environment,
+    env: environmentVariables,
+    stdio: ["ignore", "pipe", "pipe"],
   });
 
-  return JSON.parse(output) as { modulePath: string; nodeEnv: string };
+  return JSON.parse(output) as Record<string, string>;
 }
 
 test("the server entry loads as built ESM", () => {
@@ -40,17 +54,84 @@ test("the server entry loads as built ESM", () => {
 });
 
 test("the server entry loads as built CommonJS", () => {
-  const loadedEntry = runNode(
-    "commonjs",
-    `
-        const modulePath = require.resolve("@mze-store/env/server");
-        const { env } = require(modulePath);
-        process.stdout.write(JSON.stringify({ modulePath, nodeEnv: env.NODE_ENV }));
-      `,
-  );
+  const loadedEntry = runNode("commonjs", commonJsServerSource);
 
   expect(loadedEntry).toMatchObject({
     modulePath: expect.stringMatching(/\/dist\/server\.cjs$/),
     nodeEnv: "test",
   });
+});
+
+test("the server entry keeps the storefront environment contract", () => {
+  expect(
+    runNode("commonjs", commonJsServerSource, {
+      ...environment,
+      ADMIN_CORS: undefined,
+      AUTH_CORS: undefined,
+      STORE_CORS: undefined,
+    }),
+  ).toMatchObject({ nodeEnv: "test" });
+});
+
+test("the Medusa entry loads as built ESM without validation", () => {
+  expect(
+    runNode(
+      "module",
+      `
+        const modulePath = import.meta.resolve("@mze-store/env/medusa");
+        const { parse } = await import(modulePath);
+        process.stdout.write(JSON.stringify({ modulePath, exportType: typeof parse }));
+      `,
+      {
+        ...environment,
+        ADMIN_CORS: undefined,
+        AUTH_CORS: undefined,
+        DATABASE_URL: undefined,
+        STORE_CORS: undefined,
+      },
+    ),
+  ).toMatchObject({
+    modulePath: expect.stringMatching(/\/dist\/medusa\.mjs$/),
+    exportType: "function",
+  });
+});
+
+test("the Medusa entry loads as built CommonJS without validation", () => {
+  expect(
+    runNode(
+      "commonjs",
+      `
+        const modulePath = require.resolve("@mze-store/env/medusa");
+        const { parse } = require(modulePath);
+        process.stdout.write(JSON.stringify({ modulePath, exportType: typeof parse }));
+      `,
+      {
+        ...environment,
+        ADMIN_CORS: undefined,
+        AUTH_CORS: undefined,
+        DATABASE_URL: undefined,
+        STORE_CORS: undefined,
+      },
+    ),
+  ).toMatchObject({
+    modulePath: expect.stringMatching(/\/dist\/medusa\.cjs$/),
+    exportType: "function",
+  });
+});
+
+test("the Medusa parser names a missing STORE_CORS variable", () => {
+  expect(() =>
+    runNode(
+      "commonjs",
+      `
+        const { parse } = require("@mze-store/env/medusa");
+        parse(process.env);
+        process.stdout.write("{}");
+      `,
+      {
+        ...environment,
+        STORE_CORS: undefined,
+      },
+    ),
+  ).toThrow(/STORE_CORS/);
 });
