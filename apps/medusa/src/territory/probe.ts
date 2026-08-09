@@ -1,11 +1,16 @@
 import type { MedusaContainer } from "@medusajs/framework/types";
-import { ContainerRegistrationKeys, ProductStatus } from "@medusajs/framework/utils";
+import { ProductStatus } from "@medusajs/framework/utils";
 import {
   createApiKeysWorkflow,
   createProductsWorkflow,
   createShippingProfilesWorkflow,
   linkSalesChannelsToApiKeyWorkflow,
 } from "@medusajs/medusa/core-flows";
+import {
+  findProductByHandle,
+  findPublishableKeyByTitle,
+  findShippingProfileByName,
+} from "./queries";
 
 /** The identifiers that a caller needs to read a price back. */
 export type SeededProbe = {
@@ -56,19 +61,11 @@ export async function seedTerritoryProbe(
   return { productId, publishableKey, shippingProfileId };
 }
 
-const queryOf = (container: MedusaContainer) => container.resolve(ContainerRegistrationKeys.QUERY);
-
 async function ensureShippingProfile(container: MedusaContainer): Promise<string> {
-  const query = queryOf(container);
+  const profile = await findShippingProfileByName(container, SHIPPING_PROFILE_NAME);
 
-  const { data: profiles } = await query.graph({
-    entity: "shipping_profile",
-    fields: ["id"],
-    filters: { name: SHIPPING_PROFILE_NAME },
-  });
-
-  if (profiles[0]) {
-    return profiles[0].id;
+  if (profile) {
+    return profile.id;
   }
 
   // Every Product needs one, and the probe is the only Product here. An
@@ -84,16 +81,10 @@ async function ensureProbeProduct(
   container: MedusaContainer,
   productInputs: { salesChannelId: string; shippingProfileId: string; currency: string },
 ): Promise<string> {
-  const query = queryOf(container);
+  const product = await findProductByHandle(container, PROBE_PRODUCT_HANDLE);
 
-  const { data: products } = await query.graph({
-    entity: "product",
-    fields: ["id"],
-    filters: { handle: PROBE_PRODUCT_HANDLE },
-  });
-
-  if (products[0]) {
-    return products[0].id;
+  if (product) {
+    return product.id;
   }
 
   const { result } = await createProductsWorkflow(container).run({
@@ -136,15 +127,7 @@ async function ensurePublishableKey(
   container: MedusaContainer,
   salesChannelId: string,
 ): Promise<string> {
-  const query = queryOf(container);
-
-  const { data: keys } = await query.graph({
-    entity: "api_key",
-    fields: ["id", "token", "sales_channels.id"],
-    filters: { title: PUBLISHABLE_KEY_TITLE, type: "publishable" },
-  });
-
-  const existing = keys[0];
+  const existing = await findPublishableKeyByTitle(container, PUBLISHABLE_KEY_TITLE);
 
   // Only the id, the token, and the linked channels matter here, so the two
   // branches agree on those three and not on a whole entity. The workflow
@@ -159,7 +142,11 @@ async function ensurePublishableKey(
         .run({
           input: {
             api_keys: [
-              { type: "publishable", title: PUBLISHABLE_KEY_TITLE, created_by: SEEDED_BY },
+              {
+                type: "publishable",
+                title: PUBLISHABLE_KEY_TITLE,
+                created_by: SEEDED_BY,
+              },
             ],
           },
         })

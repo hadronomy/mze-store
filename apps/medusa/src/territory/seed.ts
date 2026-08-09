@@ -1,5 +1,4 @@
 import type { MedusaContainer, UpdateStoreDTO } from "@medusajs/framework/types";
-import { ContainerRegistrationKeys } from "@medusajs/framework/utils";
 import {
   createLocationFulfillmentSetWorkflow,
   createRegionsWorkflow,
@@ -13,6 +12,14 @@ import {
 } from "@medusajs/medusa/core-flows";
 import { STRIPE_PAYMENT_PROVIDER_ID } from "../payment/stripe";
 import type { TerritoryDeclaration } from "./declaration";
+import {
+  findDeclaredStockLocation,
+  findRegionForDeclaration,
+  findSalesChannelByName,
+  findStockLocationById,
+  findStore,
+  findTaxRegionsForDeclaration,
+} from "./queries";
 
 /** The identifiers that a caller needs to use what the seed created. */
 export type SeededTerritory = {
@@ -66,31 +73,19 @@ export async function seedTerritory(
   return { regionId, salesChannelId, currency: declaration.currency };
 }
 
-const queryOf = (container: MedusaContainer) => container.resolve(ContainerRegistrationKeys.QUERY);
-
 async function ensureSalesChannel(container: MedusaContainer): Promise<string> {
-  const query = queryOf(container);
-
   // Medusa creates a Store and a default Sales Channel on first boot. The seed
   // uses that channel, because the Store ignores any second channel.
-  const { data: stores } = await query.graph({
-    entity: "store",
-    fields: ["default_sales_channel_id"],
-  });
-
-  const existing = stores[0]?.default_sales_channel_id;
+  const store = await findStore(container);
+  const existing = store?.default_sales_channel_id;
   if (existing) {
     return existing;
   }
 
-  const { data: channels } = await query.graph({
-    entity: "sales_channel",
-    fields: ["id"],
-    filters: { name: SALES_CHANNEL_NAME },
-  });
+  const channel = await findSalesChannelByName(container, SALES_CHANNEL_NAME);
 
-  if (channels[0]) {
-    return channels[0].id;
+  if (channel) {
+    return channel.id;
   }
 
   const { result } = await createSalesChannelsWorkflow(container).run({
@@ -104,18 +99,9 @@ async function ensureRegion(
   container: MedusaContainer,
   declaration: TerritoryDeclaration,
 ): Promise<string> {
-  const query = queryOf(container);
-
-  const { data: regions } = await query.graph({
-    entity: "region",
-    fields: ["id", "countries.iso_2"],
-  });
-
   // The lookup uses the country and not the name. A country belongs to exactly
   // one Region.
-  const existing = regions.find((region) =>
-    region.countries?.some((country) => country?.iso_2 === declaration.country),
-  );
+  const existing = await findRegionForDeclaration(container, declaration);
 
   if (existing) {
     return existing.id;
@@ -145,13 +131,7 @@ async function ensureTaxRegions(
   container: MedusaContainer,
   declaration: TerritoryDeclaration,
 ): Promise<void> {
-  const query = queryOf(container);
-
-  const { data: taxRegions } = await query.graph({
-    entity: "tax_region",
-    fields: ["id", "province_code"],
-    filters: { country_code: declaration.country },
-  });
+  const taxRegions = await findTaxRegionsForDeclaration(container, declaration);
 
   // The country-level Tax Region is not one entry among many. If no parent
   // region exists, Medusa returns no tax line for an address in the declared
@@ -181,7 +161,11 @@ async function ensureTaxRegions(
         country_code: declaration.country,
         province_code: province,
         parent_id: parentId,
-        default_tax_rate: { name: regime.name, code: regime.code, rate: regime.rate },
+        default_tax_rate: {
+          name: regime.name,
+          code: regime.code,
+          rate: regime.rate,
+        },
         created_by: SEEDED_BY,
       })),
   );
@@ -193,38 +177,17 @@ async function ensureTaxRegions(
   await createTaxRegionsWorkflow(container).run({ input: missing });
 }
 
-const STOCK_LOCATION_FIELDS = [
-  "id",
-  "sales_channels.id",
-  "fulfillment_sets.id",
-  "fulfillment_sets.name",
-  "fulfillment_sets.service_zones.name",
-];
-
 /**
- * Finds the stock location, and fails loudly when it is absent.
+ * Fails loudly when a stock location read returns nothing.
  *
  * The seed creates the location before it reads it back, so an absent location
  * means the create failed without an error. That is worth a stack trace here
  * and not a `TypeError` three lines later.
  */
-const findStockLocation = async (container: MedusaContainer, filters: Record<string, string>) => {
-  const { data } = await queryOf(container).graph({
-    entity: "stock_location",
-    fields: STOCK_LOCATION_FIELDS,
-    filters,
-  });
-
-  return data[0];
-};
-
-const requireStockLocation = async (
-  container: MedusaContainer,
-  filters: Record<string, string>,
+const requireStockLocation = (
+  location: Awaited<ReturnType<typeof findDeclaredStockLocation>>,
   declaration: TerritoryDeclaration,
 ) => {
-  const location = await findStockLocation(container, filters);
-
   if (!location) {
     throw new Error(
       `The seed created the stock location ${declaration.stockLocationName}, but it cannot find it again.`,
@@ -245,7 +208,7 @@ async function ensureStockLocation(
   salesChannelId: string,
   declaration: TerritoryDeclaration,
 ): Promise<string> {
-  let location = await findStockLocation(container, { name: declaration.stockLocationName });
+  let location = await findDeclaredStockLocation(container, declaration);
 
   if (!location) {
     // The location has no address. An Operator enters the address of the shop.
@@ -254,9 +217,8 @@ async function ensureStockLocation(
       input: { locations: [{ name: declaration.stockLocationName }] },
     });
 
-    location = await requireStockLocation(
-      container,
-      { name: declaration.stockLocationName },
+    location = requireStockLocation(
+      await findDeclaredStockLocation(container, declaration),
       declaration,
     );
   }
@@ -275,7 +237,10 @@ async function ensureServiceZones(
   stockLocationId: string,
   declaration: TerritoryDeclaration,
 ): Promise<void> {
-  let location = await requireStockLocation(container, { id: stockLocationId }, declaration);
+  let location = requireStockLocation(
+    await findStockLocationById(container, stockLocationId),
+    declaration,
+  );
 
   const setNamed = (candidate: { name?: string | null } | null) =>
     candidate?.name === FULFILLMENT_SET_NAME;
@@ -293,7 +258,10 @@ async function ensureServiceZones(
       },
     });
 
-    location = await requireStockLocation(container, { id: stockLocationId }, declaration);
+    location = requireStockLocation(
+      await findStockLocationById(container, stockLocationId),
+      declaration,
+    );
     fulfillmentSet = location.fulfillment_sets?.find(setNamed);
   }
 
@@ -338,19 +306,7 @@ async function ensureStoreDefaults(
   defaults: { salesChannelId: string; regionId: string },
   declaration: TerritoryDeclaration,
 ): Promise<void> {
-  const query = queryOf(container);
-
-  const { data: stores } = await query.graph({
-    entity: "store",
-    fields: [
-      "id",
-      "default_sales_channel_id",
-      "default_region_id",
-      "supported_currencies.currency_code",
-    ],
-  });
-
-  const store = stores[0];
+  const store = await findStore(container);
 
   // Medusa creates the Store when the application boots, and `db:migrate` runs
   // before any boot. So on a database that has never served a request there is
