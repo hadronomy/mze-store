@@ -44,6 +44,33 @@ bun run dev
 
 Open [http://localhost:3001](http://localhost:3001) in your browser to see the fullstack application.
 
+### Portless development
+
+Portless is an optional path for local HTTP development. It gives the
+Storefront and Medusa stable HTTPS URLs, including worktree-specific
+Storefront URLs. It does not isolate PostgreSQL or Redis.
+
+Before you use Portless, install the pinned machine-wide version:
+
+```bash
+bun add --global portless@0.15.5
+```
+
+Start the backing services:
+
+```bash
+bun run services:start
+```
+
+Then start the Portless development path:
+
+```bash
+bun run dev:portless
+```
+
+Read the [Portless integration note](docs/research/portless-integration.md)
+for the URL and origin rules.
+
 ## UI Customization
 
 React web apps in this stack share shadcn/ui primitives through `packages/ui`.
@@ -112,6 +139,8 @@ covers running the backend.
 ## Available Scripts
 
 - `bun run dev`: Start all applications in development mode
+- `bun run dev:portless`: Start Medusa and the Storefront through Portless
+- `bun run dev:portless:storefront`: Start the Storefront through Portless
 - `bun run build`: Build all applications
 - `bun run dev:storefront`: Start only the storefront
 - `bun run check-types`: Check TypeScript types across all apps
@@ -129,3 +158,5 @@ covers running the backend.
 - `bun run docker:up`: Build and start the Docker Compose stack
 - `bun run docker:logs`: Tail logs from the Docker Compose stack
 - `bun run docker:down`: Stop the Docker Compose stack
+- `bun run services:start`: Start PostgreSQL and Redis
+- `bun run services:stop`: Stop PostgreSQL and Redis
