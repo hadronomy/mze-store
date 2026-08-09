@@ -26,6 +26,9 @@ module.exports = {
   },
   testEnvironment: "node",
   moduleFileExtensions: ["js", "ts", "json"],
+  moduleNameMapper: {
+    "^~/(.*)$": "<rootDir>/src/$1",
+  },
   modulePathIgnorePatterns: ["dist/", "<rootDir>/.medusa/"],
   setupFiles: ["./integration-tests/setup.js"],
   testMatch: ["**/integration-tests/**/*.spec.[jt]s"],

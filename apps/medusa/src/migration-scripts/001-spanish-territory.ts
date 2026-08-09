@@ -1,7 +1,7 @@
 import type { MedusaContainer } from "@medusajs/framework/types";
 import { ContainerRegistrationKeys } from "@medusajs/framework/utils";
-import { seedTerritory } from "../territory/seed";
-import { SPAIN_DECLARATION } from "../territory/spain";
+import { seedTerritory } from "~/territory/seed";
+import { SPAIN_DECLARATION } from "~/territory/spain";
 
 /**
  * Puts the Spanish territory model in the database on the deploy that first

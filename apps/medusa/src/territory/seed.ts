@@ -10,7 +10,7 @@ import {
   linkSalesChannelsToStockLocationWorkflow,
   updateStoresWorkflow,
 } from "@medusajs/medusa/core-flows";
-import { STRIPE_PAYMENT_PROVIDER_ID } from "../payment/stripe";
+import { STRIPE_PAYMENT_PROVIDER_ID } from "~/payment/stripe";
 import type { TerritoryDeclaration } from "./declaration";
 import {
   findDeclaredStockLocation,

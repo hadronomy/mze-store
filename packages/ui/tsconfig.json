@@ -4,7 +4,14 @@
     "jsx": "react-jsx",
     "lib": ["ESNext", "DOM", "DOM.Iterable"],
     "types": [],
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "outDir": "dist",
+    "rootDir": ".",
+    "composite": true,
     "paths": {
+      "~/*": ["./src/*"],
       "@mze-store/ui/*": ["./src/*"]
     }
   },

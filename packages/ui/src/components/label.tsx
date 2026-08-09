@@ -1,6 +1,6 @@
 "use client";
 
-import { cn } from "@mze-store/ui/lib/utils";
+import { cn } from "~/lib/utils";
 import * as React from "react";
 
 function Label({ className, ...props }: React.ComponentProps<"label">) {

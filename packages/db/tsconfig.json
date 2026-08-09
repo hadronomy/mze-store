@@ -5,6 +5,10 @@
     "declarationMap": true,
     "sourceMap": true,
     "outDir": "dist",
-    "composite": true
+    "rootDir": ".",
+    "composite": true,
+    "paths": {
+      "~/*": ["./src/*"]
+    }
   }
 }

@@ -29,12 +29,12 @@ mze-store/
 
 Three of four surfaces are Vite+ / rolldown. The backend is the exception, deliberately.
 
-| Surface                   | Tool                               | Output                                         |
-| ------------------------- | ---------------------------------- | ---------------------------------------------- |
-| Storefront                | Vite+ / rolldown                   | bundled ESM                                    |
-| `packages/*`              | `vp pack`                          | ESM, plus CJS for anything the backend imports |
-| Medusa admin + extensions | `@medusajs/admin-bundler` (Vite 5) | bundled                                        |
-| Medusa backend            | TypeScript compiler API            | **unbundled, file-per-file CJS**               |
+| Surface                   | Tool                               | Output                                  |
+| ------------------------- | ---------------------------------- | --------------------------------------- |
+| Storefront                | Vite+ / rolldown                   | bundled ESM                             |
+| `packages/*`              | TypeScript + `tsc-alias`           | ESM, plus CJS if the backend imports it |
+| Medusa admin + extensions | `@medusajs/admin-bundler` (Vite 5) | bundled                                 |
+| Medusa backend            | TypeScript compiler API            | **unbundled, file-per-file CJS**        |
 
 The backend is neither bundled nor bundle-able: Medusa discovers routes, subscribers, jobs, workflows, and modules by walking the file tree at runtime. ADR-0012 has the reasoning and the failed ESM experiment.
 

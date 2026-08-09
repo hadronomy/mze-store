@@ -1,8 +1,8 @@
 import type { ExecArgs } from "@medusajs/framework/types";
 import { ContainerRegistrationKeys } from "@medusajs/framework/utils";
-import { seedTerritoryProbe } from "../territory/probe";
-import { seedTerritory } from "../territory/seed";
-import { SPAIN_DECLARATION } from "../territory/spain";
+import { seedTerritoryProbe } from "~/territory/probe";
+import { seedTerritory } from "~/territory/seed";
+import { SPAIN_DECLARATION } from "~/territory/spain";
 
 /**
  * CAUTION: Do not run this against a live store. It publishes a Product that a

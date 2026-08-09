@@ -3,15 +3,22 @@
   "type": "module",
   "exports": {
     ".": {
+      "types": "./dist/src/index.d.ts",
+      "development": "./src/index.ts",
+      "node": "./dist/src/index.js",
       "default": "./src/index.ts"
     },
     "./*": {
+      "types": "./dist/src/*.d.ts",
+      "development": "./src/*.ts",
+      "node": "./dist/src/*.js",
       "default": "./src/*.ts"
     }
   },
   "scripts": {
     "auth:schema": "auth generate --config auth.ts --output ../db/src/schema/auth.ts --yes",
-    "check-types": "tsc -b",
+    "build": "tsc -b && tsc-alias -p tsconfig.json",
+    "check-types": "tsc --noEmit",
     "test": "vp test --dir src"
   },
   "dependencies": {

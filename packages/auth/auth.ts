@@ -1,6 +1,6 @@
 import { createDb } from "@mze-store/db";
 
-import { createAuth } from "./src/index";
+import { createAuth } from "~/index";
 
 const cliOrigin = "http://localhost:3001";
 

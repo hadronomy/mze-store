@@ -1,8 +1,8 @@
 import type { MedusaContainer } from "@medusajs/framework/types";
 import { ContainerRegistrationKeys } from "@medusajs/framework/utils";
 import { updateRegionsWorkflow } from "@medusajs/medusa/core-flows";
-import { STRIPE_PAYMENT_PROVIDER_ID, SYSTEM_PAYMENT_PROVIDER_ID } from "../payment/stripe";
-import { SPAIN } from "../territory/spain";
+import { STRIPE_PAYMENT_PROVIDER_ID, SYSTEM_PAYMENT_PROVIDER_ID } from "~/payment/stripe";
+import { SPAIN } from "~/territory/spain";
 
 /**
  * Makes Stripe available in the Spain Region during its registration deploy.

@@ -42,6 +42,7 @@ services:
       - path: apps/storefront/.env
         required: false
     environment:
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:-local-development-auth-secret-32-characters}
       BETTER_AUTH_URL: http://localhost:3001
       CORS_ORIGIN: http://localhost:3001
       DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD:-password}@postgres:5432/mze-store
