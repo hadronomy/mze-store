@@ -50,6 +50,11 @@
   "type": "module",
   "scripts": {
     "dev": "vp run @mze-store/env#build && vp run -r dev:raw",
+    "dev:portless": "bun run portless:check && vp run @mze-store/env#build && vp run -r dev:portless:raw",
+    "dev:portless:storefront": "bun run portless:check && vp run @mze-store/env#build && vp run --filter storefront dev:portless:raw",
+    "portless:check": "node tooling/portless/check.mjs",
+    "services:start": "docker compose up -d postgres redis",
+    "services:stop": "docker compose stop postgres redis",
     "build": "vp run -r build",
     "build:packages": "vp run @mze-store/env#build && vp run --filter @mze-store/db build && vp run --filter @mze-store/auth build && vp run --filter @mze-store/ui build",
     "check-types": "bun run build:packages && vp run --filter './apps/*' --filter './packages/*' check-types",

@@ -19,6 +19,11 @@ bun run user:create -e you@example.com -p yourpassword
 bun run dev                            # admin at http://localhost:9000/app
 ```
 
+For the optional Portless path, run `bun run services:start` from the
+repository root. Then run `bun run dev:portless`. The admin URL is
+`https://medusa.mze-store.localhost/app`. Only one Medusa process can own that
+URL. See the [Portless integration note](../../docs/research/portless-integration.md).
+
 Or `docker compose up medusa` from the root to run the whole thing in
 containers, migrations included.
 

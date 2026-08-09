@@ -62,6 +62,59 @@ test("the server entry loads as built CommonJS", () => {
   });
 });
 
+test("the server entry uses the Portless URL for local development origins", () => {
+  const loadedEntry = runNode(
+    "module",
+    `
+        const modulePath = import.meta.resolve("@mze-store/env/server");
+        const { env } = await import(modulePath);
+        process.stdout.write(JSON.stringify({
+          betterAuthUrl: env.BETTER_AUTH_URL,
+          corsOrigin: env.CORS_ORIGIN,
+          portlessUrl: env.PORTLESS_URL,
+        }));
+      `,
+    {
+      ...environment,
+      CI: undefined,
+      NODE_ENV: "development",
+      PORTLESS_URL: "https://feature.storefront.mze-store.localhost",
+    },
+  );
+
+  expect(loadedEntry).toMatchObject({
+    betterAuthUrl: "https://feature.storefront.mze-store.localhost",
+    corsOrigin: "https://feature.storefront.mze-store.localhost",
+    portlessUrl: "https://feature.storefront.mze-store.localhost",
+  });
+});
+
+test("the server entry keeps explicit origins outside local development", () => {
+  const loadedEntry = runNode(
+    "module",
+    `
+        const modulePath = import.meta.resolve("@mze-store/env/server");
+        const { env } = await import(modulePath);
+        process.stdout.write(JSON.stringify({
+          betterAuthUrl: env.BETTER_AUTH_URL,
+          corsOrigin: env.CORS_ORIGIN,
+        }));
+      `,
+    {
+      ...environment,
+      BETTER_AUTH_URL: "https://store.example",
+      CORS_ORIGIN: "https://store.example",
+      NODE_ENV: "production",
+      PORTLESS_URL: "https://feature.storefront.mze-store.localhost",
+    },
+  );
+
+  expect(loadedEntry).toMatchObject({
+    betterAuthUrl: "https://store.example",
+    corsOrigin: "https://store.example",
+  });
+});
+
 test("the server entry keeps the storefront environment contract", () => {
   expect(
     runNode("commonjs", commonJsServerSource, {

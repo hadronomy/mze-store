@@ -3,10 +3,11 @@ import { z } from "@medusajs/framework/zod";
 import { parse } from "@mze-store/env/medusa";
 import { resolve } from "node:path";
 import { STRIPE_MODULE_ID } from "~/payment/stripe";
+import { withPortlessCors } from "~/portless";
 
 loadEnv(process.env.NODE_ENV || "development", process.cwd());
 
-const env = parse(process.env);
+const env = parse(withPortlessCors(process.env));
 const redisUrl = process.env.REDIS_URL;
 const stripeEnv = z
   .object({

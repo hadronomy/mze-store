@@ -7,6 +7,7 @@ const environmentKeys = [
   "BETTER_AUTH_SECRET",
   "BETTER_AUTH_URL",
   "CORS_ORIGIN",
+  "PORTLESS_URL",
 ] as const;
 
 async function postJson(
