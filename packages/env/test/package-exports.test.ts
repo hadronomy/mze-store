@@ -76,6 +76,7 @@ test("the server entry uses the Portless URL for local development origins", () 
       `,
     {
       ...environment,
+      CI: undefined,
       NODE_ENV: "development",
       PORTLESS_URL: "https://feature.storefront.mze-store.localhost",
     },
