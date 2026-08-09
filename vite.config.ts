@@ -1,4 +1,4 @@
-import { defineConfig } from "vite-plus";
+import { configDefaults, defineConfig } from "vite-plus";
 
 // Generated or built output. Shared by lint and fmt so the two cannot drift.
 const ignorePatterns = [
@@ -16,6 +16,10 @@ const ignorePatterns = [
 export default defineConfig({
   resolve: {
     tsconfigPaths: true,
+  },
+  test: {
+    exclude: [...configDefaults.exclude, "apps/medusa/integration-tests/**"],
+    globalSetup: "./tooling/test/global-setup.ts",
   },
   lint: {
     plugins: ["typescript", "unicorn", "oxc"],

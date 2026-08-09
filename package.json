@@ -53,7 +53,7 @@
     "build": "vp run -r build",
     "build:packages": "vp run @mze-store/env#build && vp run --filter @mze-store/db build && vp run --filter @mze-store/auth build && vp run --filter @mze-store/ui build",
     "check-types": "bun run build:packages && vp run --filter './apps/*' --filter './packages/*' check-types",
-    "test": "vp test --run tooling/oxlint/index.test.ts && vp run --filter @mze-store/env build && vp run --filter @mze-store/db build && vp run --filter './apps/*' --filter './packages/*' test",
+    "test": "vp test && vp run --filter medusa test",
     "check": "vp check",
     "lint": "vp lint",
     "format": "vp fmt",
