@@ -33,7 +33,7 @@ export default defineConfig({
     jsPlugins: ["./tooling/oxlint/index.ts"],
     options: {
       reportUnusedDisableDirectives: "error",
-      typeAware: false,
+      typeAware: true,
       typeCheck: false,
     },
     rules: {

@@ -31,7 +31,7 @@ export default function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () 
         },
         {
           onSuccess: () => {
-            navigate({
+            void navigate({
               to: "/",
             });
             toast.success("Sign up successful");
@@ -63,7 +63,7 @@ export default function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () 
         onSubmit={(e) => {
           e.preventDefault();
           e.stopPropagation();
-          form.handleSubmit();
+          void form.handleSubmit();
         }}
         className="space-y-4"
       >
