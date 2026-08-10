@@ -10,7 +10,7 @@ why it is neither bundled nor bundle-able.
 ## Running it
 
 ```sh
-docker compose up -d postgres redis    # from the repo root
+bun run services:start                 # from the repository root
 cp .env.template .env
 bun run db:migrate
 bun run seed
@@ -19,17 +19,17 @@ bun run user:create -e you@example.com -p yourpassword
 bun run dev                            # admin at http://localhost:9000/app
 ```
 
-For the optional Portless path, run `bun run services:start` from the
-repository root. Then run `bun run dev:portless`. The admin URL is
+After you start the services, run `bun run dev:portless` from the repository
+root. The admin URL is
 `https://medusa.mze-store.localhost/app`. Only one Medusa process can own that
 URL. See the [Portless integration note](../../docs/research/portless-integration.md).
 
-Or `docker compose up medusa` from the root to run the whole thing in
-containers, migrations included.
+Or run `docker compose up medusa` from the repository root to run the backend in
+a container. Compose starts its PostgreSQL, Redis, and migration dependencies.
 
-Set `STRIPE_API_KEY` in `apps/medusa/.env` before you run Medusa directly. For
-Compose, set it in the shell or in the root `.env` file. Use a Stripe test
-secret key for local development.
+Before you run Medusa directly, set `STRIPE_API_KEY` in `apps/medusa/.env`.
+For Compose, set it in the shell or in the repository `.env` file. Use a Stripe
+test secret key for local development.
 
 Go through `bun run`, not the `medusa` binary directly: bun links it into this
 package's own `node_modules/.bin`, never the workspace root (ADR-0001), so a
@@ -165,7 +165,7 @@ the supported operations and fidelity limits.
 `integration-tests/http/` is the seam that every later phase extends.
 `medusaIntegrationTestRunner` boots the real app against a real database. A
 passing suite is therefore proof that the backend builds, migrates, and serves.
-It needs Postgres and Redis, and it creates and drops one database for each jest
+It needs PostgreSQL and Redis, and it creates and drops one database for each jest
 worker.
 
 Each jest worker also gets a Redis database of its own, and
