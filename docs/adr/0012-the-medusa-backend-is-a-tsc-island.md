@@ -6,9 +6,11 @@ Both application frontends build with Vite+ and rolldown. The Medusa backend bui
 
 `medusa build` calls TypeScript's compiler API directly and emits **file-per-file CJS** into `.medusa/server`. There is no bundler, no esbuild, no swc — `@swc/core` is present only to serve ts-node's transform. The admin dashboard is separate and _is_ bundled, with Vite 5, via `@medusajs/admin-bundler`.
 
-## Why ESM does not work
+## Why native ESM does not work
 
-Tested against 2.18: switching the backend to `"type": "module"`, `NodeNext`, and `export default` fails immediately with `ERR_REQUIRE_ESM`.
+Tested against 2.18: adding `"type": "module"` makes `medusa-config.ts` native ESM. Medusa loads the file through `require()`, which fails with `ERR_REQUIRE_ESM`.
+
+This failure does not involve the `export default` source syntax. With the existing CommonJS compiler settings, TypeScript compiles `export default` to CommonJS. Medusa reads the default export. The [Medusa 2.18.0 release notes](https://github.com/medusajs/medusa/releases/tag/v2.18.0) also use this syntax for `medusa-config.ts`.
 
 The failure is inside **ts-node**, not Node. Medusa loads all user code — config, routes, subscribers, jobs, workflows, links, modules — through a helper in `@medusajs/utils` that is a synchronous `require()`. Node 22.12+ can `require()` ESM, but ts-node 10.9.2 intercepts every `.ts` first and refuses. Medusa's own source comment acknowledges being stuck on an unmaintained ts-node.
 
@@ -21,7 +23,8 @@ Changing any of this means replacing Medusa's CLI, loader, and plugin resolution
 ## Consequences
 
 - **Any shared package the backend imports must emit CJS.** This is a `vp pack` output-format requirement, and it is the real reason ADR-0011 keeps template markup out of shared packages.
+- TypeScript source uses `export default` for default exports. The compiler still emits CommonJS for the backend.
 - The two apps cannot share a tsconfig. `packages/config` carries only the strictness flags both agree on.
 - TypeScript does not rewrite `~/*` paths in emitted JavaScript. The Medusa build runs `tsc-alias` after `medusa build` for that reason. The admin Vite config and the Jest mapper resolve the same alias in their separate runtimes.
 - Treat the boundary as stable rather than temporary. Medusa would have to drop ts-node for `tsx` or `jiti` and rewrite that loader to `await import()` before ESM is possible; neither is signalled in the 2.19 preview.
-- Re-test on major Medusa upgrades. The experiment is cheap — flip `type`, `module`, and the config export, then run `medusa build`.
+- Re-test on major Medusa upgrades. The experiment is cheap: flip `type` and `module`, then run `medusa build`.

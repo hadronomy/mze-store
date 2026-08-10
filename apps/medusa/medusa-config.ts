@@ -15,7 +15,7 @@ const stripeEnv = z
   })
   .parse(process.env);
 
-module.exports = defineConfig({
+export default defineConfig({
   admin: {
     vite: (config) => ({
       ...config,

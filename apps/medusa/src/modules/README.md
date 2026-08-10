@@ -62,7 +62,7 @@ export default Module(BLOG_MODULE, {
 To start using the module, add it to `medusa-config.ts`:
 
 ```ts
-module.exports = defineConfig({
+export default defineConfig({
   projectConfig: {
     // ...
   },
