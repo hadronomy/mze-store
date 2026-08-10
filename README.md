@@ -1,171 +1,180 @@
-# MZE Store
+<div align="center">
+  <h1>MZE Store</h1>
+  <p></p>
+  <a href="https://github.com/hadronomy/mze-store/stargazers">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="https://shieldcn.dev/github/stars/hadronomy/mze-store.svg?mode=dark">
+      <img alt="GitHub stars" src="https://shieldcn.dev/github/stars/hadronomy/mze-store.svg?mode=light">
+    </picture>
+  </a>
+  <a href="https://github.com/hadronomy/mze-store/issues">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="https://shieldcn.dev/github/issues/hadronomy/mze-store.svg?mode=dark">
+      <img alt="Open GitHub issues" src="https://shieldcn.dev/github/issues/hadronomy/mze-store.svg?mode=light">
+    </picture>
+  </a>
+  <p></p>
+  <p align="center">
+    <strong>An online storefront for a physical shop in the Canary Islands.</strong><br />
+    <sub>Medusa commerce, a TanStack Start Storefront, and a local development stack.</sub>
+  </p>
+  <p></p>
+  <a href="#what-mze-store-does">Overview</a> •
+  <a href="#development">Development</a> •
+  <a href="#interfaces">Interfaces</a> •
+  <a href="#local-stack">Local stack</a> •
+  <a href="#documentation">Documentation</a>
+  <hr />
+</div>
 
-This project was created with [Better-T-Stack](https://github.com/AmanVarshney01/create-better-t-stack), a modern TypeScript stack that combines React, TanStack Start, Self, ORPC, and more.
+## What MZE Store does
 
-## Features
+MZE Store sells from the Canary Islands into Spain and the wider EU. The
+Storefront is the Shopper surface. Medusa owns commerce and the Operator admin.
+Better Auth owns Account identity.
 
-- **TypeScript** - For type safety and improved developer experience
-- **TanStack Start** - SSR framework with TanStack Router
-- **TailwindCSS** - Utility-first CSS for rapid UI development
-- **Shared UI package** - shadcn/ui primitives live in `packages/ui`
-- **oRPC** - End-to-end type-safe APIs with OpenAPI integration
-- **Drizzle** - TypeScript-first ORM
-- **PostgreSQL** - Database engine
-- **Authentication** - Better-Auth
-- **Oxlint** - Oxlint + Oxfmt (linting & formatting)
-- **Vite+** - Unified Vite toolchain, workspace task runner, linting, and formatting
+The workspace uses TypeScript, TanStack Start, Tailwind CSS, Drizzle, and Vite+.
+Shared UI primitives live in `packages/ui`.
 
-## Getting Started
+```mermaid
+flowchart LR
+  shopper(["Shopper"]) --> storefront["Storefront<br/>TanStack Start"]
+  operator(["Operator"]) --> admin["Medusa admin<br/>/app"]
 
-First, install the dependencies:
+  storefront -->|"catalog + checkout"| api["Medusa Store API<br/>/store/*"]
+  storefront -->|"Account session"| auth["Better Auth<br/>Account identity"]
+  api --> commerce["Medusa commerce"]
+  admin --> commerce
 
-```bash
+  commerce --> postgres[(PostgreSQL)]
+  commerce --> redis[(Redis<br/>caching · event bus · workflow engine · locking)]
+
+  classDef actor fill:#fff4d6,stroke:#9a6700,color:#3d2a00,stroke-width:1.5px;
+  classDef surface fill:#e5f0ee,stroke:#2f6f65,color:#173e38,stroke-width:1.5px;
+  classDef core fill:#f5e7d4,stroke:#9b5935,color:#4a281b,stroke-width:1.5px;
+  classDef state fill:#e9ecef,stroke:#4c5b63,color:#25343b,stroke-width:1.5px;
+
+  class shopper,operator actor;
+  class storefront,admin surface;
+  class api,auth,commerce core;
+  class postgres,redis state;
+
+  linkStyle default stroke:#6b625a,stroke-width:1.5px;
+```
+
+The Storefront keeps Account sessions separate from commerce credentials. The
+Medusa backend uses Redis for caching, the event bus, the workflow engine, and
+locking.
+
+## Development
+
+The workspace uses the tool versions in [`mise.toml`](mise.toml). Install them.
+Then install the workspace dependencies:
+
+```sh
+mise install
 bun install
 ```
 
-## Database Setup
+Start PostgreSQL and Redis:
 
-This project uses PostgreSQL with Drizzle ORM.
-
-1. Make sure you have a PostgreSQL database set up.
-2. Copy the Storefront environment template:
-
-```bash
-cp apps/storefront/.env.template apps/storefront/.env
-```
-
-Update `DATABASE_URL` in the new file if the database does not use the local Compose defaults.
-
-3. Apply the schema to your database:
-
-```bash
-bun run db:push
-```
-
-Then, run the development server:
-
-```bash
-bun run dev
-```
-
-Open [http://localhost:3001](http://localhost:3001) in your browser to see the fullstack application.
-
-### Portless development
-
-Portless is an optional path for local HTTP development. It gives the
-Storefront and Medusa stable HTTPS URLs, including worktree-specific
-Storefront URLs. It does not isolate PostgreSQL or Redis.
-
-Before you use Portless, install the pinned machine-wide version:
-
-```bash
-bun add --global portless@0.15.5
-```
-
-Start the backing services:
-
-```bash
+```sh
 bun run services:start
 ```
 
-Then start the Portless development path:
+Copy both environment templates:
 
-```bash
+```sh
+cp apps/storefront/.env.template apps/storefront/.env
+cp apps/medusa/.env.template apps/medusa/.env
+```
+
+Push the Drizzle schema:
+
+```sh
+bun run db:push
+```
+
+Before you start Medusa directly, set `STRIPE_API_KEY` in `apps/medusa/.env`.
+
+Start the development servers:
+
+```sh
+bun run dev
+```
+
+The Storefront runs at [http://localhost:3001](http://localhost:3001). The
+Medusa admin runs at [http://localhost:9000/app](http://localhost:9000/app).
+
+Portless is an optional path for local HTTPS development. It gives the
+Storefront and Medusa stable URLs, but it does not isolate PostgreSQL or Redis.
+
+```sh
+bun add --global portless@0.15.5
 bun run dev:portless
 ```
 
-Read the [Portless integration note](docs/research/portless-integration.md)
-for the URL and origin rules.
+Read the [Portless integration note](docs/research/portless-integration.md) for
+the URL and origin rules.
 
-## UI Customization
+Before you submit a change, run the workspace gate:
 
-React web apps in this stack share shadcn/ui primitives through `packages/ui`.
-
-- Change design tokens and global styles in `packages/ui/src/styles/globals.css`
-- Update shared primitives in `packages/ui/src/components/*`
-- Adjust shadcn aliases or style config in `packages/ui/components.json` and `apps/storefront/components.json`
-
-### Add more shared components
-
-Run this from the project root to add more primitives to the shared UI package:
-
-```bash
-npx shadcn@latest add accordion dialog popover sheet table -c packages/ui
+```sh
+bun run check
 ```
 
-Import shared components like this:
+The main checks are also available on their own:
 
-```tsx
-import { Button } from "@mze-store/ui/components/button";
+- `bun run build` — Build all applications.
+- `bun run check-types` — Run the TypeScript check across the workspace.
+- `bun run test` — Run the workspace and Medusa test suites.
+- `bun run lint` — Run Oxlint.
+- `bun run format` — Format the workspace with Oxfmt.
+
+## Interfaces
+
+The Medusa Store API is the only API surface. The Storefront calls Medusa under
+`/store/*`.
+
+- `http://localhost:3001` — Storefront for Shoppers.
+- `http://localhost:9000/store/*` — Medusa Store API.
+- `http://localhost:9000/app` — Medusa admin for Operators.
+
+## Local stack
+
+[`docker-compose.yml`](docker-compose.yml) defines the local development stack.
+It includes the Storefront, Medusa, PostgreSQL, Redis, and the Medusa migration
+job. It is not the production deployment target.
+
+Before you start the full stack, set `STRIPE_API_KEY` in the shell or the
+repository `.env` file.
+
+Start the complete stack with:
+
+```sh
+bun run docker:up
 ```
 
-### Add app-specific blocks
+View the stack:
 
-If you want to add app-specific blocks instead of shared primitives, run the shadcn CLI from `apps/storefront`.
-
-## Deployment
-
-### Docker Compose
-
-- Target: web + server
-- Config: `docker-compose.yml` (app Dockerfiles live in `apps/*/Dockerfile`)
-- Build images: bun run docker:build
-- Start: bun run docker:up
-- Logs: bun run docker:logs
-- Stop: bun run docker:down
-
-For local development, each app reads its own `.env` file. Compose supplies the
-Storefront values through `apps/storefront/.env` and explicit container values.
-It supplies all Medusa container values through `docker-compose.yml`. Shell
-variables or a root `.env` file can override the Compose substitutions.
-
-For more details, see the guide on [Deploying with Docker Compose](https://www.better-t-stack.dev/docs/guides/docker).
-
-## Git Hooks and Formatting
-
-- Optional native Vite+ hooks: `bun run hooks:setup`
-- Docs: [Vite+ commit hooks](https://viteplus.dev/guide/commit-hooks)
-- Run checks: `bun run check`
-
-## Project Structure
-
-```
-mze-store/
-├── apps/
-│   ├── medusa/      # Commerce backend + admin (Medusa v2)
-│   └── storefront/  # Storefront (React + TanStack Start)
-├── packages/
-│   ├── ui/          # Shared shadcn/ui components and styles
-│   ├── auth/        # Authentication configuration & logic
-│   ├── config/      # Shared tsconfig presets
-│   ├── env/         # Validated environment
-│   └── db/          # Database schema & queries
+```sh
+bun run docker:logs
 ```
 
-`docs/architecture.md` describes the shape in full, and `apps/medusa/README.md`
-covers running the backend.
+Stop the stack:
 
-## Available Scripts
+```sh
+bun run docker:down
+```
 
-- `bun run dev`: Start all applications in development mode
-- `bun run dev:portless`: Start Medusa and the Storefront through Portless
-- `bun run dev:portless:storefront`: Start the Storefront through Portless
-- `bun run build`: Build all applications
-- `bun run dev:storefront`: Start only the storefront
-- `bun run check-types`: Check TypeScript types across all apps
-- `bun run test`: Run every app's test suite (currently `apps/medusa` only)
-- `bun run db:push`: Push schema changes to database
-- `bun run db:generate`: Generate database client/types
-- `bun run db:migrate`: Run database migrations
-- `bun run db:studio`: Open database studio UI
-- `bun run check`: Run Vite+ format/lint checks and workspace TypeScript checks
-- `bun run lint`: Run Vite+ lint checks
-- `bun run format`: Run Vite+ formatting
-- `bun run staged`: Run Vite+ checks against staged files
-- `bun run hooks:setup`: Install Vite+ native Git hooks with `vp config`
-- `bun run docker:build`: Build the Docker Compose images
-- `bun run docker:up`: Build and start the Docker Compose stack
-- `bun run docker:logs`: Tail logs from the Docker Compose stack
-- `bun run docker:down`: Stop the Docker Compose stack
-- `bun run services:start`: Start PostgreSQL and Redis
-- `bun run services:stop`: Stop PostgreSQL and Redis
+Production does not use this Compose file. [ADR-0006](docs/adr/0006-redis-from-the-first-deploy.md)
+requires a small managed Redis instance. This repository does not define the
+application hosting plan.
+
+## Documentation
+
+- [Architecture](docs/architecture.md)
+- [Medusa backend guide](apps/medusa/README.md)
+- [Architecture decisions](docs/adr/)
+- [Roadmap](docs/roadmap.md)
+- [Issue tracker guide](docs/agents/issue-tracker.md)
