@@ -33,10 +33,6 @@
         "types": "./dist/medusa.d.cts",
         "default": "./dist/medusa.cjs"
       }
-    },
-    "./client": {
-      "types": "./dist/client.d.mts",
-      "import": "./dist/client.mjs"
     }
   },
   "scripts": {

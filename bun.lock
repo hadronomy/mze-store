@@ -4,11 +4,6 @@
   "workspaces": {
     "": {
       "name": "mze-store",
-      "dependencies": {
-        "@mze-store/env": "workspace:*",
-        "dotenv": "catalog:",
-        "zod": "catalog:",
-      },
       "devDependencies": {
         "@mze-store/config": "workspace:*",
         "@oxlint/plugins": "1.73.0",
@@ -57,7 +52,6 @@
       "name": "storefront",
       "dependencies": {
         "@mze-store/auth": "workspace:*",
-        "@mze-store/env": "workspace:*",
         "@mze-store/ui": "workspace:*",
         "@tailwindcss/vite": "^4.3.2",
         "@tanstack/react-form": "catalog:",
@@ -66,7 +60,6 @@
         "@tanstack/react-router-ssr-query": "catalog:",
         "@tanstack/react-start": "catalog:",
         "better-auth": "catalog:",
-        "dotenv": "catalog:",
         "evlog": "^2.22.0",
         "lucide-react": "catalog:",
         "next-themes": "catalog:",
@@ -99,8 +92,6 @@
         "@mze-store/db": "workspace:*",
         "@mze-store/env": "workspace:*",
         "better-auth": "catalog:",
-        "dotenv": "catalog:",
-        "zod": "catalog:",
       },
       "devDependencies": {
         "@mze-store/config": "workspace:*",

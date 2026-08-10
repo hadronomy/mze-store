@@ -12,7 +12,6 @@
   },
   "dependencies": {
     "@mze-store/auth": "workspace:*",
-    "@mze-store/env": "workspace:*",
     "@mze-store/ui": "workspace:*",
     "@tailwindcss/vite": "^4.3.2",
     "@tanstack/react-form": "catalog:",
@@ -21,7 +20,6 @@
     "@tanstack/react-router-ssr-query": "catalog:",
     "@tanstack/react-start": "catalog:",
     "better-auth": "catalog:",
-    "dotenv": "catalog:",
     "evlog": "^2.22.0",
     "lucide-react": "catalog:",
     "next-themes": "catalog:",

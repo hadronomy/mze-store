@@ -8,10 +8,7 @@ const serverEntries = {
 
 export default defineConfig({
   pack: {
-    entry: {
-      ...serverEntries,
-      client: "src/client.ts",
-    },
+    entry: serverEntries,
     dts: true,
     format: {
       esm: {},

@@ -79,11 +79,6 @@
     "docker:down": "docker compose down",
     "docker:logs": "docker compose logs -f"
   },
-  "dependencies": {
-    "@mze-store/env": "workspace:*",
-    "dotenv": "catalog:",
-    "zod": "catalog:"
-  },
   "devDependencies": {
     "@mze-store/config": "workspace:*",
     "@oxlint/plugins": "1.73.0",
