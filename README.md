@@ -68,68 +68,79 @@ locking.
 
 ## Development
 
-The workspace uses the tool versions in [`mise.toml`](mise.toml). Install them.
-Then install the workspace dependencies:
+Use Mise to install the pinned Node and Bun versions:
 
 ```sh
 mise install
-bun install
 ```
 
-Start PostgreSQL and Redis:
+Install the locked workspace dependencies:
 
 ```sh
-bun run services:start
+bun install --frozen-lockfile
 ```
 
-Copy both environment templates:
+Create the application environment files from their committed templates:
 
 ```sh
 cp apps/storefront/.env.template apps/storefront/.env
 cp apps/medusa/.env.template apps/medusa/.env
 ```
 
-Push the Drizzle schema:
+Set a Stripe test secret in `apps/medusa/.env`. Then start PostgreSQL and Redis:
+
+```sh
+bun run services:start
+```
+
+Push the Account schema and install the Vite+ Git hooks:
 
 ```sh
 bun run db:push
+bun run hooks:setup
 ```
 
-Before you start Medusa directly, set `STRIPE_API_KEY` in `apps/medusa/.env`.
-
-Start the development servers:
-
-```sh
-bun run dev
-```
-
-The Storefront runs at [http://localhost:3001](http://localhost:3001). The
-Medusa admin runs at [http://localhost:9000/app](http://localhost:9000/app).
-
-Portless is an optional path for local HTTPS development. It gives the
-Storefront and Medusa stable URLs, but it does not isolate PostgreSQL or Redis.
+Install the pinned Portless version, then start both development servers:
 
 ```sh
 bun add --global portless@0.15.5
 bun run dev:portless
 ```
 
-Read the [Portless integration note](docs/research/portless-integration.md) for
-the URL and origin rules.
+Portless gives the Storefront and Medusa stable local HTTPS URLs. Read the
+[Portless integration note](docs/research/portless-integration.md) for the URL
+and origin rules. Use `bun run dev` when fixed HTTP ports are required.
 
-Before you submit a change, run the workspace gate:
+Run the workspace checks before you submit a change:
 
 ```sh
 bun run check
+bun run check-types
+bun run test
 ```
 
-The main checks are also available on their own:
+`bun run test` needs PostgreSQL and Redis. The check and type-check commands do
+not need the backing services.
 
-- `bun run build` — Build all applications.
-- `bun run check-types` — Run the TypeScript check across the workspace.
-- `bun run test` — Run the workspace and Medusa test suites.
-- `bun run lint` — Run Oxlint.
-- `bun run format` — Format the workspace with Oxfmt.
+The database commands are:
+
+```sh
+bun run db:push
+bun run db:generate
+bun run db:migrate
+```
+
+The Docker commands are:
+
+```sh
+bun run docker:build
+bun run docker:up
+bun run docker:logs
+bun run docker:down
+```
+
+Use `bun run build` to build all applications. Use `bun run lint` to run
+Oxlint. Use `bun run format` to run Oxfmt.
 
 ## Interfaces
 

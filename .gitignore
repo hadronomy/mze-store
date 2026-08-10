@@ -10,6 +10,7 @@ build
 
 # Generated files
 apps/storefront/src/routeTree.gen.ts
+.vite-hooks/
 
 # Agent worktrees
 .claude/worktrees/
