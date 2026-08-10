@@ -1,0 +1,57 @@
+version: 2
+updates:
+  - package-ecosystem: bun
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      medusa:
+        patterns:
+          - "@medusajs/*"
+      better-auth:
+        patterns:
+          - "better-auth"
+          - "@better-auth/*"
+      tanstack:
+        patterns:
+          - "@tanstack/*"
+      development:
+        dependency-type: development
+        patterns:
+          - "*"
+
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      docker-images:
+        patterns:
+          - "*"
+
+  - package-ecosystem: docker
+    directory: /apps/medusa
+    schedule:
+      interval: weekly
+    groups:
+      docker-images:
+        patterns:
+          - "*"
+
+  - package-ecosystem: docker
+    directory: /apps/storefront
+    schedule:
+      interval: weekly
+    groups:
+      docker-images:
+        patterns:
+          - "*"
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      github-actions:
+        patterns:
+          - "*"
