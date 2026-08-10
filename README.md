@@ -122,6 +122,17 @@ bun run test
 `bun run test` needs PostgreSQL and Redis. The check and type-check commands do
 not need the backing services.
 
+Run the placeholder Chromium browser suite after you create the Account schema:
+
+```sh
+bunx playwright install chromium
+bun run test:e2e
+```
+
+The placeholder does not start a browser flow yet. The configuration starts the
+Storefront when `PLAYWRIGHT_BASE_URL` is not set, and it uses an existing server
+when that variable is set.
+
 The database commands are:
 
 ```sh

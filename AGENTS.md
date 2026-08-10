@@ -57,6 +57,7 @@ Do not edit generated output. The root Vite+ config ignores these paths:
 - `packages/*/dist/`
 - `node_modules/` and `.cache/`
 - `.vite-hooks/`
+- `test-results/` and `playwright-report/`
 
 ## Further guidance
 
