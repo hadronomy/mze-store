@@ -103,9 +103,12 @@ jobs:
             fi
           }
 
-          assert_http_200 http://localhost:9000/health
-          assert_http_200 http://localhost:9000/app
-          assert_http_200 http://localhost:3001/
+          medusa_port="$(docker compose port medusa 9000 | sed 's/.*://')"
+          storefront_port="$(docker compose port storefront 3001 | sed 's/.*://')"
+
+          assert_http_200 "http://127.0.0.1:${medusa_port}/health"
+          assert_http_200 "http://127.0.0.1:${medusa_port}/app"
+          assert_http_200 "http://127.0.0.1:${storefront_port}/"
 
       - name: Show Compose logs
         if: failure()

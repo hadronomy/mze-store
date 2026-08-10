@@ -93,6 +93,10 @@ Set a Stripe test secret in `apps/medusa/.env`. Then start PostgreSQL and Redis:
 bun run services:start
 ```
 
+Compose assigns a different host port to each worktree. Copy the ports from
+`bun run services:ports` into the two environment files when they differ from
+the template values.
+
 Push the Account schema and install the Vite+ Git hooks:
 
 ```sh
@@ -146,8 +150,16 @@ The Docker commands are:
 ```sh
 bun run docker:build
 bun run docker:up
+bun run services:ports
 bun run docker:logs
 bun run docker:down
+```
+
+Discover application ports with:
+
+```sh
+docker compose port medusa 9000
+docker compose port storefront 3001
 ```
 
 Use `bun run build` to build all applications. Use `bun run lint` to run
@@ -158,9 +170,11 @@ Oxlint. Use `bun run format` to run Oxfmt.
 The Medusa Store API is the only API surface. The Storefront calls Medusa under
 `/store/*`.
 
-- `http://localhost:3001` — Storefront for Shoppers.
-- `http://localhost:9000/store/*` — Medusa Store API.
-- `http://localhost:9000/app` — Medusa admin for Operators.
+- Portless: `https://storefront.mze-store.localhost` — Storefront for Shoppers.
+- Portless: `https://medusa.mze-store.localhost/store/*` — Medusa Store API.
+- Portless: `https://medusa.mze-store.localhost/app` — Medusa admin for Operators.
+- Compose: use `docker compose port storefront 3001` and
+  `docker compose port medusa 9000` to find the HTTP URLs.
 
 ## Local stack
 
@@ -176,6 +190,10 @@ Start the complete stack with:
 ```sh
 bun run docker:up
 ```
+
+Compose assigns project-scoped containers, volumes, and random loopback host
+ports from the worktree directory. Run `bun run services:ports` and the
+application port commands above to find the active ports.
 
 View the stack:
 

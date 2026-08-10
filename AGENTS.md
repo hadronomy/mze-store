@@ -59,6 +59,9 @@ Do not edit generated output. The root Vite+ config ignores these paths:
 - `.vite-hooks/`
 - `test-results/` and `playwright-report/`
 
+Compose uses the worktree directory as its project name by default. Use
+`docker compose port <service> <container-port>` to find a random host port.
+
 ## Further guidance
 
 - Read [`docs/agents/domain.md`](./docs/agents/domain.md) for the domain map.
