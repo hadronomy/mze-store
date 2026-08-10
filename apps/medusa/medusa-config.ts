@@ -38,13 +38,10 @@ export default defineConfig({
       cookieSecret: env.COOKIE_SECRET,
     },
   },
-  // Registered unconditionally, and that is the point. Medusa's self-hosted
-  // defaults are the in-memory cache, event bus, workflow engine, and locking
-  // provider; it reads REDIS_URL on its own only when running on Medusa Cloud.
-  // Gating these on the env var would restore exactly the failure ADR-0006
-  // exists to prevent: a backend that boots looking healthy while overselling
-  // stock and losing in-flight workflows across a restart. All four modules
-  // throw when `redisUrl` is absent, so a missing Redis fails loudly instead.
+  // Keep these modules unconditional. The environment parser requires Redis
+  // before Medusa reads this config. Optional registration would let the
+  // backend use in-memory defaults and lose shared state across processes or
+  // restarts, which is the correctness failure described in ADR-0006.
   modules: [
     {
       resolve: "@medusajs/medusa/payment",

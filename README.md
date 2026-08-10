@@ -114,7 +114,10 @@ If you want to add app-specific blocks instead of shared primitives, run the sha
 - Logs: bun run docker:logs
 - Stop: bun run docker:down
 
-Environment variables are read from each app's `.env` file (baked into web builds for public variables) and overridden in `docker-compose.yml` for container networking.
+For local development, each app reads its own `.env` file. Compose supplies the
+Storefront values through `apps/storefront/.env` and explicit container values.
+It supplies all Medusa container values through `docker-compose.yml`. Shell
+variables or a root `.env` file can override the Compose substitutions.
 
 For more details, see the guide on [Deploying with Docker Compose](https://www.better-t-stack.dev/docs/guides/docker).
 
