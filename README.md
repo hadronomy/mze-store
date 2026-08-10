@@ -28,7 +28,13 @@ bun install
 This project uses PostgreSQL with Drizzle ORM.
 
 1. Make sure you have a PostgreSQL database set up.
-2. Update your `apps/storefront/.env` file with your PostgreSQL connection details.
+2. Copy the Storefront environment template:
+
+```bash
+cp apps/storefront/.env.template apps/storefront/.env
+```
+
+Update `DATABASE_URL` in the new file if the database does not use the local Compose defaults.
 
 3. Apply the schema to your database:
 

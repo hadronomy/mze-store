@@ -3,6 +3,9 @@ import { fileURLToPath } from "node:url";
 import { expect, test } from "vite-plus/test";
 
 const packageDirectory = fileURLToPath(new URL("../", import.meta.url));
+const storefrontEnvironmentFile = fileURLToPath(
+  new URL("../../../apps/storefront/.env.template", import.meta.url),
+);
 const environment = {
   ...process.env,
   ADMIN_CORS: "http://localhost:9000",
@@ -128,6 +131,39 @@ test("the server entry keeps the storefront environment contract", () => {
       STORE_CORS: undefined,
     }),
   ).toMatchObject({ nodeEnv: "test" });
+});
+
+test("the Storefront template satisfies the server environment contract", () => {
+  expect(
+    runNode(
+      "commonjs",
+      `
+        const { env } = require("@mze-store/env/server");
+        process.stdout.write(JSON.stringify({
+          betterAuthSecret: env.BETTER_AUTH_SECRET,
+          betterAuthUrl: env.BETTER_AUTH_URL,
+          corsOrigin: env.CORS_ORIGIN,
+          databaseUrl: env.DATABASE_URL,
+        }));
+      `,
+      {
+        ...environment,
+        BETTER_AUTH_SECRET: undefined,
+        BETTER_AUTH_URL: undefined,
+        CI: undefined,
+        CORS_ORIGIN: undefined,
+        DATABASE_URL: undefined,
+        DOTENV_CONFIG_PATH: storefrontEnvironmentFile,
+        NODE_ENV: undefined,
+        PORTLESS_URL: undefined,
+      },
+    ),
+  ).toMatchObject({
+    betterAuthSecret: "local-development-auth-secret-32-characters",
+    betterAuthUrl: "http://localhost:3001",
+    corsOrigin: "http://localhost:3001",
+    databaseUrl: "postgresql://postgres:password@localhost:5432/mze-store",
+  });
 });
 
 test("the Medusa entry loads as built ESM without validation", () => {

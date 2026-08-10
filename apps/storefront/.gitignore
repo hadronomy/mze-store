@@ -31,6 +31,7 @@
 # Environment & local files
 .env*
 !.env.example
+!.env.template
 .DS_Store
 *.pem
 *.local
