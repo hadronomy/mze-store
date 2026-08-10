@@ -5,10 +5,7 @@ import { portlessCors, withPortlessCors } from "~/portless";
 const environmentKeys = [
   "ADMIN_CORS",
   "AUTH_CORS",
-  "BETTER_AUTH_SECRET",
-  "BETTER_AUTH_URL",
   "COOKIE_SECRET",
-  "CORS_ORIGIN",
   "DATABASE_URL",
   "JWT_SECRET",
   "PORTLESS_URL",
@@ -20,9 +17,8 @@ const environmentKeys = [
 function loadEnvironmentFile(fileName: string) {
   const childEnvironment = {
     ...process.env,
-    DOTENV_CONFIG_PATH: fileName,
-    DOTENV_CONFIG_QUIET: "true",
   };
+  const environmentName = fileName.slice(".env.".length);
 
   for (const key of environmentKeys) {
     delete childEnvironment[key];
@@ -35,9 +31,10 @@ function loadEnvironmentFile(fileName: string) {
       "--input-type=commonjs",
       "--eval",
       `
-        const { env } = require("@mze-store/env/server");
+        const { loadEnv } = require("@medusajs/framework/utils");
         const { parse } = require("@mze-store/env/medusa");
-        process.stdout.write(JSON.stringify({ ...env, ...parse(process.env) }));
+        loadEnv(${JSON.stringify(environmentName)}, process.cwd());
+        process.stdout.write(JSON.stringify(parse(process.env)));
       `,
     ],
     {
@@ -50,7 +47,7 @@ function loadEnvironmentFile(fileName: string) {
   return JSON.parse(output) as Record<string, string>;
 }
 
-test(".env.test satisfies the server environment schema", () => {
+test(".env.test satisfies the Medusa environment schema", () => {
   expect(loadEnvironmentFile(".env.test")).toMatchObject({
     ADMIN_CORS: "http://localhost:9000",
     AUTH_CORS: "http://localhost:3001,http://localhost:9000",
