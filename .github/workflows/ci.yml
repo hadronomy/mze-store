@@ -119,30 +119,10 @@ jobs:
         run: docker compose down --volumes
 
   browser:
-    name: Browser accessibility suite
+    name: Browser test placeholder
     needs: checks
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    services:
-      postgres:
-        image: postgres:18
-        env:
-          POSTGRES_DB: mze-store
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: password
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U postgres -d mze-store"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-    env:
-      DATABASE_URL: postgresql://postgres:password@127.0.0.1:5432/mze-store
-      BETTER_AUTH_SECRET: browser-test-secret-with-at-least-32-characters
-      BETTER_AUTH_URL: http://127.0.0.1:3001
-      CORS_ORIGIN: http://127.0.0.1:3001
-      NODE_ENV: test
     steps:
       - name: Check out the repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -161,13 +141,9 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      - name: Create the Account schema
-        run: bun run db:push
-
-      - name: Install Chromium
-        run: bunx playwright install --with-deps chromium
-
-      - name: Run the browser suite
+      # The current spec is a no-op. Add service setup and browser installation
+      # when it starts exercising Storefront flows.
+      - name: Run the browser test placeholder
         run: bun run test:e2e
 
       - name: Upload browser traces

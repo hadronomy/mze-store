@@ -126,16 +126,16 @@ bun run test
 `bun run test` needs PostgreSQL and Redis. The check and type-check commands do
 not need the backing services.
 
-Run the placeholder Chromium browser suite after you create the Account schema:
+Run the placeholder browser suite:
 
 ```sh
-bunx playwright install chromium
 bun run test:e2e
 ```
 
-The placeholder does not start a browser flow yet. The configuration starts the
-Storefront when `PLAYWRIGHT_BASE_URL` is not set, and it uses an existing server
-when that variable is set.
+The placeholder has no page or accessibility flow. It does not start a server or
+need a browser binary. Set `PLAYWRIGHT_START_SERVER=1` when you add a real flow
+that needs the local Storefront, or set `PLAYWRIGHT_BASE_URL` for an existing
+server.
 
 The database commands are:
 
@@ -164,6 +164,26 @@ docker compose port storefront 3001
 
 Use `bun run build` to build all applications. Use `bun run lint` to run
 Oxlint. Use `bun run format` to run Oxfmt.
+
+The tooling reports and cache checks are optional:
+
+The value is to measure whether Vite+ can safely reuse deterministic package
+builds and type checks before we enable that behavior in normal commands or CI.
+
+```sh
+bun run knip:report
+vp run cache:packages
+vp run cache:packages
+vp run cache:typecheck
+vp run cache:typecheck
+```
+
+When you evaluate a cache task, run it twice. The first run creates the cache;
+the immediate second run must report a cache hit. The cache tasks cover only
+package builds and package type checks. Development servers, database commands,
+migrations, seeds, tests, and the main application build stay uncached.
+Read the [Knip baseline](docs/research/knip-baseline.md) before you change the
+report configuration.
 
 ## Interfaces
 

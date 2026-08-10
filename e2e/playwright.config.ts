@@ -1,6 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
 
 const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3001";
+const startWebServer = process.env.PLAYWRIGHT_START_SERVER === "1";
 
 export default defineConfig({
   testDir: ".",
@@ -19,12 +20,13 @@ export default defineConfig({
       use: { ...devices["Desktop Chrome"] },
     },
   ],
-  webServer: process.env.PLAYWRIGHT_BASE_URL
-    ? undefined
-    : {
-        command: "bun run dev:storefront",
-        url: baseURL,
-        reuseExistingServer: !process.env.CI,
-        timeout: 120_000,
-      },
+  webServer:
+    startWebServer && !process.env.PLAYWRIGHT_BASE_URL
+      ? {
+          command: "bun run dev:storefront",
+          url: baseURL,
+          reuseExistingServer: !process.env.CI,
+          timeout: 120_000,
+        }
+      : undefined,
 });

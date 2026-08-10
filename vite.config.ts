@@ -17,8 +17,31 @@ export default defineConfig({
   resolve: {
     tsconfigPaths: true,
   },
+  // Keep cache probes opt-in until their fingerprints are stable in CI.
+  run: {
+    cache: {
+      scripts: false,
+      tasks: true,
+    },
+    tasks: {
+      "cache:packages": {
+        command:
+          "vp run --cache @mze-store/env#build && vp run --cache --filter @mze-store/db build && vp run --cache --filter @mze-store/auth build && vp run --cache --filter @mze-store/ui build",
+        cache: true,
+      },
+      "cache:typecheck": {
+        command: "vp run --cache --filter './packages/*' check-types",
+        cache: true,
+      },
+    },
+  },
   test: {
-    exclude: [...configDefaults.exclude, ...ignorePatterns, "apps/medusa/integration-tests/**"],
+    exclude: [
+      ...configDefaults.exclude,
+      ...ignorePatterns,
+      "e2e/**",
+      "apps/medusa/integration-tests/**",
+    ],
     globalSetup: "./tooling/test/global-setup.ts",
   },
   lint: {
