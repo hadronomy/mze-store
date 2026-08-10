@@ -7,10 +7,14 @@ const environmentKeys = [
   "AUTH_CORS",
   "BETTER_AUTH_SECRET",
   "BETTER_AUTH_URL",
+  "COOKIE_SECRET",
   "CORS_ORIGIN",
   "DATABASE_URL",
+  "JWT_SECRET",
   "PORTLESS_URL",
+  "REDIS_URL",
   "STORE_CORS",
+  "STRIPE_API_KEY",
 ] as const;
 
 function loadEnvironmentFile(fileName: string) {
@@ -46,17 +50,22 @@ function loadEnvironmentFile(fileName: string) {
   return JSON.parse(output) as Record<string, string>;
 }
 
-test.each([".env.template", ".env.test"])(
-  "%s satisfies the server environment schema",
-  (fileName) => {
-    expect(loadEnvironmentFile(fileName)).toMatchObject({
-      ADMIN_CORS: "http://localhost:9000",
-      AUTH_CORS: "http://localhost:3001,http://localhost:9000",
-      DATABASE_URL: "postgresql://postgres:password@localhost:5432/mze-store",
-      STORE_CORS: "http://localhost:3001",
-    });
-  },
-);
+test(".env.test satisfies the server environment schema", () => {
+  expect(loadEnvironmentFile(".env.test")).toMatchObject({
+    ADMIN_CORS: "http://localhost:9000",
+    AUTH_CORS: "http://localhost:3001,http://localhost:9000",
+    COOKIE_SECRET: "test-cookie-secret",
+    DATABASE_URL: "postgresql://postgres:password@localhost:5432/mze-store",
+    JWT_SECRET: "test-jwt-secret",
+    REDIS_URL: "redis://localhost:6379",
+    STORE_CORS: "http://localhost:3001",
+    STRIPE_API_KEY: "sk_test_integration",
+  });
+});
+
+test(".env.template requires a Stripe secret key", () => {
+  expect(() => loadEnvironmentFile(".env.template")).toThrow(/STRIPE_API_KEY/);
+});
 
 test("Portless development uses named local CORS patterns", () => {
   const source = {

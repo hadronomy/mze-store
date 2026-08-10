@@ -9,12 +9,16 @@ const environment = {
   AUTH_CORS: "http://localhost:3001,http://localhost:9000",
   BETTER_AUTH_SECRET: "test-secret-with-at-least-32-characters",
   BETTER_AUTH_URL: "http://localhost:3000",
+  COOKIE_SECRET: "test-cookie-secret",
   CORS_ORIGIN: "http://localhost:3000",
   DATABASE_URL: "postgresql://postgres:password@localhost:5432/mze-store",
   DOTENV_CONFIG_QUIET: "true",
+  JWT_SECRET: "test-jwt-secret",
   NODE_ENV: "test",
+  REDIS_URL: "redis://localhost:6379",
   SKIP_ENV_VALIDATION: undefined,
   STORE_CORS: "http://localhost:3001",
+  STRIPE_API_KEY: "sk_test_integration",
 };
 const commonJsServerSource = `
   const modulePath = require.resolve("@mze-store/env/server");
@@ -187,4 +191,41 @@ test("the Medusa parser names a missing STORE_CORS variable", () => {
       },
     ),
   ).toThrow(/STORE_CORS/);
+});
+
+test.each(["COOKIE_SECRET", "JWT_SECRET", "REDIS_URL", "STRIPE_API_KEY"] as const)(
+  "the Medusa parser names a missing %s variable",
+  (key) => {
+    expect(() =>
+      runNode(
+        "commonjs",
+        `
+          const { parse } = require("@mze-store/env/medusa");
+          parse(process.env);
+          process.stdout.write("{}");
+        `,
+        {
+          ...environment,
+          [key]: undefined,
+        },
+      ),
+    ).toThrow(new RegExp(key));
+  },
+);
+
+test("the Medusa parser rejects a Stripe publishable key", () => {
+  expect(() =>
+    runNode(
+      "commonjs",
+      `
+        const { parse } = require("@mze-store/env/medusa");
+        parse(process.env);
+        process.stdout.write("{}");
+      `,
+      {
+        ...environment,
+        STRIPE_API_KEY: "pk_test_integration",
+      },
+    ),
+  ).toThrow(/STRIPE_API_KEY must be a Stripe secret key/);
 });

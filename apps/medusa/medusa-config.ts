@@ -1,5 +1,4 @@
 import { defineConfig, loadEnv } from "@medusajs/framework/utils";
-import { z } from "@medusajs/framework/zod";
 import { parse } from "@mze-store/env/medusa";
 import { resolve } from "node:path";
 import { STRIPE_MODULE_ID } from "~/payment/stripe";
@@ -8,12 +7,7 @@ import { withPortlessCors } from "~/portless";
 loadEnv(process.env.NODE_ENV || "development", process.cwd());
 
 const env = parse(withPortlessCors(process.env));
-const redisUrl = process.env.REDIS_URL;
-const stripeEnv = z
-  .object({
-    STRIPE_API_KEY: z.string().startsWith("sk_", "STRIPE_API_KEY must be a Stripe secret key"),
-  })
-  .parse(process.env);
+const redisUrl = env.REDIS_URL;
 
 export default defineConfig({
   admin: {
@@ -40,8 +34,8 @@ export default defineConfig({
       storeCors: env.STORE_CORS,
       adminCors: env.ADMIN_CORS,
       authCors: env.AUTH_CORS,
-      jwtSecret: process.env.JWT_SECRET,
-      cookieSecret: process.env.COOKIE_SECRET,
+      jwtSecret: env.JWT_SECRET,
+      cookieSecret: env.COOKIE_SECRET,
     },
   },
   // Registered unconditionally, and that is the point. Medusa's self-hosted
@@ -59,7 +53,7 @@ export default defineConfig({
           {
             resolve: "@medusajs/medusa/payment-stripe",
             id: STRIPE_MODULE_ID,
-            options: { apiKey: stripeEnv.STRIPE_API_KEY },
+            options: { apiKey: env.STRIPE_API_KEY },
           },
         ],
       },
