@@ -2,6 +2,10 @@ import { z } from "zod";
 
 export const databaseUrlSchema = z.string().min(1);
 
+export const databaseEnvironmentSchema = z.object({
+  DATABASE_URL: databaseUrlSchema,
+});
+
 export const medusaEnvironmentSchema = z.object({
   COOKIE_SECRET: z.string().min(1),
   DATABASE_URL: databaseUrlSchema,

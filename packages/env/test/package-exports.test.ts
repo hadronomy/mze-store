@@ -60,6 +60,63 @@ test("the server entry loads as built ESM", () => {
   });
 });
 
+test("the database entry loads as built ESM", () => {
+  expect(
+    runNode(
+      "module",
+      `
+        const modulePath = import.meta.resolve("@mze-store/env/database");
+        const { parse } = await import(modulePath);
+        const databaseEnv = parse(process.env);
+        process.stdout.write(JSON.stringify({
+          databaseUrl: databaseEnv.DATABASE_URL,
+          modulePath,
+        }));
+      `,
+    ),
+  ).toMatchObject({
+    databaseUrl: environment.DATABASE_URL,
+    modulePath: expect.stringMatching(/\/dist\/database\.mjs$/),
+  });
+});
+
+test("the database entry loads as built CommonJS", () => {
+  expect(
+    runNode(
+      "commonjs",
+      `
+        const modulePath = require.resolve("@mze-store/env/database");
+        const { parse } = require(modulePath);
+        const databaseEnv = parse(process.env);
+        process.stdout.write(JSON.stringify({
+          databaseUrl: databaseEnv.DATABASE_URL,
+          modulePath,
+        }));
+      `,
+    ),
+  ).toMatchObject({
+    databaseUrl: environment.DATABASE_URL,
+    modulePath: expect.stringMatching(/\/dist\/database\.cjs$/),
+  });
+});
+
+test("the database parser names a missing DATABASE_URL variable", () => {
+  expect(() =>
+    runNode(
+      "commonjs",
+      `
+        const { parse } = require("@mze-store/env/database");
+        parse(process.env);
+        process.stdout.write("{}");
+      `,
+      {
+        ...environment,
+        DATABASE_URL: undefined,
+      },
+    ),
+  ).toThrow(/DATABASE_URL/);
+});
+
 test("the server entry loads as built CommonJS", () => {
   const loadedEntry = runNode("commonjs", commonJsServerSource);
 

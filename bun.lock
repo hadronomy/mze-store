@@ -115,6 +115,7 @@
     "packages/db": {
       "name": "@mze-store/db",
       "dependencies": {
+        "@mze-store/env": "workspace:*",
         "dotenv": "catalog:",
         "drizzle-orm": "^0.45.2",
         "pg": "^8.22.0",

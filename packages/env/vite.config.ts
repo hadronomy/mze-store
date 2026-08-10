@@ -1,6 +1,7 @@
 import { defineConfig } from "vite-plus";
 
 const serverEntries = {
+  database: "src/database.ts",
   server: "src/server.ts",
   medusa: "src/medusa.ts",
 };

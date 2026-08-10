@@ -4,6 +4,16 @@
   "private": true,
   "type": "module",
   "exports": {
+    "./database": {
+      "import": {
+        "types": "./dist/database.d.mts",
+        "default": "./dist/database.mjs"
+      },
+      "require": {
+        "types": "./dist/database.d.cts",
+        "default": "./dist/database.cjs"
+      }
+    },
     "./server": {
       "import": {
         "types": "./dist/server.d.mts",

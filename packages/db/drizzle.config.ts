@@ -1,9 +1,12 @@
 import dotenv from "dotenv";
 import { defineConfig } from "drizzle-kit";
+import { parse } from "@mze-store/env/database";
 
 dotenv.config({
   path: "../../apps/storefront/.env",
 });
+
+const env = parse(process.env);
 
 export default defineConfig({
   schema: "./src/schema",
@@ -11,6 +14,6 @@ export default defineConfig({
   dialect: "postgresql",
   schemaFilter: ["auth"],
   dbCredentials: {
-    url: process.env.DATABASE_URL || "",
+    url: env.DATABASE_URL,
   },
 });
