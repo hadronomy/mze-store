@@ -2,7 +2,7 @@
 # Medusa 2.18 was verified end to end on node 24 (build, migrate, serve).
 # Its engines field allows >=20, but the backend runs under node rather than
 # the bun runtime — see docs/adr/0001.
-node = "24"
+node = "24.18.1"
 
 # Must match `packageManager` in package.json, or corepack and mise disagree
 # about which bun is authoritative.
