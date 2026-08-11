@@ -27,3 +27,10 @@ docker-compose.yml
 **/.env
 **/.env.*
 !**/.env.example
+
+# These files do not affect a production build.
+docs
+.github
+**/*.md
+**/integration-tests
+e2e

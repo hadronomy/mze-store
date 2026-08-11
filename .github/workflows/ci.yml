@@ -134,6 +134,266 @@ jobs:
         if: always()
         run: docker compose down --volumes
 
+  docker-images:
+    name: Docker image (${{ matrix.name }})
+    needs:
+      - checks
+      - docker
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: medusa
+            dockerfile: apps/medusa/Dockerfile
+          - name: storefront
+            dockerfile: apps/storefront/Dockerfile
+    env:
+      IMAGE_REPOSITORY: ghcr.io/${{ github.repository_owner }}/mze-store-${{ matrix.name }}
+
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@96fe6ef7f33517b61c61be40b68a1882f3264fb8 # v4.2.0
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
+
+      - name: Log in to GHCR
+        if: github.event_name == 'push'
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Restore the main image baseline
+        if: github.event_name == 'pull_request'
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: /tmp/docker-baseline
+          key: docker-image-baseline-${{ matrix.name }}-${{ github.sha }}
+          restore-keys: |
+            docker-image-baseline-${{ matrix.name }}-
+
+      - name: Start the image build timer
+        run: echo "DOCKER_BUILD_STARTED=$(date +%s)" >> "$GITHUB_ENV"
+
+      - name: Build the pull request image
+        if: github.event_name == 'pull_request'
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          platforms: linux/amd64
+          load: true
+          tags: mze-store-${{ matrix.name }}:pr
+          cache-from: type=gha,scope=mze-store-${{ matrix.name }}
+          cache-to: type=gha,mode=max,scope=mze-store-${{ matrix.name }}
+
+      - name: Build the immutable main candidate
+        if: github.event_name == 'push'
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ env.IMAGE_REPOSITORY }}:${{ github.sha }}
+          cache-from: type=registry,ref=${{ env.IMAGE_REPOSITORY }}:buildcache
+          cache-to: type=registry,ref=${{ env.IMAGE_REPOSITORY }}:buildcache,mode=max
+          provenance: mode=max
+          sbom: true
+
+      - name: Record the image build time
+        if: always()
+        run: |
+          finished="$(date +%s)"
+          started="${DOCKER_BUILD_STARTED:-$finished}"
+          echo "DOCKER_BUILD_SECONDS=$((finished - started))" >> "$GITHUB_ENV"
+
+      # Keep all critical findings visible. The current Debian base reports
+      # several critical CVEs without an upstream fix, so only fixable critical
+      # findings block the image.
+      - name: Report critical vulnerabilities in the pull request image
+        if: github.event_name == 'pull_request'
+        uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8 # v0.36.0
+        with:
+          image-ref: mze-store-${{ matrix.name }}:pr
+          format: table
+          exit-code: "0"
+          ignore-unfixed: false
+          vuln-type: os,library
+          severity: CRITICAL
+
+      - name: Gate fixable critical vulnerabilities in the pull request image
+        if: github.event_name == 'pull_request'
+        uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8 # v0.36.0
+        with:
+          image-ref: mze-store-${{ matrix.name }}:pr
+          format: table
+          exit-code: "1"
+          ignore-unfixed: true
+          vuln-type: os,library
+          severity: CRITICAL
+
+      - name: Report high vulnerabilities in the pull request image
+        if: github.event_name == 'pull_request'
+        uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8 # v0.36.0
+        with:
+          image-ref: mze-store-${{ matrix.name }}:pr
+          format: table
+          exit-code: "0"
+          ignore-unfixed: false
+          vuln-type: os,library
+          severity: HIGH
+
+      - name: Report critical vulnerabilities in the immutable main candidate
+        if: github.event_name == 'push'
+        uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8 # v0.36.0
+        with:
+          image-ref: ${{ env.IMAGE_REPOSITORY }}:${{ github.sha }}
+          format: table
+          exit-code: "0"
+          ignore-unfixed: false
+          vuln-type: os,library
+          severity: CRITICAL
+
+      - name: Gate fixable critical vulnerabilities in the immutable main candidate
+        if: github.event_name == 'push'
+        uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8 # v0.36.0
+        with:
+          image-ref: ${{ env.IMAGE_REPOSITORY }}:${{ github.sha }}
+          format: table
+          exit-code: "1"
+          ignore-unfixed: true
+          vuln-type: os,library
+          severity: CRITICAL
+
+      - name: Report high vulnerabilities in the immutable main candidate
+        if: github.event_name == 'push'
+        uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8 # v0.36.0
+        with:
+          image-ref: ${{ env.IMAGE_REPOSITORY }}:${{ github.sha }}
+          format: table
+          exit-code: "0"
+          ignore-unfixed: false
+          vuln-type: os,library
+          severity: HIGH
+
+      - name: Promote the scanned image to main
+        if: github.event_name == 'push'
+        run: docker buildx imagetools create --tag "${IMAGE_REPOSITORY}:main" "${IMAGE_REPOSITORY}:${GITHUB_SHA}"
+
+      - name: Measure the pull request image
+        if: github.event_name == 'pull_request'
+        env:
+          IMAGE_REF: mze-store-${{ matrix.name }}:pr
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/docker-metrics
+          uncompressed_bytes="$(docker image inspect "$IMAGE_REF" --format '{{.Size}}')"
+          compressed_bytes="$(docker save "$IMAGE_REF" | gzip -c | wc -c | tr -d ' ')"
+          jq -n \
+            --arg platform linux/amd64 \
+            --argjson uncompressed_bytes "$uncompressed_bytes" \
+            --argjson compressed_bytes "$compressed_bytes" \
+            '{platform: $platform, uncompressed_bytes: $uncompressed_bytes, compressed_bytes: $compressed_bytes}' \
+            > /tmp/docker-metrics/linux-amd64.json
+
+      - name: Measure the published main image
+        if: github.event_name == 'push'
+        env:
+          IMAGE_REF: ${{ env.IMAGE_REPOSITORY }}:${{ github.sha }}
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/docker-metrics
+          for platform in linux/amd64 linux/arm64; do
+            docker pull --platform "$platform" "$IMAGE_REF"
+            local_ref="mze-store-${{ matrix.name }}:${platform##*/}"
+            docker tag "$IMAGE_REF" "$local_ref"
+            uncompressed_bytes="$(docker image inspect "$local_ref" --format '{{.Size}}')"
+            compressed_bytes="$(docker save "$local_ref" | gzip -c | wc -c | tr -d ' ')"
+            jq -n \
+              --arg platform "$platform" \
+              --argjson uncompressed_bytes "$uncompressed_bytes" \
+              --argjson compressed_bytes "$compressed_bytes" \
+              '{platform: $platform, uncompressed_bytes: $uncompressed_bytes, compressed_bytes: $compressed_bytes}' \
+              > "/tmp/docker-metrics/${platform//\//-}.json"
+          done
+
+      - name: Assemble image metrics
+        run: |
+          set -euo pipefail
+          jq -s \
+            --arg image "${{ matrix.name }}" \
+            --argjson build_seconds "$DOCKER_BUILD_SECONDS" \
+            '{image: $image, build_seconds: $build_seconds, platforms: .}' \
+            /tmp/docker-metrics/linux-*.json \
+            > "/tmp/docker-metrics/${{ matrix.name }}.json"
+
+      - name: Compare the pull request image with the main baseline
+        if: github.event_name == 'pull_request'
+        env:
+          IMAGE_NAME: ${{ matrix.name }}
+        run: |
+          set -euo pipefail
+          baseline="/tmp/docker-baseline/${IMAGE_NAME}.json"
+          current="/tmp/docker-metrics/${IMAGE_NAME}.json"
+          if [[ ! -f "$baseline" ]]; then
+            echo "No main baseline exists for ${IMAGE_NAME}; save the first main build before enforcing the limit."
+            exit 0
+          fi
+
+          baseline_bytes="$(jq -r '.platforms[] | select(.platform == "linux/amd64") | .uncompressed_bytes' "$baseline")"
+          current_bytes="$(jq -r '.platforms[] | select(.platform == "linux/amd64") | .uncompressed_bytes' "$current")"
+          baseline_compressed_bytes="$(jq -r '.platforms[] | select(.platform == "linux/amd64") | .compressed_bytes' "$baseline")"
+          current_compressed_bytes="$(jq -r '.platforms[] | select(.platform == "linux/amd64") | .compressed_bytes' "$current")"
+          byte_limit=$((baseline_bytes + baseline_bytes / 10))
+          compressed_byte_limit=$((baseline_compressed_bytes + baseline_compressed_bytes / 10))
+
+          if (( current_bytes > byte_limit )); then
+            echo "::error::${IMAGE_NAME} is more than 10% larger than the main baseline."
+            exit 1
+          fi
+          if (( current_compressed_bytes > compressed_byte_limit )); then
+            echo "::error::${IMAGE_NAME} compressed size is more than 10% larger than the main baseline."
+            exit 1
+          fi
+          # Release builds use multi-platform registry output. Pull requests use
+          # a local amd64 image for scanning, so build time is telemetry only.
+
+      - name: Prepare the main baseline
+        if: github.event_name == 'push'
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/docker-baseline
+          cp "/tmp/docker-metrics/${{ matrix.name }}.json" "/tmp/docker-baseline/${{ matrix.name }}.json"
+
+      - name: Save the main image baseline
+        if: github.event_name == 'push'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: /tmp/docker-baseline
+          key: docker-image-baseline-${{ matrix.name }}-${{ github.sha }}
+
+      - name: Upload image metrics
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: docker-metrics-${{ matrix.name }}-${{ github.sha }}
+          path: /tmp/docker-metrics/${{ matrix.name }}.json
+          if-no-files-found: ignore
+          retention-days: 14
+
   browser:
     name: Browser test placeholder
     needs: checks
@@ -164,7 +424,7 @@ jobs:
 
       - name: Upload browser traces
         if: failure()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: playwright-traces
           path: test-results/
