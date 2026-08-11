@@ -32,6 +32,7 @@ ENV NODE_ENV=production \
   HOST=0.0.0.0 \
   PORT=3001
 WORKDIR /app
+RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx
 
 COPY --from=build --chown=node:node /app/apps/storefront/.output ./apps/storefront/.output
 COPY --from=build --chown=node:node /tmp/storefront-runtime/node_modules ./node_modules

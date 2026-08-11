@@ -44,6 +44,7 @@ ENV NODE_ENV=production \
   HOST=0.0.0.0 \
   PORT=9000
 WORKDIR /app
+RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx
 
 COPY --from=production-deps --chown=node:node /app/node_modules ./node_modules
 COPY --from=production-deps --chown=node:node /app/apps/medusa/node_modules ./apps/medusa/node_modules
