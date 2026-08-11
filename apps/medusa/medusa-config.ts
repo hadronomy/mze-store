@@ -80,5 +80,8 @@ export default defineConfig({
         ],
       },
     },
+    {
+      resolve: "./src/modules/tax-rate-audit",
+    },
   ],
 });

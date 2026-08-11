@@ -6,11 +6,12 @@ import {
   createServiceZonesWorkflow,
   createStockLocationsWorkflow,
   createStoresWorkflow,
-  createTaxRegionsWorkflow,
   linkSalesChannelsToStockLocationWorkflow,
   updateStoresWorkflow,
 } from "@medusajs/medusa/core-flows";
 import { STRIPE_PAYMENT_PROVIDER_ID } from "~/payment/stripe";
+import { createTaxRegionWithAudit } from "~/workflows/tax-rate-audit-operations";
+import type { TaxRateAuditActor } from "~/modules/tax-rate-audit";
 import type { TerritoryDeclaration } from "./declaration";
 import {
   findDeclaredStockLocation,
@@ -40,6 +41,7 @@ const SYSTEM_TAX_PROVIDER = "tp_system";
 const SALES_CHANNEL_NAME = "Default Sales Channel";
 const FULFILLMENT_SET_NAME = "Shipping";
 const SEEDED_BY = "seed";
+const SEED_ACTOR: TaxRateAuditActor = { kind: "system", id: SEEDED_BY };
 
 /**
  * Applies a Territory Declaration to the database. It creates nothing that a
@@ -145,18 +147,18 @@ async function ensureTaxRegions(
   let parentId = taxRegions.find((region) => region.province_code === null)?.id;
 
   if (!parentId) {
-    const { result } = await createTaxRegionsWorkflow(container).run({
-      input: [
-        {
-          country_code: declaration.country,
-          provider_id: SYSTEM_TAX_PROVIDER,
-          default_tax_rate: { ...declaration.defaultRegime },
-          created_by: SEEDED_BY,
-        },
-      ],
+    const region = await createTaxRegionWithAudit(container, {
+      data: {
+        country_code: declaration.country,
+        provider_id: SYSTEM_TAX_PROVIDER,
+        default_tax_rate: { ...declaration.defaultRegime },
+        created_by: SEEDED_BY,
+      },
+      actor: SEED_ACTOR,
+      operationId: `seed:tax-region:${declaration.country}:country`,
     });
 
-    parentId = result[0]!.id;
+    parentId = region.id;
   }
 
   const missing = declaration.provinceRegimes.flatMap((regime) =>
@@ -179,7 +181,13 @@ async function ensureTaxRegions(
     return;
   }
 
-  await createTaxRegionsWorkflow(container).run({ input: missing });
+  for (const region of missing) {
+    await createTaxRegionWithAudit(container, {
+      data: region,
+      actor: SEED_ACTOR,
+      operationId: `seed:tax-region:${declaration.country}:${region.province_code}`,
+    });
+  }
 }
 
 /**
