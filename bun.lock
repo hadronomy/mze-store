@@ -27,6 +27,7 @@
         "@medusajs/draft-order": "catalog:",
         "@medusajs/framework": "catalog:",
         "@medusajs/medusa": "catalog:",
+        "@medusajs/ui": "4.2.0",
         "@mze-store/env": "workspace:*",
         "@mze-store/territory": "workspace:*",
       },
