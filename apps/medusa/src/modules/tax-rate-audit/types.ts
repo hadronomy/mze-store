@@ -1,6 +1,11 @@
 export const TAX_RATE_AUDIT_MODULE = "tax_rate_audit" as const;
 
-export type TaxRateAuditAction = "created" | "updated";
+export const TAX_RATE_AUDIT_ACTIONS = ["created", "updated"] as const;
+export const TAX_RATE_AUDIT_ACTOR_KINDS = ["operator", "system"] as const;
+export const TAX_RATE_AUDIT_RESOURCE_KINDS = ["tax_rate", "tax_region"] as const;
+
+export type TaxRateAuditAction = (typeof TAX_RATE_AUDIT_ACTIONS)[number];
+export type TaxRateAuditResourceKind = (typeof TAX_RATE_AUDIT_RESOURCE_KINDS)[number];
 
 export type TaxRateAuditActor =
   | {
@@ -14,6 +19,7 @@ export type TaxRateAuditActor =
 
 export type TaxRateChangeInput = {
   operationId: string;
+  requestFingerprint: string;
   action: TaxRateAuditAction;
   taxRateId: string;
   taxRegionId: string;
@@ -28,7 +34,14 @@ export type TaxRateChangeInput = {
   occurredAt: Date;
 };
 
-export type TaxRateChangeFilters = {
+export type TaxRateAuditOperationInput = {
+  operationId: string;
+  requestFingerprint: string;
+  resourceKind: TaxRateAuditResourceKind;
+  resourceId: string;
+};
+
+export type TaxRateChangeQuery = {
   taxRateId?: string;
   taxRegionId?: string;
   provinceCode?: string;

@@ -6,8 +6,10 @@ export { TAX_RATE_AUDIT_MODULE };
 export type {
   TaxRateAuditAction,
   TaxRateAuditActor,
-  TaxRateChangeFilters,
+  TaxRateAuditOperationInput,
+  TaxRateAuditResourceKind,
   TaxRateChangeInput,
+  TaxRateChangeQuery,
 } from "./types";
 
 export default Module(TAX_RATE_AUDIT_MODULE, {

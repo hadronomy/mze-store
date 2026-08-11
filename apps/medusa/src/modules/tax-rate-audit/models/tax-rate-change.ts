@@ -1,10 +1,12 @@
 import { model } from "@medusajs/framework/utils";
+import { TAX_RATE_AUDIT_ACTIONS, TAX_RATE_AUDIT_ACTOR_KINDS } from "~/modules/tax-rate-audit/types";
 
 const TaxRateChange = model
   .define("tax_rate_change", {
     id: model.id({ prefix: "trc" }).primaryKey(),
-    operation_id: model.text().unique(),
-    action: model.text(),
+    operation_id: model.text(),
+    request_fingerprint: model.text(),
+    action: model.enum([...TAX_RATE_AUDIT_ACTIONS]),
     tax_rate_id: model.text(),
     tax_region_id: model.text(),
     country_code: model.text(),
@@ -13,12 +15,18 @@ const TaxRateChange = model
     tax_rate_code: model.text().nullable(),
     before_rate: model.float().nullable(),
     after_rate: model.float().nullable(),
-    actor_kind: model.text(),
+    actor_kind: model.enum([...TAX_RATE_AUDIT_ACTOR_KINDS]),
     actor_id: model.text(),
     actor_email: model.text().nullable(),
     occurred_at: model.dateTime(),
   })
   .indexes([
+    {
+      name: "IDX_tax_rate_change_operation_id_unique",
+      on: ["operation_id"],
+      unique: true,
+      where: "deleted_at IS NULL",
+    },
     {
       name: "IDX_tax_rate_change_region_occurred_at",
       on: ["tax_region_id", "occurred_at"],

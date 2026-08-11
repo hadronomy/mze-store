@@ -10,7 +10,7 @@ import {
   updateStoresWorkflow,
 } from "@medusajs/medusa/core-flows";
 import { STRIPE_PAYMENT_PROVIDER_ID } from "~/payment/stripe";
-import { createAuditedTaxRegionsWorkflow } from "~/workflows/tax-rate-audit";
+import { createTaxRegionWithAudit } from "~/workflows/tax-rate-audit-operations";
 import type { TaxRateAuditActor } from "~/modules/tax-rate-audit";
 import type { TerritoryDeclaration } from "./declaration";
 import {
@@ -147,22 +147,18 @@ async function ensureTaxRegions(
   let parentId = taxRegions.find((region) => region.province_code === null)?.id;
 
   if (!parentId) {
-    const { result } = await createAuditedTaxRegionsWorkflow(container).run({
-      input: {
-        data: [
-          {
-            country_code: declaration.country,
-            provider_id: SYSTEM_TAX_PROVIDER,
-            default_tax_rate: { ...declaration.defaultRegime },
-            created_by: SEEDED_BY,
-          },
-        ],
-        actor: SEED_ACTOR,
-        operationId: `seed:tax-region:${declaration.country}:country`,
+    const region = await createTaxRegionWithAudit(container, {
+      data: {
+        country_code: declaration.country,
+        provider_id: SYSTEM_TAX_PROVIDER,
+        default_tax_rate: { ...declaration.defaultRegime },
+        created_by: SEEDED_BY,
       },
+      actor: SEED_ACTOR,
+      operationId: `seed:tax-region:${declaration.country}:country`,
     });
 
-    parentId = result[0]!.id;
+    parentId = region.id;
   }
 
   const missing = declaration.provinceRegimes.flatMap((regime) =>
@@ -185,13 +181,13 @@ async function ensureTaxRegions(
     return;
   }
 
-  await createAuditedTaxRegionsWorkflow(container).run({
-    input: {
-      data: missing,
+  for (const region of missing) {
+    await createTaxRegionWithAudit(container, {
+      data: region,
       actor: SEED_ACTOR,
-      operationId: `seed:tax-region:${declaration.country}:province`,
-    },
-  });
+      operationId: `seed:tax-region:${declaration.country}:${region.province_code}`,
+    });
+  }
 }
 
 /**

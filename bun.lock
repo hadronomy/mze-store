@@ -30,6 +30,7 @@
         "@medusajs/ui": "4.2.0",
         "@mze-store/env": "workspace:*",
         "@mze-store/territory": "workspace:*",
+        "fast-json-stable-stringify": "^2.1.0",
       },
       "devDependencies": {
         "@medusajs/test-utils": "catalog:",

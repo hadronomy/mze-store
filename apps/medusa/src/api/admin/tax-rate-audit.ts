@@ -1,25 +1,40 @@
-import type { MedusaContainer } from "@medusajs/framework/types";
-import { ContainerRegistrationKeys, remoteQueryObjectFromString } from "@medusajs/framework/utils";
+import type { HttpTypes, MedusaContainer } from "@medusajs/framework/types";
+import { z } from "@medusajs/framework/zod";
+import {
+  ContainerRegistrationKeys,
+  MedusaError,
+  remoteQueryObjectFromString,
+} from "@medusajs/framework/utils";
 import { randomUUID } from "node:crypto";
-import TaxRateAuditModuleService from "~/modules/tax-rate-audit/service";
-import { TAX_RATE_AUDIT_MODULE } from "~/modules/tax-rate-audit";
+
+const IdempotencyKeySchema = z.string().trim().min(1).max(200);
 
 export function operationIdFromRequest(
   request: { get(name: string): string | undefined },
   scope: string,
-) {
-  const key = (request.get("Idempotency-Key") ?? request.get("X-Idempotency-Key"))?.trim();
-  return `${scope}:${key || randomUUID()}`;
+): string {
+  const header = request.get("Idempotency-Key") ?? request.get("X-Idempotency-Key");
+  if (header === undefined) {
+    return `${encodeURIComponent(scope)}--${randomUUID()}`;
+  }
+
+  const parsed = IdempotencyKeySchema.safeParse(header);
+  if (!parsed.success) {
+    throw new MedusaError(
+      MedusaError.Types.INVALID_DATA,
+      "Idempotency-Key must contain 1 to 200 characters.",
+    );
+  }
+
+  const requestKey = parsed.data;
+  return `${encodeURIComponent(scope)}--${encodeURIComponent(requestKey)}`;
 }
 
-export async function findTaxRateChange(operationId: string, scope: MedusaContainer) {
-  const auditService = scope.resolve<TaxRateAuditModuleService>(TAX_RATE_AUDIT_MODULE);
-  const change = await auditService.findByOperationId(operationId);
-
-  return change as Record<string, unknown> | undefined;
-}
-
-export async function refetchTaxRate(id: string, scope: MedusaContainer, fields: string[]) {
+export async function refetchTaxRate(
+  id: string,
+  scope: MedusaContainer,
+  fields: string[],
+): Promise<HttpTypes.AdminTaxRate> {
   const remoteQuery = scope.resolve(ContainerRegistrationKeys.REMOTE_QUERY);
   const [taxRate] = await remoteQuery(
     remoteQueryObjectFromString({
@@ -32,7 +47,11 @@ export async function refetchTaxRate(id: string, scope: MedusaContainer, fields:
   return taxRate;
 }
 
-export async function refetchTaxRegion(id: string, scope: MedusaContainer, fields: string[]) {
+export async function refetchTaxRegion(
+  id: string,
+  scope: MedusaContainer,
+  fields: string[],
+): Promise<HttpTypes.AdminTaxRegion> {
   const remoteQuery = scope.resolve(ContainerRegistrationKeys.REMOTE_QUERY);
   const [taxRegion] = await remoteQuery(
     remoteQueryObjectFromString({

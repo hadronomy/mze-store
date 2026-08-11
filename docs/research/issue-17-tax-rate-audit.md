@@ -155,30 +155,30 @@ service supplies persistence methods, and module migrations create the table.
 Store snapshots instead of live relations for facts that must remain clear
 after later edits:
 
-| Field           | Purpose                                                      |
-| --------------- | ------------------------------------------------------------ |
-| `id`            | Stable audit-record ID                                       |
-| `operation_id`  | Unique source operation ID used for idempotent append        |
-| `tax_rate_id`   | The affected Tax Rate                                        |
-| `tax_region_id` | The affected Tax Region at change time                       |
-| `country_code`  | The country at change time                                   |
-| `province_code` | The Province at change time, or `null` for a country default |
-| `tax_rate_name` | The Tax Rate name at change time                             |
-| `tax_rate_code` | The Tax Rate code at change time                             |
-| `action`        | `created` or `updated`                                       |
-| `before_rate`   | The old rate, or `null` for creation                         |
-| `after_rate`    | The new rate, checked against the completed mutation         |
-| `actor_kind`    | `operator` or `system`                                       |
-| `actor_id`      | The authenticated Operator or system actor ID                |
-| `actor_email`   | A display snapshot if the Operator record later changes      |
-| `occurred_at`   | The database time for the completed change                   |
+| Field                 | Purpose                                                      |
+| --------------------- | ------------------------------------------------------------ |
+| `id`                  | Stable audit-record ID                                       |
+| `operation_id`        | Unique source operation ID used for idempotent append        |
+| `request_fingerprint` | SHA-256 of the operation kind, actor, and validated input    |
+| `tax_rate_id`         | The affected Tax Rate                                        |
+| `tax_region_id`       | The affected Tax Region at change time                       |
+| `country_code`        | The country at change time                                   |
+| `province_code`       | The Province at change time, or `null` for a country default |
+| `tax_rate_name`       | The Tax Rate name at change time                             |
+| `tax_rate_code`       | The Tax Rate code at change time                             |
+| `action`              | `created` or `updated`                                       |
+| `before_rate`         | The old rate, or `null` for creation                         |
+| `after_rate`          | The new rate, checked against the completed mutation         |
+| `actor_kind`          | `operator` or `system`                                       |
+| `actor_id`            | The authenticated Operator or system actor ID                |
+| `actor_email`         | A display snapshot if the Operator record later changes      |
+| `occurred_at`         | The database time for the completed change                   |
 
-Keep the audit facts append-only at the public service and API boundaries. Do
-not offer update or delete routes. An internal workflow can make one status
-transition from `pending` to `completed` or `failed`. It must not change the
-Operator, Province, or rate snapshots during this transition. Database access
-remains an administrative escape hatch, so access control and backups still
-matter.
+Keep completed audit facts append-only at the public module interface and API
+seams. Do not offer update or delete routes. Workflow compensation can remove
+a row from a failed operation before the workflow returns an error. Database
+access remains an administrative escape hatch, so access control and backups
+still matter.
 
 OWASP describes the core audit fields as “when, where, who and what.” It also
 requires protection from unauthorized modification and deletion.
@@ -186,16 +186,14 @@ requires protection from unauthorized modification and deletion.
 
 ## Mutation boundary
 
-The authenticated route is the last standard boundary that has the Operator.
-The workflow update step is the last standard boundary that reads the old Tax
-Rate. Neither boundary exposes all required data after the mutation.
+The authenticated route is the last standard seam that has the Operator. The
+workflow update step is the last standard seam that reads the old Tax Rate.
+The audited workflow joins these facts with the completed mutation result.
 
-Use a custom audited mutation workflow and an Admin mutation route. The flow
-must write a durable intent before the Tax Rate mutation. This intent contains
-the Operator, old rate, and requested new rate. The flow must check the actual
-new rate and then make the one-way status transition. This order leaves
-evidence if the process stops between the Tax Rate commit and event
-publication.
+Use a custom audited mutation workflow and an Admin mutation route. The
+workflow writes the Tax Rate first. It appends the audit row in the next step.
+If the append fails, workflow compensation restores the Tax Rate and removes
+audit rows from the failed operation.
 
 Block direct use of the original create and update mutation routes when the
 audited route is ready. The Admin Tax Rate editor must use the audited route.
@@ -203,10 +201,6 @@ Otherwise, the original route remains an unaudited bypass. Medusa recommends
 a replicated route when existing route extension points do not meet the
 requirement.
 [Medusa route guidance](https://docs.medusajs.com/learn/fundamentals/api-routes/override)
-
-The standard Tax Rate subscriber can detect a missing completed record. It
-must not invent the Operator or old value. A missing match is an audit failure
-that an Operator must see.
 
 This design is larger than a subscriber because the current Medusa contract
 does not carry the required evidence. Adding the evidence to Tax Rate
@@ -222,17 +216,20 @@ attempt. This keeps the existing Tax Rate Rules behavior in Medusa's core
 workflow while keeping the audit write durable and queryable.
 
 The update workflow locks one Tax Rate through the snapshot, mutation, and
-append. Its operation ID is unique, and a repeated operation with the same
-completed result returns the original row instead of adding a second row.
+append. The mutation boundary also locks each operation ID before it checks
+the audit module or starts a workflow. A separate operation ledger stores the
+result resource for each completed request. This lets a Tax Region create
+replay safely even when it has no default Tax Rate. A retry with different
+validated input fails with a conflict because its request fingerprint differs.
 Seed-created rows use the `system` actor. Admin routes use the authenticated
-Operator ID and store an email snapshot. The table has no mutable status field
-or public delete route; delete behavior for Tax Rates remains unchanged.
+Operator ID and store an email snapshot. The audit module exposes no delete
+operation. Delete behavior for Tax Rates remains unchanged.
 
 ## Operator-readable surface
 
 Add an authenticated Admin API list route over the audit module. Support
-filters for Tax Rate, Tax Region, Province, Operator, action, status, and time.
-Return newest records first.
+filters for Tax Rate, Tax Region, Province, Operator, action, and time. Return
+newest records first.
 
 Add a Medusa Admin UI route for the history. The page can appear in the Admin
 sidebar or under the settings route hierarchy. Medusa supports file-based
@@ -248,10 +245,8 @@ Show these values without requiring a detail click:
 - Tax Rate name and ID
 - old rate and new rate
 - Operator email and ID
-- status
 
-Use a Tax Rate detail link as a convenience. Do not read the present Tax Rate
-to replace historical snapshot fields.
+Do not read the present Tax Rate to replace historical snapshot fields.
 
 ## Acceptance check
 
@@ -262,13 +257,14 @@ to replace historical snapshot fields.
 | An Operator or gestor can answer without database access | Authenticated Admin API and Admin UI route           |
 | No Declaration comparison                                | Audit reads the mutation and database rows only      |
 
-## Tests for the later implementation
+## Tests
 
-- Create a Tax Rate through the audited Admin route and inspect one completed audit row.
-- Update one rate twice before subscribers run and inspect two correct transitions.
-- Use two Operators and make sure that each row has the correct Operator.
-- Stop the process after the durable intent and resume the workflow.
-- Retry the subscriber and make sure that it does not create a duplicate row.
-- Attempt the original mutation routes and make sure that the request fails.
-- Delete or rename an Operator and make sure that earlier history stays clear.
-- Change a Province relation later and make sure that earlier history keeps its Province snapshot.
+- Create a Province Tax Region and a direct Tax Rate through the Admin routes.
+- Repeat each operation ID and make sure that one audit row exists.
+- Replay a Tax Region create that has no default Tax Rate.
+- Reuse one operation ID with different input and require a conflict.
+- Update one Tax Rate twice and inspect the two before-and-after transitions.
+- Use two Operators and inspect the Operator on each row.
+- Run the repository seed twice and inspect one `system` row per Tax Rate.
+- Query history with valid filters and reject invalid query values through Zod.
+- Make sure that the implementation never imports `src/territory/spain.ts`.

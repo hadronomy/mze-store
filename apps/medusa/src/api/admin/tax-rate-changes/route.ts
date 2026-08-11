@@ -1,102 +1,59 @@
 import type { AuthenticatedMedusaRequest, MedusaResponse } from "@medusajs/framework/http";
-import { MedusaError } from "@medusajs/framework/utils";
-import TaxRateAuditModuleService from "~/modules/tax-rate-audit/service";
-import { TAX_RATE_AUDIT_MODULE, type TaxRateAuditAction } from "~/modules/tax-rate-audit";
+import { TAX_RATE_AUDIT_MODULE } from "~/modules/tax-rate-audit";
+import type {
+  TaxRateChangeResponse,
+  TaxRateChangeListQuery,
+  TaxRateChangesResponse,
+} from "~/modules/tax-rate-audit/schema";
+import type { TaxRateAuditModule, TaxRateChangeRecord } from "~/modules/tax-rate-audit/service";
 
-const DEFAULT_LIMIT = 50;
-const MAX_LIMIT = 100;
-
-export async function GET(req: AuthenticatedMedusaRequest, res: MedusaResponse) {
-  const query = req.query as Record<string, unknown>;
-  const action = parseAction(queryValue(query.action));
-
-  const limit = parseInteger(queryValue(query.limit), DEFAULT_LIMIT, "limit");
-  if (limit < 1 || limit > MAX_LIMIT) {
-    throw invalidQuery(`limit must be between 1 and ${MAX_LIMIT}`);
-  }
-
-  const offset = parseInteger(queryValue(query.offset), 0, "offset");
-  if (offset < 0) {
-    throw invalidQuery("offset must be zero or greater");
-  }
-
-  const occurredFrom = parseDate(queryValue(query.from), "from");
-  const occurredTo = parseDate(queryValue(query.to), "to");
-  if (occurredFrom && occurredTo && occurredFrom > occurredTo) {
-    throw invalidQuery("from must be before to");
-  }
-
-  const auditService = req.scope.resolve<TaxRateAuditModuleService>(TAX_RATE_AUDIT_MODULE);
+export async function GET(
+  req: AuthenticatedMedusaRequest<never, TaxRateChangeListQuery>,
+  res: MedusaResponse<TaxRateChangesResponse>,
+): Promise<void> {
+  const query = req.validatedQuery;
+  const auditService = req.scope.resolve<TaxRateAuditModule>(TAX_RATE_AUDIT_MODULE);
   const result = await auditService.listChanges({
-    taxRateId: queryValue(query.tax_rate_id),
-    taxRegionId: queryValue(query.tax_region_id),
-    provinceCode: queryValue(query.province_code),
-    actorId: queryValue(query.actor_id),
-    action,
-    occurredFrom,
-    occurredTo,
-    limit,
-    offset,
+    taxRateId: query.tax_rate_id,
+    taxRegionId: query.tax_region_id,
+    provinceCode: query.province_code,
+    actorId: query.actor_id,
+    action: query.action,
+    occurredFrom: query.from,
+    occurredTo: query.to,
+    limit: query.limit,
+    offset: query.offset,
   });
 
   res.status(200).json({
-    tax_rate_changes: result.changes,
+    tax_rate_changes: toResponse(result.changes),
     count: result.count,
     limit: result.limit,
     offset: result.offset,
   });
 }
 
-function queryValue(value: unknown): string | undefined {
-  if (Array.isArray(value)) {
-    return typeof value[0] === "string" ? value[0] : undefined;
+function toResponse(changes: TaxRateChangeRecord[]): TaxRateChangeResponse[] {
+  const response: TaxRateChangeResponse[] = [];
+
+  for (const change of changes) {
+    response.push({
+      id: change.id,
+      action: change.action,
+      tax_rate_id: change.tax_rate_id,
+      tax_region_id: change.tax_region_id,
+      country_code: change.country_code,
+      province_code: change.province_code,
+      tax_rate_name: change.tax_rate_name,
+      tax_rate_code: change.tax_rate_code,
+      before_rate: change.before_rate,
+      after_rate: change.after_rate,
+      actor_kind: change.actor_kind,
+      actor_id: change.actor_id,
+      actor_email: change.actor_email,
+      occurred_at: change.occurred_at.toISOString(),
+    });
   }
 
-  return typeof value === "string" && value.length > 0 ? value : undefined;
-}
-
-function parseInteger(value: string | undefined, fallback: number, name: string): number {
-  if (value === undefined) {
-    return fallback;
-  }
-
-  const parsed = Number(value);
-  if (!Number.isInteger(parsed)) {
-    throw invalidQuery(`${name} must be an integer`);
-  }
-
-  return parsed;
-}
-
-function parseDate(value: string | undefined, name: string): Date | undefined {
-  if (value === undefined) {
-    return undefined;
-  }
-
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.valueOf())) {
-    throw invalidQuery(`${name} must be an ISO date`);
-  }
-
-  if (name === "to" && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
-    parsed.setUTCHours(23, 59, 59, 999);
-  }
-
-  return parsed;
-}
-
-function parseAction(value: string | undefined): TaxRateAuditAction | undefined {
-  if (value === undefined) {
-    return undefined;
-  }
-
-  if (value !== "created" && value !== "updated") {
-    throw invalidQuery("action must be created or updated");
-  }
-
-  return value;
-}
-
-function invalidQuery(message: string): MedusaError {
-  return new MedusaError(MedusaError.Types.INVALID_DATA, message);
+  return response;
 }
