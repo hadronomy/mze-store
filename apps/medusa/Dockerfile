@@ -35,7 +35,9 @@ COPY packages/db/package.json packages/db/package.json
 COPY packages/env/package.json packages/env/package.json
 COPY packages/ui/package.json packages/ui/package.json
 RUN --mount=type=cache,id=bun-install-cache,target=/root/.bun/install/cache \
-  bun install --frozen-lockfile --omit dev --filter medusa
+  bun install --frozen-lockfile --omit dev \
+    --filter medusa \
+    --filter '@mze-store/env'
 
 FROM node:24-bookworm-slim@sha256:3638d9a6fe4030bd716be989438248074489337ba3275657f93595428be4fc03 AS runtime
 ENV NODE_ENV=production \
@@ -48,6 +50,7 @@ COPY --from=production-deps --chown=node:node /app/apps/medusa/node_modules ./ap
 COPY --from=build --chown=node:node /app/package.json ./package.json
 COPY --from=build --chown=node:node /app/apps/medusa/package.json ./apps/medusa/package.json
 COPY --from=build --chown=node:node /app/packages/env/package.json ./packages/env/package.json
+COPY --from=production-deps --chown=node:node /app/packages/env/node_modules ./packages/env/node_modules
 COPY --from=build --chown=node:node /app/packages/env/dist ./packages/env/dist
 COPY --from=build --chown=node:node /app/apps/medusa/.medusa/server ./apps/medusa/.medusa/server
 
