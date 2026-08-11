@@ -18,6 +18,8 @@ The configuration keeps these exceptions:
   `drizzle.config.ts`. Knip does not load that config because it reads the
   local environment while it loads.
 - `rolldown` is a Vite+ toolchain dependency in the root package.
+- `uuid` keeps Medusa's Jest loader on its CommonJS-compatible version while
+  Effect uses its declared ESM-only version.
 - `@axe-core/playwright` is reserved for the browser checks. The current
   browser test is a no-op until the Storefront has real flows.
 - Generated build output stays outside the analysis.

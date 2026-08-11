@@ -15,12 +15,13 @@ Do not move every package script into one new framework at once.
 
 Use this initial package set:
 
-| Package                 | Exact version                     | Use                                                                                   |
-| ----------------------- | --------------------------------- | ------------------------------------------------------------------------------------- |
-| `effect`                | `4.0.0-beta.107`                  | Effects, Schema, Config, logs, terminal services, CLI, and child-process descriptions |
-| `@effect/platform-node` | `4.0.0-beta.107`                  | Node runtime, process spawning, file system, path, standard I/O, and terminal layers  |
-| `@effect/vitest`        | `4.0.0-beta.107`                  | Effect-aware tests on the Vitest version that Vite+ already locks                     |
-| `ioredis`               | Existing catalog version `5.11.1` | Satisfies the required peer of `@effect/platform-node`                                |
+| Package                 | Exact version                     | Use                                                                                    |
+| ----------------------- | --------------------------------- | -------------------------------------------------------------------------------------- |
+| `effect`                | `4.0.0-beta.107`                  | Effects, Schema, Config, logs, terminal services, CLI, and child-process descriptions  |
+| `@effect/platform-node` | `4.0.0-beta.107`                  | Node runtime, process spawning, file system, path, standard I/O, and terminal layers   |
+| `@effect/vitest`        | `4.0.0-beta.107`                  | Effect-aware tests on the Vitest version that Vite+ already locks                      |
+| `ioredis`               | Existing catalog version `5.11.1` | Satisfies the required peer of `@effect/platform-node`                                 |
+| `uuid`                  | Existing Medusa version `11.1.1`  | Keeps Medusa's CommonJS Jest loader isolated from Effect's ESM-only UUID 14 dependency |
 
 Pin the three Effect packages to one exact beta. Do not use a caret range.
 Effect published all three beta packages from the same repository commit.
@@ -32,6 +33,11 @@ helpers after the first runtime script works end to end. Its peer range accepts
 Vitest 4.1, and Vite+ 0.2.6 locks Vitest 4.1.10 in [`bun.lock`](../../bun.lock).
 Keep `vp test` as the test command.
 [`@effect/vitest` package](https://github.com/Effect-TS/effect/blob/3c495ae7c96d43bfc3b8020250562a194c2c895e/packages/vitest/package.json)
+
+Keep `uuid@11.1.1` as a direct root development dependency. Effect v4 uses
+UUID 14, which is ESM-only. Without the direct Medusa-compatible root copy,
+Bun selects UUID 14 for undeclared imports inside Medusa core flows and Jest
+cannot load them. Bun keeps Effect's declared UUID 14 dependency nested.
 
 ## Accepted design
 
