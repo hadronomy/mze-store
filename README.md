@@ -80,56 +80,54 @@ Install the locked workspace dependencies:
 bun install --frozen-lockfile
 ```
 
-Create the application environment files from their committed templates:
+Run the interactive setup. It creates only missing environment files after
+confirmation, verifies the pinned tools, and installs the Vite+ Git hooks:
 
 ```sh
-cp apps/storefront/.env.template apps/storefront/.env
-cp apps/medusa/.env.template apps/medusa/.env
+bun run mze setup
 ```
 
-Set a Stripe test secret in `apps/medusa/.env`. Then start PostgreSQL and Redis:
-
-```sh
-bun run services:start
-```
-
-Compose assigns a different host port to each worktree. Copy the ports from
-`bun run services:ports` into the two environment files when they differ from
-the template values.
-
-Push the Account schema and install the Vite+ Git hooks:
-
-```sh
-bun run db:push
-bun run hooks:setup
-```
-
-Install the pinned Portless version, then start both development servers:
+Set a Stripe test secret in `apps/medusa/.env`. Install the pinned Portless
+version, then start development:
 
 ```sh
 bun add --global portless@0.15.5
-bun run dev:portless
+bun run dev
+```
+
+The development command starts or reuses PostgreSQL and Redis, waits for both
+services to become healthy, and injects their worktree ports without changing
+environment files. It then starts the Storefront and Medusa through Portless.
+Start only the Storefront when another worktree owns the shared Medusa route:
+
+```sh
+bun run mze dev storefront
+```
+
+Inspect the local setup without changing it:
+
+```sh
+bun run mze doctor
 ```
 
 Portless gives the Storefront and Medusa stable local HTTPS URLs. Read the
 [Portless integration note](docs/research/portless-integration.md) for the URL
-and origin rules. Use `bun run dev` when fixed HTTP ports are required.
+and origin rules.
 
 Run the workspace checks before you submit a change:
 
 ```sh
 bun run check
-bun run check-types
 bun run test
 ```
 
-`bun run test` needs PostgreSQL and Redis. The check and type-check commands do
-not need the backing services.
+`bun run check` includes formatting, linting, package builds, and type checks.
+`bun run test` needs PostgreSQL and Redis.
 
 Run the placeholder browser suite:
 
 ```sh
-bun run test:e2e
+bun run mze test e2e
 ```
 
 The placeholder has no page or accessibility flow. It does not start a server or
@@ -140,19 +138,20 @@ server.
 The database commands are:
 
 ```sh
-bun run db:push
-bun run db:generate
-bun run db:migrate
+bun run mze db push --accept-data-loss
+bun run mze db generate
+bun run mze db migrate
+bun run mze db studio
 ```
 
 The Docker commands are:
 
 ```sh
-bun run docker:build
-bun run docker:up
-bun run services:ports
-bun run docker:logs
-bun run docker:down
+bun run mze docker build
+bun run mze docker up
+bun run mze services ports
+bun run mze docker logs
+bun run mze docker down
 ```
 
 Discover application ports with:
@@ -162,17 +161,18 @@ docker compose port medusa 9000
 docker compose port storefront 3001
 ```
 
-Use `bun run build` to build all applications. Use `bun run lint` to run
-Oxlint. Use `bun run format` to run Oxfmt.
+Use `bun run build` to build all applications. Use `bun run mze lint` to run
+Oxlint. Use `bun run mze format` to run Oxfmt. Run `bun run mze --help` for the
+complete command tree. Add `--json` for versioned NDJSON output.
 
 Knip remains a report because its baseline is not empty. Vite+ caches the
 deterministic package builds and package type checks used by the normal
 commands.
 
 ```sh
-bun run knip:report
-bun run build:packages
-bun run check-types
+bunx knip --no-exit-code --reporter compact
+vp run --filter './packages/*' build
+bun run check
 ```
 
 Vite+ tracks package source and build output. It excludes TypeScript incremental
@@ -204,23 +204,23 @@ repository `.env` file.
 Start the complete stack with:
 
 ```sh
-bun run docker:up
+bun run mze docker up
 ```
 
 Compose assigns project-scoped containers, volumes, and random loopback host
-ports from the worktree directory. Run `bun run services:ports` and the
+ports from the worktree directory. Run `bun run mze services ports` and the
 application port commands above to find the active ports.
 
 View the stack:
 
 ```sh
-bun run docker:logs
+bun run mze docker logs
 ```
 
 Stop the stack:
 
 ```sh
-bun run docker:down
+bun run mze docker down
 ```
 
 Production does not use this Compose file. [ADR-0006](docs/adr/0006-redis-from-the-first-deploy.md)

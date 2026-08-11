@@ -3,7 +3,7 @@
 Run the report with:
 
 ```sh
-bun run knip:report
+bunx knip --no-exit-code --reporter compact
 ```
 
 The command always exits with code `0`. It is a report, not a required check.

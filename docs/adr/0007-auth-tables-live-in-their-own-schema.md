@@ -12,6 +12,6 @@ There is a second, independent reason this is right: schema tooling. Drizzle wou
 
 The two systems can still be joined for reporting if ever needed, which a separate database would prevent.
 
-The Better Auth CLI owns the auth schema in `packages/db/src/schema/auth.ts`. Its CLI-only auth configuration passes `schemaName: "auth"`, so generated tables stay in this namespace. `bun run auth:schema` updates the Drizzle schema after a Better Auth version or plugin change. Drizzle Kit then creates the SQL migration with `bun run db:generate`.
+The Better Auth CLI owns the auth schema in `packages/db/src/schema/auth.ts`. Its CLI-only auth configuration passes `schemaName: "auth"`, so generated tables stay in this namespace. `bun run mze auth schema` updates the Drizzle schema after a Better Auth version or plugin change. Drizzle Kit then creates the SQL migration with `bun run mze db generate`.
 
 Generated SQL still needs review. Better Auth cannot infer trusted identity-provider issuers or resolve collisions in existing Account rows. A schema-generation test fails if the committed Drizzle schema differs from the CLI output.
