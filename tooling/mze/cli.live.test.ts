@@ -113,13 +113,6 @@ it.live("keeps parser failures in NDJSON mode", () =>
       expect(events(error.stderr)).toEqual([
         expect.objectContaining({
           command: "mze",
-          data: { message: expect.stringContaining("Unknown subcommand") },
-          event: "message",
-          stream: "stderr",
-          version: 1,
-        }),
-        expect.objectContaining({
-          command: "mze",
           data: { exitCode: 2, message: expect.stringContaining("Unknown subcommand") },
           event: "failed",
           stream: "stderr",

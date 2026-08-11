@@ -1,4 +1,4 @@
-import { Cause, Console, Effect, Option, Path } from "effect";
+import { Console, Effect, Option, Path } from "effect";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
 import { ChildCommand } from "./child-command.ts";
@@ -220,23 +220,26 @@ export const run = (arguments_: ReadonlyArray<string>) => {
           log: capture("stdout"),
           warn: capture("stderr"),
         });
-        const emitEntries = Effect.gen(function* () {
-          const output = yield* Output.Service;
-          for (const entry of entries) {
-            yield* output.write({
-              command: "mze",
-              data: { message: entry.text },
-              event: "message",
-              stream: entry.stream,
-            });
-          }
-        }).pipe(Effect.provide(Output.layer("json")));
+        const emitEntries = (includeStderr: boolean) =>
+          Effect.gen(function* () {
+            const output = yield* Output.Service;
+            for (const entry of entries) {
+              if (!includeStderr && entry.stream === "stderr") {
+                continue;
+              }
+              yield* output.write({
+                command: "mze",
+                data: { message: entry.text },
+                event: "message",
+                stream: entry.stream,
+              });
+            }
+          }).pipe(Effect.provide(Output.layer("json")));
 
         return yield* parsed.pipe(
           Effect.provideService(Console.Console, capturedConsole),
-          Effect.matchCauseEffect({
-            onFailure: (cause) => {
-              const error = Cause.squash(cause);
+          Effect.matchEffect({
+            onFailure: (error) => {
               if (error instanceof Reporter.ReportedError) {
                 return Effect.fail(error);
               }
@@ -245,11 +248,11 @@ export const run = (arguments_: ReadonlyArray<string>) => {
                 .map((entry) => entry.text)
                 .join("\n")
                 .match(/(?:^|\n)ERROR\s*\n\s*([^\n]+)/)?.[1];
-              return emitEntries.pipe(
+              return emitEntries(false).pipe(
                 Effect.andThen(Effect.fail(new Error(detail ?? Reporter.message(error)))),
               );
             },
-            onSuccess: (value) => emitEntries.pipe(Effect.as(value)),
+            onSuccess: (value) => emitEntries(true).pipe(Effect.as(value)),
           }),
         );
       })
