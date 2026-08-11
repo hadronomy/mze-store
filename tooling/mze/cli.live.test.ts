@@ -46,3 +46,61 @@ it.live("uses exit code 2 when db push lacks its consequence flag", () =>
     }
   }).pipe(provideLive),
 );
+
+it.live("keeps workflow failures in NDJSON mode", () =>
+  Effect.gen(function* () {
+    const commands = yield* ChildCommand.Service;
+    const error = yield* commands
+      .capture({
+        executable: process.execPath,
+        arguments: ["tooling/mze/main.ts", "db", "push", "--json"],
+        cwd: process.cwd(),
+      })
+      .pipe(Effect.flip);
+
+    expect(error.exitCode).toBe(2);
+    if (error._tag === "CommandFailed") {
+      const started = JSON.parse(error.stdout.trim());
+      const failed = JSON.parse(error.stderr.trim());
+      expect(started).toMatchObject({
+        command: "db push",
+        event: "started",
+        stream: "stdout",
+        version: 1,
+      });
+      expect(failed).toMatchObject({
+        command: "db push",
+        data: { exitCode: 2 },
+        event: "failed",
+        stream: "stderr",
+        version: 1,
+      });
+    }
+  }).pipe(provideLive),
+);
+
+it.live("keeps parser failures in NDJSON mode", () =>
+  Effect.gen(function* () {
+    const commands = yield* ChildCommand.Service;
+    const error = yield* commands
+      .capture({
+        executable: process.execPath,
+        arguments: ["tooling/mze/main.ts", "--json", "not-a-command"],
+        cwd: process.cwd(),
+      })
+      .pipe(Effect.flip);
+
+    expect(error.exitCode).toBe(2);
+    if (error._tag === "CommandFailed") {
+      expect(error.stdout).toBe("");
+      const event = JSON.parse(error.stderr.trim());
+      expect(event).toMatchObject({
+        command: "mze",
+        data: { exitCode: 2 },
+        event: "failed",
+        stream: "stderr",
+        version: 1,
+      });
+    }
+  }).pipe(provideLive),
+);

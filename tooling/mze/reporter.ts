@@ -17,8 +17,11 @@ export class ReportedError extends Error {
 
 const field = (error: unknown, name: string): unknown =>
   typeof error === "object" && error !== null && name in error
-    ? error[name as keyof typeof error]
+    ? Reflect.get(error, name)
     : undefined;
+
+const stringValues = (value: unknown): ReadonlyArray<string> =>
+  Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
 
 export const exitCode = (error: unknown): number => {
   const code = field(error, "exitCode");
@@ -53,7 +56,7 @@ export const message = (error: unknown): string => {
     case "ToolVersionMismatch":
       return `${String(field(error, "tool"))} ${String(field(error, "required"))} is required; found ${String(field(error, "found"))}.`;
     case "DoctorFailed":
-      return `Doctor found blocking problems: ${(field(error, "failures") as ReadonlyArray<string>).join(", ")}.`;
+      return `Doctor found blocking problems: ${stringValues(field(error, "failures")).join(", ") || "unknown checks"}.`;
     case "DataLossConfirmationRequired":
       return `The ${String(field(error, "operation"))} operation requires ${String(field(error, "flag"))}.`;
     default: {
@@ -63,10 +66,10 @@ export const message = (error: unknown): string => {
   }
 };
 
-export const report = (command: string, error: unknown) =>
+export const report = (command: string, error: unknown, codeOverride?: number) =>
   Effect.gen(function* () {
     const output = yield* Output.Service;
-    const code = exitCode(error);
+    const code = codeOverride ?? exitCode(error);
     yield* output.write({
       command,
       data: { exitCode: code, message: message(error) },

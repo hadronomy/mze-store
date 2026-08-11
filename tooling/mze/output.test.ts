@@ -32,7 +32,7 @@ it.effect("passes child output through in human mode", () => {
     const output = yield* Output.Service;
     yield* output.write({
       command: "medusa",
-      data: { text: "ready\n" },
+      data: "ready\n",
       event: "child-output",
       stream: "stdout",
     });
@@ -49,7 +49,7 @@ it.effect("writes versioned NDJSON to the selected stream", () => {
     const output = yield* Output.Service;
     yield* output.write({
       command: "services start",
-      data: { exitCode: 1 },
+      data: { exitCode: 1, message: "service failed" },
       event: "failed",
       stream: "stderr",
     });
@@ -58,7 +58,7 @@ it.effect("writes versioned NDJSON to the selected stream", () => {
     expect(capture.stderr).toHaveLength(1);
     expect(JSON.parse(capture.stderr[0]!)).toEqual({
       command: "services start",
-      data: { exitCode: 1 },
+      data: { exitCode: 1, message: "service failed" },
       event: "failed",
       stream: "stderr",
       time: "1970-01-01T00:00:00.000Z",

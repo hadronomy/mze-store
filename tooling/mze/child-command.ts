@@ -87,98 +87,81 @@ export const layer = Layer.effect(
     const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
     const output = yield* Output.Service;
 
-    const run = Effect.fn("ChildCommand.run")((spec: Spec) =>
-      Effect.scoped(
-        Effect.gen(function* () {
-          const handle = yield* spawner
-            .spawn(makeCommand(spec))
-            .pipe(Effect.mapError((error) => platformError(spec, error)));
-          const stderrTail = yield* Ref.make("");
-          const stdoutTail = yield* Ref.make("");
+    const execute = Effect.fn("ChildCommand.execute")(
+      (
+        spec: Spec,
+        onOutput: (
+          stream: Output.OutputStream,
+          text: string,
+        ) => Effect.Effect<void, PlatformError.PlatformError>,
+      ) =>
+        Effect.scoped(
+          Effect.gen(function* () {
+            const handle = yield* spawner
+              .spawn(makeCommand(spec))
+              .pipe(Effect.mapError((error) => platformError(spec, error)));
+            const stderrTail = yield* Ref.make("");
+            const stdoutTail = yield* Ref.make("");
 
-          const drain = (
-            stream: Stream.Stream<Uint8Array, PlatformError.PlatformError>,
-            outputStream: Output.OutputStream,
-            tail: Ref.Ref<string>,
-          ) =>
-            stream.pipe(
-              Stream.decodeText(),
-              Stream.runForEach((text) =>
-                Effect.all(
-                  [
-                    Ref.update(tail, (current) => `${current}${text}`.slice(-MAX_CAPTURED_OUTPUT)),
-                    output.write({
-                      command: spec.executable,
-                      data: text,
-                      event: "child-output",
-                      stream: outputStream,
-                    }),
-                  ],
-                  { discard: true },
+            const drain = (
+              stream: Stream.Stream<Uint8Array, PlatformError.PlatformError>,
+              outputStream: Output.OutputStream,
+              tail: Ref.Ref<string>,
+            ) =>
+              stream.pipe(
+                Stream.decodeText(),
+                Stream.runForEach((text) =>
+                  Effect.all(
+                    [
+                      Ref.update(tail, (current) =>
+                        `${current}${text}`.slice(-MAX_CAPTURED_OUTPUT),
+                      ),
+                      onOutput(outputStream, text),
+                    ],
+                    { discard: true },
+                  ),
                 ),
-              ),
-            );
+              );
 
-          const [exitCode] = yield* Effect.all(
-            [
-              handle.exitCode,
-              drain(handle.stderr, "stderr", stderrTail),
-              drain(handle.stdout, "stdout", stdoutTail),
-            ],
-            { concurrency: "unbounded" },
-          ).pipe(Effect.mapError((error) => platformError(spec, error)));
-          const code = Number(exitCode);
-
-          if (code !== 0) {
-            return yield* new CommandFailed({
-              command: commandName(spec),
-              exitCode: code,
+            const [exitCode] = yield* Effect.all(
+              [
+                handle.exitCode,
+                drain(handle.stderr, "stderr", stderrTail),
+                drain(handle.stdout, "stdout", stdoutTail),
+              ],
+              { concurrency: "unbounded" },
+            ).pipe(Effect.mapError((error) => platformError(spec, error)));
+            const result: Result = {
+              exitCode: Number(exitCode),
               stderr: yield* Ref.get(stderrTail),
               stdout: yield* Ref.get(stdoutTail),
-            });
-          }
+            };
+
+            if (result.exitCode !== 0) {
+              return yield* new CommandFailed({
+                command: commandName(spec),
+                ...result,
+              });
+            }
+
+            return result;
+          }),
+        ),
+    );
+
+    const run = Effect.fn("ChildCommand.run")((spec: Spec) =>
+      execute(spec, (stream, text) =>
+        output.write({
+          command: spec.executable,
+          data: text,
+          event: "child-output",
+          stream,
         }),
-      ),
+      ).pipe(Effect.asVoid),
     );
 
     const capture = Effect.fn("ChildCommand.capture")((spec: Spec) =>
-      Effect.scoped(
-        Effect.gen(function* () {
-          const handle = yield* spawner
-            .spawn(makeCommand(spec))
-            .pipe(Effect.mapError((error) => platformError(spec, error)));
-          const [exitCode, stderr, stdout] = yield* Effect.all(
-            [
-              handle.exitCode,
-              handle.stderr.pipe(
-                Stream.decodeText(),
-                Stream.runFold(
-                  () => "",
-                  (output, chunk) => output + chunk,
-                ),
-              ),
-              handle.stdout.pipe(
-                Stream.decodeText(),
-                Stream.runFold(
-                  () => "",
-                  (output, chunk) => output + chunk,
-                ),
-              ),
-            ],
-            { concurrency: "unbounded" },
-          ).pipe(Effect.mapError((error) => platformError(spec, error)));
-          const result: Result = { exitCode: Number(exitCode), stderr, stdout };
-
-          if (result.exitCode !== 0) {
-            return yield* new CommandFailed({
-              command: commandName(spec),
-              ...result,
-            });
-          }
-
-          return result;
-        }),
-      ),
+      execute(spec, () => Effect.void),
     );
 
     return Service.of({ capture, run });

@@ -30,22 +30,27 @@ const assertVersion = (tool: string, found: string, required: string) =>
     ? Effect.void
     : Effect.fail(new ToolVersionMismatch({ exitCode: 1, found, required, tool }));
 
-const verifyTools = Effect.gen(function* () {
-  const commands = yield* ChildCommand.Service;
+const verifyTools = (nodeVersion: string) =>
+  Effect.gen(function* () {
+    const commands = yield* ChildCommand.Service;
 
-  yield* assertVersion("Node", process.version.replace(/^v/, ""), NODE_VERSION);
-  const bun = yield* commands.capture({ executable: "bun", arguments: ["--version"] });
-  yield* assertVersion("Bun", bun.stdout.trim(), BUN_VERSION);
-  yield* commands.capture({ executable: "docker", arguments: ["--version"] });
-  yield* Portless.checkVersion;
-});
+    yield* assertVersion("Node", nodeVersion, NODE_VERSION);
+    const bun = yield* commands.capture({ executable: "bun", arguments: ["--version"] });
+    yield* assertVersion("Bun", bun.stdout.trim(), BUN_VERSION);
+    yield* commands.capture({ executable: "docker", arguments: ["--version"] });
+    yield* Portless.checkVersion;
+  });
 
 export const requireWritableMode = (mode: Output.Mode) =>
   mode === "json"
     ? Effect.fail(new SetupRequiresInteractiveTerminal({ exitCode: 1 }))
     : Effect.void;
 
-export const run = (options: { readonly cwd: string; readonly mode: Output.Mode }) =>
+export const run = (options: {
+  readonly cwd: string;
+  readonly mode: Output.Mode;
+  readonly nodeVersion: string;
+}) =>
   Effect.gen(function* () {
     yield* requireWritableMode(options.mode);
 
@@ -59,7 +64,7 @@ export const run = (options: { readonly cwd: string; readonly mode: Output.Mode 
     const output = yield* Output.Service;
     const path = yield* Path.Path;
 
-    yield* verifyTools;
+    yield* verifyTools(options.nodeVersion);
 
     for (const app of ["storefront", "medusa"] as const) {
       const destination = path.join(options.cwd, "apps", app, ".env");

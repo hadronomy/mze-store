@@ -4,12 +4,27 @@ import type { PlatformError } from "effect/PlatformError";
 export type Mode = "human" | "json";
 export type OutputStream = "stderr" | "stdout";
 
-export interface Event {
+interface BaseEvent {
   readonly command: string;
-  readonly data?: unknown;
-  readonly event: "child-output" | "failed" | "message" | "started" | "succeeded";
   readonly stream: OutputStream;
 }
+
+export type Event =
+  | (BaseEvent & {
+      readonly data: string;
+      readonly event: "child-output";
+    })
+  | (BaseEvent & {
+      readonly data: { readonly exitCode: number; readonly message: string };
+      readonly event: "failed";
+    })
+  | (BaseEvent & {
+      readonly data: { readonly message: string; readonly [key: string]: unknown };
+      readonly event: "message";
+    })
+  | (BaseEvent & {
+      readonly event: "started" | "succeeded";
+    });
 
 export interface Interface {
   readonly write: (event: Event) => Effect.Effect<void, PlatformError>;
@@ -18,26 +33,11 @@ export interface Interface {
 export class Service extends Context.Service<Service, Interface>()("@mze-store/tooling/Output") {}
 
 function humanText(event: Event): string {
-  if (event.event === "child-output" && typeof event.data === "string") {
+  if (event.event === "child-output") {
     return event.data;
   }
 
-  if (
-    event.event === "child-output" &&
-    typeof event.data === "object" &&
-    event.data !== null &&
-    "text" in event.data &&
-    typeof event.data.text === "string"
-  ) {
-    return event.data.text;
-  }
-
-  if (
-    typeof event.data === "object" &&
-    event.data !== null &&
-    "message" in event.data &&
-    typeof event.data.message === "string"
-  ) {
+  if (event.event === "failed" || event.event === "message") {
     return `${event.data.message}\n`;
   }
 
@@ -56,7 +56,7 @@ export const layer = (mode: Mode) =>
             ? humanText(event)
             : `${JSON.stringify({
                 command: event.command,
-                data: event.data,
+                data: "data" in event ? event.data : undefined,
                 event: event.event,
                 stream: event.stream,
                 time: new Date(yield* Clock.currentTimeMillis).toISOString(),

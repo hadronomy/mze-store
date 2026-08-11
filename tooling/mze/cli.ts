@@ -1,4 +1,4 @@
-import { Effect, Option, Path } from "effect";
+import { Console, Effect, Option, Path } from "effect";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
 import { ChildCommand } from "./child-command.ts";
@@ -6,6 +6,7 @@ import { Dev } from "./dev.ts";
 import { Doctor } from "./doctor.ts";
 import { Output } from "./output.ts";
 import { Reporter } from "./reporter.ts";
+import { RuntimeInfo } from "./runtime-info.ts";
 import { Services } from "./services.ts";
 import { Setup } from "./setup.ts";
 import { Tasks } from "./tasks.ts";
@@ -20,6 +21,8 @@ export const root = Command.make("mze").pipe(
 interface WorkflowContext {
   readonly cwd: string;
   readonly mode: Output.Mode;
+  readonly nodeVersion: string;
+  readonly platform: string;
 }
 
 const execute = <A, E, R>(
@@ -29,16 +32,23 @@ const execute = <A, E, R>(
   Effect.gen(function* () {
     const { json } = yield* root;
     const path = yield* Path.Path;
+    const runtime = yield* RuntimeInfo.Service;
     const cwd = path.resolve(import.meta.dirname, "../..");
     const mode: Output.Mode = json ? "json" : "human";
     const program = Effect.gen(function* () {
       const output = yield* Output.Service;
+      if (runtime.platform !== "darwin" && runtime.platform !== "linux") {
+        return yield* new Dev.UnsupportedPlatform({
+          exitCode: 1,
+          platform: runtime.platform,
+        });
+      }
       yield* output.write({
         command: name,
         event: "started",
         stream: "stdout",
       });
-      const result = yield* workflow({ cwd, mode });
+      const result = yield* workflow({ cwd, mode, ...runtime });
       yield* output.write({
         command: name,
         event: "succeeded",
@@ -58,11 +68,11 @@ const execute = <A, E, R>(
   });
 
 const setup = Command.make("setup", {}, () =>
-  execute("setup", ({ cwd, mode }) => Setup.run({ cwd, mode })),
+  execute("setup", ({ cwd, mode, nodeVersion }) => Setup.run({ cwd, mode, nodeVersion })),
 ).pipe(Command.withDescription("Prepare environment files and Git hooks."));
 
 const doctor = Command.make("doctor", {}, () =>
-  execute("doctor", ({ cwd }) => Doctor.run({ cwd, platform: process.platform })),
+  execute("doctor", ({ cwd, nodeVersion, platform }) => Doctor.run({ cwd, nodeVersion, platform })),
 ).pipe(Command.withDescription("Inspect local tooling without changing it."));
 
 const dev = Command.make(
@@ -71,10 +81,10 @@ const dev = Command.make(
     target: Argument.choice("target", ["storefront"] as const).pipe(Argument.optional),
   },
   ({ target }) =>
-    execute("dev", ({ cwd }) =>
+    execute("dev", ({ cwd, platform }) =>
       Dev.run({
         cwd,
-        platform: process.platform,
+        platform,
         target: Option.isSome(target) ? target.value : "all",
       }),
     ),
@@ -188,17 +198,40 @@ export const command = root.pipe(
   ]),
 );
 
-export const run = (arguments_: ReadonlyArray<string>) =>
-  Command.runWith(command, { version: "1.0.0" })(
-    arguments_.length === 0 ? ["--help"] : arguments_,
-  ).pipe(
+export const run = (arguments_: ReadonlyArray<string>) => {
+  const normalized = arguments_.length === 0 ? ["--help"] : arguments_;
+  const json = normalized.includes("--json");
+  const parsed = Command.runWith(command, {
+    renderErrors: !json,
+    version: "1.0.0",
+  })(normalized);
+  const program = json
+    ? Effect.gen(function* () {
+        const silentConsole: Console.Console = Object.assign(Object.create(console), {
+          debug: () => undefined,
+          error: () => undefined,
+          info: () => undefined,
+          log: () => undefined,
+          warn: () => undefined,
+        });
+        return yield* parsed.pipe(Effect.provideService(Console.Console, silentConsole));
+      })
+    : parsed;
+
+  return program.pipe(
     Effect.matchEffect({
-      onFailure: (error) =>
-        error instanceof Reporter.ReportedError
-          ? Effect.fail(error)
-          : Effect.fail(new Reporter.ReportedError(2)),
+      onFailure: (error) => {
+        if (error instanceof Reporter.ReportedError) {
+          return Effect.fail(error);
+        }
+
+        return json
+          ? Reporter.report("mze", error, 2).pipe(Effect.provide(Output.layer("json")))
+          : Effect.fail(new Reporter.ReportedError(2));
+      },
       onSuccess: Effect.succeed,
     }),
   );
+};
 
 export * as Cli from "./cli.ts";

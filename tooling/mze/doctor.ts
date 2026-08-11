@@ -41,7 +41,38 @@ const inspect = <A, E, R>(name: string, effect: Effect.Effect<A, E, R>) =>
 const requireValue = (condition: boolean, detail: string) =>
   condition ? Effect.void : Effect.fail(new DoctorCheckFailed({ detail }));
 
-export const run = (options: { readonly cwd: string; readonly platform: string }) =>
+export const servicesHealthy = (output: string): boolean => {
+  try {
+    const values = output
+      .trim()
+      .split("\n")
+      .filter(Boolean)
+      .flatMap((line) => {
+        const parsed: unknown = JSON.parse(line);
+        return Array.isArray(parsed) ? parsed : [parsed];
+      });
+
+    return ["postgres", "redis"].every((service) =>
+      values.some(
+        (value) =>
+          typeof value === "object" &&
+          value !== null &&
+          "Service" in value &&
+          value.Service === service &&
+          "Health" in value &&
+          value.Health === "healthy",
+      ),
+    );
+  } catch {
+    return false;
+  }
+};
+
+export const run = (options: {
+  readonly cwd: string;
+  readonly nodeVersion: string;
+  readonly platform: string;
+}) =>
   Effect.gen(function* () {
     const commands = yield* ChildCommand.Service;
     const fs = yield* FileSystem.FileSystem;
@@ -56,6 +87,10 @@ export const run = (options: { readonly cwd: string; readonly platform: string }
         ),
       );
     const docker = commands.capture({ executable: "docker", arguments: ["--version"] });
+    const portlessRoutes = commands.capture({
+      executable: "portless",
+      arguments: ["doctor"],
+    });
     const serviceHealth = commands
       .capture({
         executable: "docker",
@@ -65,9 +100,7 @@ export const run = (options: { readonly cwd: string; readonly platform: string }
       .pipe(
         Effect.flatMap((result) =>
           requireValue(
-            result.stdout.includes("postgres") &&
-              result.stdout.includes("redis") &&
-              !result.stdout.includes('"Health":"unhealthy"'),
+            servicesHealthy(result.stdout),
             "PostgreSQL and Redis are not both running.",
           ),
         ),
@@ -84,13 +117,14 @@ export const run = (options: { readonly cwd: string; readonly platform: string }
         inspect(
           "node",
           requireValue(
-            process.version === "v24.18.1",
-            `Node 24.18.1 is required; found ${process.version}.`,
+            options.nodeVersion === "24.18.1",
+            `Node 24.18.1 is required; found ${options.nodeVersion}.`,
           ),
         ),
         inspect("bun", bunVersion),
         inspect("docker", docker),
         inspect("portless", Portless.checkVersion),
+        inspect("portless routes", portlessRoutes),
         inspect(
           "storefront environment",
           fs

@@ -106,8 +106,9 @@ read secret values.
 
 `setup` can create a missing environment file from its template after terminal
 confirmation. It never overwrites a file, installs a global tool, changes system
-trust, or displays a secret. It does not write files without an interactive
-terminal. JSON mode is read-only.
+trust, or displays a secret. It also installs the repository-local Vite+ Git
+hooks that the removed `hooks:setup` script owned. It does not write files
+without an interactive terminal. JSON mode is read-only.
 
 Data-loss operations require a flag that names the consequence, such as
 `--accept-data-loss` or `--delete-volumes`. A generic `--yes` flag cannot approve
