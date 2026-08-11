@@ -13,26 +13,68 @@ const ignorePatterns = [
   "packages/*/dist/**",
 ];
 
+// Track source globs explicitly because TypeScript can satisfy an incremental
+// run from `.tsbuildinfo` without reading the source files.
+const workspaceInputs = ["package.json", "bun.lock", "vite.config.ts", "packages/config/**"];
+
+const packageInputs = (cwd: string, dependencies: string[] = []) => {
+  const packages = [cwd, ...dependencies];
+
+  return [
+    { auto: true },
+    ...workspaceInputs,
+    ...packages.flatMap((packagePath) => [
+      `${packagePath}/src/**`,
+      `${packagePath}/package.json`,
+      `${packagePath}/tsconfig*.json`,
+      `${packagePath}/vite.config.ts`,
+    ]),
+    ...packages.map((packagePath) => `!${packagePath}/**/*.tsbuildinfo`),
+    ...packages.map((packagePath) => `!${packagePath}/dist/**`),
+  ];
+};
+
+const packageBuildTask = (cwd: string, command: string, dependencies: string[] = []) => ({
+  command,
+  cwd,
+  input: packageInputs(cwd, dependencies),
+  output: [{ auto: true }, `!${cwd}/**/*.tsbuildinfo`],
+});
+
+const packageTypecheckTask = (cwd: string, dependencies: string[] = []) => ({
+  command: "tsc --noEmit",
+  cwd,
+  input: packageInputs(cwd, dependencies),
+  output: [],
+});
+
 export default defineConfig({
   resolve: {
     tsconfigPaths: true,
   },
-  // Keep cache probes opt-in until their fingerprints are stable in CI.
   run: {
-    cache: {
-      scripts: false,
-      tasks: true,
-    },
     tasks: {
-      "cache:packages": {
-        command:
-          "vp run --cache @mze-store/env#build && vp run --cache --filter @mze-store/db build && vp run --cache --filter @mze-store/auth build && vp run --cache --filter @mze-store/ui build",
-        cache: true,
-      },
-      "cache:typecheck": {
-        command: "vp run --cache --filter './packages/*' check-types",
-        cache: true,
-      },
+      "package-build":
+        "vp run package-env-build && vp run package-db-build && vp run package-auth-build && vp run package-ui-build",
+      "package-check-types":
+        "vp run package-env-check-types && vp run package-db-check-types && vp run package-auth-check-types && vp run package-ui-check-types",
+      "package-env-build": packageBuildTask("packages/env", "vp pack"),
+      "package-db-build": packageBuildTask("packages/db", "tsc -b && tsc-alias -p tsconfig.json", [
+        "packages/env",
+      ]),
+      "package-auth-build": packageBuildTask(
+        "packages/auth",
+        "tsc -b && tsc-alias -p tsconfig.json",
+        ["packages/db", "packages/env"],
+      ),
+      "package-ui-build": packageBuildTask("packages/ui", "tsc -b && tsc-alias -p tsconfig.json"),
+      "package-env-check-types": packageTypecheckTask("packages/env"),
+      "package-db-check-types": packageTypecheckTask("packages/db", ["packages/env"]),
+      "package-auth-check-types": packageTypecheckTask("packages/auth", [
+        "packages/db",
+        "packages/env",
+      ]),
+      "package-ui-check-types": packageTypecheckTask("packages/ui"),
     },
   },
   test: {

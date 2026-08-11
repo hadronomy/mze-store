@@ -165,23 +165,19 @@ docker compose port storefront 3001
 Use `bun run build` to build all applications. Use `bun run lint` to run
 Oxlint. Use `bun run format` to run Oxfmt.
 
-The tooling reports and cache checks are optional:
-
-The value is to measure whether Vite+ can safely reuse deterministic package
-builds and type checks before we enable that behavior in normal commands or CI.
+Knip remains a report because its baseline is not empty. Vite+ caches the
+deterministic package builds and package type checks used by the normal
+commands.
 
 ```sh
 bun run knip:report
-vp run cache:packages
-vp run cache:packages
-vp run cache:typecheck
-vp run cache:typecheck
+bun run build:packages
+bun run check-types
 ```
 
-When you evaluate a cache task, run it twice. The first run creates the cache;
-the immediate second run must report a cache hit. The cache tasks cover only
-package builds and package type checks. Development servers, database commands,
-migrations, seeds, tests, and the main application build stay uncached.
+Vite+ tracks package source and build output. It excludes TypeScript incremental
+state from the task fingerprint. Development servers, database commands,
+migrations, seeds, tests, and application builds stay uncached.
 Read the [Knip baseline](docs/research/knip-baseline.md) before you change the
 report configuration.
 

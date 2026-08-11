@@ -32,14 +32,22 @@ Measured locally on 2026-08-11 with `hyperfine` after a clean task cache:
 
 | Task                | Cold cache | Warm cache | Uncached baseline |
 | ------------------- | ---------: | ---------: | ----------------: |
-| Package builds      |     2.07 s |     0.19 s |            2.90 s |
-| Package type checks |     2.12 s |     0.17 s |            1.75 s |
+| Package builds      |     1.11 s |     0.18 s |            1.04 s |
+| Package type checks |     2.10 s |     0.17 s |            1.83 s |
 
-Warm cache runs save about 93% for package builds and 91% for package type
-checks. A source-change probe invalidated only the changed package. Reverting
-the source caused one restore run because TypeScript changed its
-`dist/tsconfig.tsbuildinfo` file. The next run hit the cache.
+Warm cache runs save about 83% for package builds and 91% for package type
+checks. A source-change probe invalidated the changed package and its dependent
+package. The unrelated packages stayed cached. Reverting the source restored
+the original cache entry on the next run.
 
-These results support local reuse for deterministic package tasks. The cache
-tasks remain opt-in. Do not enable them in normal commands or CI until the team
-decides that the restore miss is acceptable.
+These results support cache reuse for deterministic package tasks. The normal
+package build and package type-check commands now use cached Vite+ tasks. Their
+input rules exclude TypeScript incremental state and their build output rules
+exclude that same state from restoration. The source-change probe found no
+stale result. A later run restored the cache after the source returned to its
+original content. The warm-run savings outweigh the cold-cache cost, so the
+normal commands and CI use these tasks.
+
+CI restores the Vite+ task cache after dependency installation and saves a new
+entry after a successful checks job. Database work, migrations, seeds, tests,
+development servers, and application builds stay uncached.

@@ -36,9 +36,9 @@
     }
   },
   "scripts": {
-    "build": "vp pack",
-    "check-types": "tsc --noEmit",
-    "test": "vp run build && vp test --dir test"
+    "build": "vp run -w package-env-build",
+    "check-types": "vp run -w package-env-check-types",
+    "test": "vp run -w package-env-build && vp test --dir test"
   },
   "dependencies": {
     "@t3-oss/env-core": "^0.13.11",

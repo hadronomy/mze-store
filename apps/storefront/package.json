@@ -6,7 +6,7 @@
     "build": "vp build",
     "check-types": "tsc --noEmit",
     "serve": "vp preview",
-    "dev": "vp run @mze-store/env#build && vp run dev:raw",
+    "dev": "vp run -w package-env-build && vp run dev:raw",
     "dev:raw": "vp dev",
     "dev:portless:raw": "portless run --name storefront.mze-store vp dev"
   },

@@ -62,11 +62,11 @@ Do not edit generated output. The root Vite+ config ignores these paths:
 Compose uses the worktree directory as its project name by default. Use
 `docker compose port <service> <container-port>` to find a random host port.
 
-The Knip report and cache tasks are not required checks. Run
-`bun run knip:report` when you change workspace entries or dependencies. When
-you change a cache task, run it twice and confirm an immediate cache hit. Do
-not add database, migration, seed, test, or development-server scripts to the
-cache tasks.
+The Knip report is not a required check. Run `bun run knip:report` when you
+change workspace entries or dependencies. Package builds and package type
+checks use the cached Vite+ tasks through `bun run build:packages` and
+`bun run check-types`. Do not add database, migration, seed, test,
+development-server, or application-build scripts to cached task definitions.
 
 ## Further guidance
 

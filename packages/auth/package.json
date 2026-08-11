@@ -17,8 +17,8 @@
   },
   "scripts": {
     "auth:schema": "auth generate --config auth.ts --output ../db/src/schema/auth.ts --yes",
-    "build": "tsc -b && tsc-alias -p tsconfig.json",
-    "check-types": "tsc --noEmit",
+    "build": "vp run -w package-auth-build",
+    "check-types": "vp run -w package-auth-check-types",
     "test": "vp test --dir src"
   },
   "dependencies": {

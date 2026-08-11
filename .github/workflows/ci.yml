@@ -64,6 +64,15 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
+      - name: Restore Vite Task cache
+        id: vite-task-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: node_modules/.vite/task-cache
+          key: vite-task-${{ runner.os }}-${{ runner.arch }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            vite-task-${{ runner.os }}-${{ runner.arch }}-
+
       - name: Add workspace binaries to PATH
         run: echo "$GITHUB_WORKSPACE/node_modules/.bin" >> "$GITHUB_PATH"
 
@@ -77,6 +86,13 @@ jobs:
       # utilities require Jest. The root script also tests the lint plugin.
       - name: Run declared tests
         run: bun run test
+
+      - name: Save Vite Task cache
+        if: success()
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: node_modules/.vite/task-cache
+          key: ${{ steps.vite-task-cache.outputs.cache-primary-key }}
 
   docker:
     name: Docker smoke test

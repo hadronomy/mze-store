@@ -4,16 +4,16 @@
   "scripts": {
     "build": "SKIP_ENV_VALIDATION=1 medusa build && tsc-alias -p tsconfig.json",
     "check-types": "SKIP_ENV_VALIDATION=1 medusa build",
-    "db:migrate": "vp run @mze-store/env#build && medusa db:migrate",
-    "db:rollback": "vp run @mze-store/env#build && medusa db:rollback",
-    "dev": "vp run @mze-store/env#build && vp run dev:raw",
+    "db:migrate": "vp run -w package-env-build && medusa db:migrate",
+    "db:rollback": "vp run -w package-env-build && medusa db:rollback",
+    "dev": "vp run -w package-env-build && vp run dev:raw",
     "dev:raw": "medusa develop",
     "dev:portless:raw": "node ../../tooling/portless/medusa.mjs",
-    "seed": "vp run @mze-store/env#build && medusa exec ./src/scripts/seed.ts",
-    "seed:probe": "vp run @mze-store/env#build && medusa exec ./src/scripts/seed-probe.ts",
+    "seed": "vp run -w package-env-build && medusa exec ./src/scripts/seed.ts",
+    "seed:probe": "vp run -w package-env-build && medusa exec ./src/scripts/seed-probe.ts",
     "start": "medusa start",
-    "test": "vp run @mze-store/env#build && NODE_OPTIONS=--experimental-vm-modules jest --runInBand --forceExit",
-    "user:create": "vp run @mze-store/env#build && medusa user"
+    "test": "vp run -w package-env-build && NODE_OPTIONS=--experimental-vm-modules jest --runInBand --forceExit",
+    "user:create": "vp run -w package-env-build && medusa user"
   },
   "dependencies": {
     "@medusajs/admin-sdk": "catalog:",
