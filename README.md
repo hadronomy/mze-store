@@ -175,6 +175,17 @@ destination supports them, and `--json` never includes ANSI codes:
 ✓ mze dev ready
 ```
 
+Doctor keeps the check label neutral. It colors only the status mark and puts
+failure detail on an indented line:
+
+```text
+→ doctor started
+  ✓ docker
+  ✗ services
+    PostgreSQL and Redis are not both running.
+✗ doctor failed
+```
+
 Knip remains a report because its baseline is not empty. Vite+ caches the
 deterministic package builds and package type checks used by the normal
 commands.

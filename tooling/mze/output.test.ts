@@ -55,14 +55,21 @@ it.effect("renders the event rail without ANSI codes when color is disabled", ()
       stream: "stdout",
     });
     yield* output.write({
-      command: "mze dev",
-      data: { exitCode: 1, message: "route already owned" },
-      event: "failed",
+      command: "doctor",
+      data: {
+        detail: "PostgreSQL and Redis are not both running.",
+        message: "✗ services: PostgreSQL and Redis are not both running.",
+        name: "services",
+        passed: false,
+      },
+      event: "message",
       stream: "stderr",
     });
 
-    expect(capture.stdout).toEqual(["→ mze dev started\n", "✓ docker: healthy\n"]);
-    expect(capture.stderr).toEqual(["✗ mze dev failed (exit 1) — route already owned\n"]);
+    expect(capture.stdout).toEqual(["→ mze dev started\n", "  ✓ docker\n"]);
+    expect(capture.stderr).toEqual([
+      "  ✗ services\n    PostgreSQL and Redis are not both running.\n",
+    ]);
   }).pipe(Effect.provide(Output.layer("human", { color: false })), Effect.provide(capture.layer));
 });
 
@@ -73,6 +80,17 @@ it.effect("colors status marks when the terminal policy enables color", () => {
     const output = yield* Output.Service;
     yield* output.write({ command: "mze dev", event: "started", stream: "stdout" });
     yield* output.write({
+      command: "doctor",
+      data: {
+        detail: "Route ownership needs attention.",
+        message: "✗ Medusa route ownership: Route ownership needs attention.",
+        name: "Medusa route ownership",
+        passed: false,
+      },
+      event: "message",
+      stream: "stderr",
+    });
+    yield* output.write({
       command: "mze dev",
       data: { exitCode: 1, message: "route already owned" },
       event: "failed",
@@ -80,8 +98,11 @@ it.effect("colors status marks when the terminal policy enables color", () => {
     });
 
     expect(capture.stdout[0]).toContain("\u001b[36m→\u001b[39m");
-    expect(capture.stderr[0]).toContain("\u001b[31m✗\u001b[39m");
-    expect(capture.stderr[0]).toContain("route already owned");
+    expect(capture.stderr[0]).toContain("  \u001b[31m✗\u001b[39m");
+    expect(capture.stderr[0]).toContain("    \u001b[2mRoute ownership needs attention.\u001b[22m");
+    expect(capture.stderr[0]).not.toContain("\u001b[31mMedusa route ownership");
+    expect(capture.stderr[1]).toContain("\u001b[31m✗\u001b[39m");
+    expect(capture.stderr[1]).not.toContain("\u001b[31mroute already owned");
   }).pipe(Effect.provide(Output.layer("human", { color: true })), Effect.provide(capture.layer));
 });
 

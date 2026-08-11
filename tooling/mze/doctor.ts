@@ -175,6 +175,7 @@ export const run = (options: {
       yield* output.write({
         command: "doctor",
         data: {
+          detail: check.detail,
           message: `${check.passed ? "✓" : "✗"} ${check.name}${check.detail === undefined ? "" : `: ${check.detail}`}`,
           name: check.name,
           passed: check.passed,

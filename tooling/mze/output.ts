@@ -20,7 +20,13 @@ export type Event =
       readonly event: "failed";
     })
   | (BaseEvent & {
-      readonly data: { readonly message: string; readonly [key: string]: unknown };
+      readonly data: {
+        readonly detail?: string;
+        readonly message: string;
+        readonly name?: string;
+        readonly passed?: boolean;
+        readonly [key: string]: unknown;
+      };
       readonly event: "message";
     })
   | (BaseEvent & {
@@ -38,7 +44,11 @@ export interface Options {
   readonly color?: boolean;
 }
 
-const stripStatusPrefix = (message: string): string => message.replace(/^[✓✗]\s*/, "");
+const indent = (text: string, prefix = "  "): string =>
+  text
+    .split("\n")
+    .map((line) => `${prefix}${line}`)
+    .join("\n");
 
 function humanText(event: Event, colors: ChalkInstance): string {
   if (event.event === "child-output") {
@@ -46,18 +56,23 @@ function humanText(event: Event, colors: ChalkInstance): string {
   }
 
   if (event.event === "failed") {
-    return `${colors.red("✗")} ${colors.bold(event.command)} ${colors.red(`failed (exit ${event.data.exitCode})`)} ${colors.dim("—")} ${colors.red(event.data.message)}\n`;
+    return `${colors.red("✗")} ${colors.bold(event.command)} ${colors.dim(`failed (exit ${event.data.exitCode})`)} ${colors.dim("—")} ${event.data.message}\n`;
   }
 
   if (event.event === "message") {
-    const passed = event.data.passed;
-    if (typeof passed === "boolean") {
-      const detail = stripStatusPrefix(event.data.message);
-      return `${passed ? colors.green("✓") : colors.red("✗")} ${passed ? colors.green(detail) : colors.red(detail)}\n`;
+    const rowIndent = event.command === "doctor" ? "  " : "";
+    const detailIndent = `${rowIndent}  `;
+    if (typeof event.data.name === "string" && typeof event.data.passed === "boolean") {
+      const mark = event.data.passed ? colors.green("✓") : colors.red("✗");
+      const detail =
+        typeof event.data.detail === "string" && event.data.detail.length > 0
+          ? `\n${indent(colors.dim(event.data.detail), detailIndent)}`
+          : "";
+      return `${rowIndent}${mark} ${colors.bold(event.data.name)}${detail}\n`;
     }
 
     const mark = event.stream === "stderr" ? colors.red("!") : colors.cyan("·");
-    return `${mark} ${event.data.message}\n`;
+    return `${rowIndent}${mark} ${event.data.message}\n`;
   }
 
   if (event.event === "started") {

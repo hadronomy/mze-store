@@ -82,6 +82,7 @@ it.effect("reports the owner of the shared Medusa route", () =>
     expect(written).toContainEqual(
       expect.objectContaining({
         data: expect.objectContaining({
+          detail: expect.stringContaining("(pid 1234)"),
           message: expect.stringContaining("(pid 1234)"),
         }),
         event: "message",
