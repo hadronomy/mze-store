@@ -2,6 +2,8 @@ import type { MedusaContainer } from "@medusajs/framework/types";
 import { ContainerRegistrationKeys } from "@medusajs/framework/utils";
 import type { TerritoryDeclaration } from "./declaration";
 
+type AnyTerritoryDeclaration = TerritoryDeclaration<string, `${string}-${string}`>;
+
 const queryOf = (container: MedusaContainer) => container.resolve(ContainerRegistrationKeys.QUERY);
 
 export async function findStore(container: MedusaContainer) {
@@ -30,7 +32,7 @@ export async function findSalesChannelByName(container: MedusaContainer, name: s
 
 export async function findRegionForDeclaration(
   container: MedusaContainer,
-  declaration: TerritoryDeclaration,
+  declaration: AnyTerritoryDeclaration,
 ) {
   const { data } = await queryOf(container).graph({
     entity: "region",
@@ -43,7 +45,7 @@ export async function findRegionForDeclaration(
 
 export async function findTaxRegionsForDeclaration(
   container: MedusaContainer,
-  declaration: TerritoryDeclaration,
+  declaration: AnyTerritoryDeclaration,
 ) {
   const { data } = await queryOf(container).graph({
     entity: "tax_region",
@@ -74,7 +76,7 @@ async function findStockLocation(container: MedusaContainer, filters: Record<str
 
 export function findDeclaredStockLocation(
   container: MedusaContainer,
-  declaration: TerritoryDeclaration,
+  declaration: AnyTerritoryDeclaration,
 ) {
   return findStockLocation(container, { name: declaration.stockLocationName });
 }

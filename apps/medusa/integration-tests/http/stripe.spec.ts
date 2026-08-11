@@ -1,4 +1,5 @@
 import { medusaIntegrationTestRunner } from "@medusajs/test-utils";
+import type { ProvinceCode } from "@mze-store/territory/spain";
 import nock from "nock";
 import { seedTerritoryProbe, type SeededProbe } from "~/territory/probe";
 import { seedTerritory, type SeededTerritory } from "~/territory/seed";
@@ -6,7 +7,7 @@ import { CURRENCY, SPAIN, SPAIN_DECLARATION } from "~/territory/spain";
 
 jest.setTimeout(120 * 1000);
 
-const PENINSULAR_PROVINCE = "es-m";
+const PENINSULAR_PROVINCE: ProvinceCode = "es-m";
 const STRIPE_EMULATOR_PORT = 4_009;
 const STRIPE_PAYMENT_PROVIDER_ID = "pp_stripe_stripe";
 

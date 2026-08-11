@@ -1,25 +1,30 @@
 /** A tax rate and the name that an Operator sees in the admin. */
 export type TaxRegime = {
-  name: string;
-  code: string;
+  readonly name: string;
+  readonly code: string;
   /** Percent, the way Medusa stores a tax rate. */
-  rate: number;
+  readonly rate: number;
 };
 
-/** A regime that applies to named Provinces rather than to the whole country. */
-export type ProvinceTaxRegime = TaxRegime & {
-  provinces: Record<string, string>;
+/** A regime that applies to selected Provinces rather than to the whole country. */
+export type ProvinceTaxRegime<ProvinceCode extends string> = TaxRegime & {
+  readonly provinces: readonly ProvinceCode[];
 };
 
-export type TerritoryDeclaration = {
-  /** ISO 3166-1 alpha-2, lower case. */
-  country: string;
-  currency: string;
-  regionName: string;
-  stockLocationName: string;
+export type TerritoryDeclaration<
+  Country extends string,
+  ProvinceCode extends `${NoInfer<Country>}-${string}`,
+> = {
+  readonly country: Country;
+  readonly currency: string;
+  readonly regionName: string;
+  readonly stockLocationName: string;
   /** Applies at country level. */
-  defaultRegime: TaxRegime;
-  /** One Tax Region per named Province. */
-  provinceRegimes: ProvinceTaxRegime[];
-  serviceZones: { name: string; provinces: string[] }[];
+  readonly defaultRegime: TaxRegime;
+  /** One Tax Region per selected Province. */
+  readonly provinceRegimes: readonly ProvinceTaxRegime<ProvinceCode>[];
+  readonly serviceZones: readonly {
+    readonly name: string;
+    readonly provinces: readonly ProvinceCode[];
+  }[];
 };

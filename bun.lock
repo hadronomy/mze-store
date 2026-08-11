@@ -28,6 +28,7 @@
         "@medusajs/framework": "catalog:",
         "@medusajs/medusa": "catalog:",
         "@mze-store/env": "workspace:*",
+        "@mze-store/territory": "workspace:*",
       },
       "devDependencies": {
         "@medusajs/test-utils": "catalog:",
@@ -121,6 +122,18 @@
       "dependencies": {
         "@t3-oss/env-core": "^0.13.11",
         "dotenv": "catalog:",
+        "zod": "catalog:",
+      },
+      "devDependencies": {
+        "@mze-store/config": "workspace:*",
+        "@types/node": "catalog:",
+        "typescript": "catalog:",
+      },
+    },
+    "packages/territory": {
+      "name": "@mze-store/territory",
+      "version": "0.0.0",
+      "dependencies": {
         "zod": "catalog:",
       },
       "devDependencies": {
@@ -797,6 +810,8 @@
     "@mze-store/db": ["@mze-store/db@workspace:packages/db"],
 
     "@mze-store/env": ["@mze-store/env@workspace:packages/env"],
+
+    "@mze-store/territory": ["@mze-store/territory@workspace:packages/territory"],
 
     "@mze-store/ui": ["@mze-store/ui@workspace:packages/ui"],
 

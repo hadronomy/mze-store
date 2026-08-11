@@ -1,3 +1,4 @@
+import { country as SPAIN, type ProvinceCode } from "@mze-store/territory/spain";
 import type { ProvinceTaxRegime, TaxRegime, TerritoryDeclaration } from "./declaration";
 
 /**
@@ -8,14 +9,9 @@ import type { ProvinceTaxRegime, TaxRegime, TerritoryDeclaration } from "./decla
  * two things, currency and payment methods. Both are the same in Canarias and
  * on the peninsula. Tax and shipping are what differ, and each one resolves at
  * Province granularity. See ADR-0005.
- *
- * Province codes are ISO 3166-2 in lower case. Medusa stores them in this form
- * on Tax Regions and geo zones. The Store API accepts them in this form as
- * `province`.
  */
 
-/** ISO 3166-1 alpha-2, lower-cased the way Medusa stores country codes. */
-export const SPAIN = "es";
+export { SPAIN };
 
 /** What a Spanish Shopper pays in. One Region, one currency. */
 export const CURRENCY = "eur";
@@ -40,17 +36,14 @@ export const PENINSULAR_VAT: TaxRegime = {
 };
 
 /** The two Canarian Provinces. IGIC applies to both. */
-export const CANARIAS_PROVINCES = {
-  "es-gc": "Las Palmas",
-  "es-tf": "Santa Cruz de Tenerife",
-} as const;
+export const CANARIAS_PROVINCES = ["es-gc", "es-tf"] as const satisfies readonly ProvinceCode[];
 
-export const CANARIAS_IGIC: ProvinceTaxRegime = {
+export const CANARIAS_IGIC = {
   name: "IGIC tipo general",
   code: "igic-general",
   rate: 7,
   provinces: CANARIAS_PROVINCES,
-};
+} as const satisfies ProvinceTaxRegime<ProvinceCode>;
 
 /**
  * Every regime that resolves at Province granularity. Each regime gets one Tax
@@ -64,7 +57,9 @@ export const CANARIAS_IGIC: ProvinceTaxRegime = {
  * adds the same Provinces to a Service Zone in the admin, under
  * Settings → Locations & Shipping. The seed never edits a zone that exists.
  */
-export const PROVINCE_TAX_REGIMES: ProvinceTaxRegime[] = [CANARIAS_IGIC];
+export const PROVINCE_TAX_REGIMES = [
+  CANARIAS_IGIC,
+] as const satisfies readonly ProvinceTaxRegime<ProvinceCode>[];
 
 /**
  * Ceuta and Melilla, which use IPSI. This is a third regime, and the seed
@@ -72,10 +67,7 @@ export const PROVINCE_TAX_REGIMES: ProvinceTaxRegime[] = [CANARIAS_IGIC];
  * not ship there yet. Until a regime exists, both Provinces use the
  * country-level Tax Region and pay peninsular VAT.
  */
-export const IPSI_PROVINCES = {
-  "es-ce": "Ceuta",
-  "es-ml": "Melilla",
-} as const;
+export const IPSI_PROVINCES = ["es-ce", "es-ml"] as const satisfies readonly ProvinceCode[];
 
 /**
  * Every Spanish Province under peninsular VAT, by ISO 3166-2 code.
@@ -88,59 +80,59 @@ export const IPSI_PROVINCES = {
  * Baleares (`es-pm`) is in this list. It is not the peninsula, but it has the
  * same tax regime. Its shipping is a later problem than this seed.
  */
-export const PENINSULAR_PROVINCES = {
-  "es-a": "Alicante",
-  "es-ab": "Albacete",
-  "es-al": "Almería",
-  "es-av": "Ávila",
-  "es-b": "Barcelona",
-  "es-ba": "Badajoz",
-  "es-bi": "Bizkaia",
-  "es-bu": "Burgos",
-  "es-c": "A Coruña",
-  "es-ca": "Cádiz",
-  "es-cc": "Cáceres",
-  "es-co": "Córdoba",
-  "es-cr": "Ciudad Real",
-  "es-cs": "Castellón",
-  "es-cu": "Cuenca",
-  "es-gi": "Girona",
-  "es-gr": "Granada",
-  "es-gu": "Guadalajara",
-  "es-h": "Huelva",
-  "es-hu": "Huesca",
-  "es-j": "Jaén",
-  "es-l": "Lleida",
-  "es-le": "León",
-  "es-lo": "La Rioja",
-  "es-lu": "Lugo",
-  "es-m": "Madrid",
-  "es-ma": "Málaga",
-  "es-mu": "Murcia",
-  "es-na": "Navarra",
-  "es-o": "Asturias",
-  "es-or": "Ourense",
-  "es-p": "Palencia",
-  "es-pm": "Baleares",
-  "es-po": "Pontevedra",
-  "es-s": "Cantabria",
-  "es-sa": "Salamanca",
-  "es-se": "Sevilla",
-  "es-sg": "Segovia",
-  "es-so": "Soria",
-  "es-ss": "Gipuzkoa",
-  "es-t": "Tarragona",
-  "es-te": "Teruel",
-  "es-to": "Toledo",
-  "es-v": "Valencia",
-  "es-va": "Valladolid",
-  "es-vi": "Álava",
-  "es-z": "Zaragoza",
-  "es-za": "Zamora",
-} as const;
+export const PENINSULAR_PROVINCES = [
+  "es-a",
+  "es-ab",
+  "es-al",
+  "es-av",
+  "es-b",
+  "es-ba",
+  "es-bi",
+  "es-bu",
+  "es-c",
+  "es-ca",
+  "es-cc",
+  "es-co",
+  "es-cr",
+  "es-cs",
+  "es-cu",
+  "es-gi",
+  "es-gr",
+  "es-gu",
+  "es-h",
+  "es-hu",
+  "es-j",
+  "es-l",
+  "es-le",
+  "es-lo",
+  "es-lu",
+  "es-m",
+  "es-ma",
+  "es-mu",
+  "es-na",
+  "es-o",
+  "es-or",
+  "es-p",
+  "es-pm",
+  "es-po",
+  "es-s",
+  "es-sa",
+  "es-se",
+  "es-sg",
+  "es-so",
+  "es-ss",
+  "es-t",
+  "es-te",
+  "es-to",
+  "es-v",
+  "es-va",
+  "es-vi",
+  "es-z",
+  "es-za",
+] as const satisfies readonly ProvinceCode[];
 
 /** The starting state for the Spanish Region, Tax Regions, and Service Zones. */
-export const SPAIN_DECLARATION: TerritoryDeclaration = {
+export const SPAIN_DECLARATION = {
   country: SPAIN,
   currency: CURRENCY,
   regionName: "Spain",
@@ -148,7 +140,7 @@ export const SPAIN_DECLARATION: TerritoryDeclaration = {
   defaultRegime: PENINSULAR_VAT,
   provinceRegimes: PROVINCE_TAX_REGIMES,
   serviceZones: [
-    { name: "Peninsula and Baleares", provinces: Object.keys(PENINSULAR_PROVINCES) },
-    { name: "Canarias", provinces: Object.keys(CANARIAS_PROVINCES) },
+    { name: "Peninsula and Baleares", provinces: PENINSULAR_PROVINCES },
+    { name: "Canarias", provinces: CANARIAS_PROVINCES },
   ],
-};
+} as const satisfies TerritoryDeclaration<typeof SPAIN, ProvinceCode>;

@@ -16,6 +16,7 @@ mze-store/
     ├── auth/                  better-auth — source of record for Accounts
     ├── db/                    Drizzle — better-auth tables only, `auth` schema
     ├── email-tokens/          pure-TS design tokens, shared across both apps
+    ├── territory/             Province identity data and input schemas
     ├── ui/                    shadcn primitives
     ├── env/                   validated environment
     └── config/                shared tsconfig base
@@ -32,7 +33,7 @@ Three of four surfaces are Vite+ / rolldown. The backend is the exception, delib
 | Surface                   | Tool                               | Output                                  |
 | ------------------------- | ---------------------------------- | --------------------------------------- |
 | Storefront                | Vite+ / rolldown                   | bundled ESM                             |
-| `packages/*`              | TypeScript + `tsc-alias`           | ESM, plus CJS if the backend imports it |
+| `packages/*`              | Vite+ / rolldown                   | ESM, plus CJS if the backend imports it |
 | Medusa admin + extensions | `@medusajs/admin-bundler` (Vite 5) | bundled                                 |
 | Medusa backend            | TypeScript compiler API            | **unbundled, file-per-file CJS**        |
 

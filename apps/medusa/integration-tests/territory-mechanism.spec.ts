@@ -1,12 +1,22 @@
 import type { MedusaContainer } from "@medusajs/framework/types";
 import { ContainerRegistrationKeys } from "@medusajs/framework/utils";
 import { medusaIntegrationTestRunner } from "@medusajs/test-utils";
+import {
+  createProvinceCodeSchema,
+  type ProvinceCodeOf,
+  type ProvinceList,
+} from "@mze-store/territory";
 import type { TerritoryDeclaration } from "~/territory/declaration";
 import { seedTerritory } from "~/territory/seed";
 
 jest.setTimeout(120 * 1000);
 
-const TOY_DECLARATION: TerritoryDeclaration = {
+const TOY_PROVINCES = [{ code: "pt-30", name: "Madeira" }] as const satisfies ProvinceList<"pt">;
+
+const toyProvinceCodeSchema = createProvinceCodeSchema("pt", TOY_PROVINCES);
+type ToyProvinceCode = ProvinceCodeOf<typeof TOY_PROVINCES>;
+
+const TOY_DECLARATION = {
   country: "pt",
   currency: "eur",
   regionName: "Toy Portugal",
@@ -21,11 +31,11 @@ const TOY_DECLARATION: TerritoryDeclaration = {
       name: "Toy Madeira tax",
       code: "toy-madeira",
       rate: 22,
-      provinces: { "pt-30": "Madeira" },
+      provinces: ["pt-30"],
     },
   ],
   serviceZones: [{ name: "Toy Madeira service", provinces: ["pt-30"] }],
-};
+} as const satisfies TerritoryDeclaration<"pt", ToyProvinceCode>;
 
 medusaIntegrationTestRunner({
   inApp: true,
@@ -45,6 +55,17 @@ medusaIntegrationTestRunner({
       return data as T[];
     };
 
+    it("uses canonical Province codes throughout the toy Declaration", () => {
+      const declaredProvinces = [
+        ...TOY_DECLARATION.provinceRegimes.flatMap(({ provinces }) => provinces),
+        ...TOY_DECLARATION.serviceZones.flatMap(({ provinces }) => provinces),
+      ];
+
+      for (const province of declaredProvinces) {
+        expect(toyProvinceCodeSchema.safeParse(province)).toMatchObject({ success: true });
+      }
+    });
+
     it("applies the Region, Tax Regions, and Service Zone from a non-Spanish Declaration", async () => {
       const regions = await graph("region", ["name", "currency_code", "countries.iso_2"]);
       const region = regions.find((candidate) =>
@@ -63,7 +84,7 @@ medusaIntegrationTestRunner({
       });
 
       expect(new Set(taxRegions.map(({ province_code }) => province_code))).toEqual(
-        new Set([null, ...Object.keys(TOY_DECLARATION.provinceRegimes[0]!.provinces)]),
+        new Set([null, ...TOY_DECLARATION.provinceRegimes[0]!.provinces]),
       );
 
       const serviceZones = await graph("service_zone", [

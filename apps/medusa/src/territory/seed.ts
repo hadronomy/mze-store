@@ -21,6 +21,8 @@ import {
   findTaxRegionsForDeclaration,
 } from "./queries";
 
+type AnyTerritoryDeclaration = TerritoryDeclaration<string, `${string}-${string}`>;
+
 /** The identifiers that a caller needs to use what the seed created. */
 export type SeededTerritory = {
   regionId: string;
@@ -57,9 +59,12 @@ const SEEDED_BY = "seed";
  * This holds for a Service Zone too. The seed creates a zone that is absent,
  * and it never edits one that is there. `ensureServiceZones` says why.
  */
-export async function seedTerritory(
+export async function seedTerritory<
+  const Country extends string,
+  const ProvinceCode extends `${NoInfer<Country>}-${string}`,
+>(
   container: MedusaContainer,
-  declaration: TerritoryDeclaration,
+  declaration: TerritoryDeclaration<Country, ProvinceCode>,
 ): Promise<SeededTerritory> {
   const salesChannelId = await ensureSalesChannel(container);
   const regionId = await ensureRegion(container, declaration);
@@ -97,7 +102,7 @@ async function ensureSalesChannel(container: MedusaContainer): Promise<string> {
 
 async function ensureRegion(
   container: MedusaContainer,
-  declaration: TerritoryDeclaration,
+  declaration: AnyTerritoryDeclaration,
 ): Promise<string> {
   // The lookup uses the country and not the name. A country belongs to exactly
   // one Region.
@@ -129,7 +134,7 @@ async function ensureRegion(
 
 async function ensureTaxRegions(
   container: MedusaContainer,
-  declaration: TerritoryDeclaration,
+  declaration: AnyTerritoryDeclaration,
 ): Promise<void> {
   const taxRegions = await findTaxRegionsForDeclaration(container, declaration);
 
@@ -155,7 +160,7 @@ async function ensureTaxRegions(
   }
 
   const missing = declaration.provinceRegimes.flatMap((regime) =>
-    Object.keys(regime.provinces)
+    regime.provinces
       .filter((province) => !taxRegions.some((region) => region.province_code === province))
       .map((province) => ({
         country_code: declaration.country,
@@ -186,7 +191,7 @@ async function ensureTaxRegions(
  */
 const requireStockLocation = (
   location: Awaited<ReturnType<typeof findDeclaredStockLocation>>,
-  declaration: TerritoryDeclaration,
+  declaration: AnyTerritoryDeclaration,
 ) => {
   if (!location) {
     throw new Error(
@@ -197,7 +202,10 @@ const requireStockLocation = (
   return location;
 };
 
-const provinceGeoZone = (country: string, province: string) => ({
+const provinceGeoZone = <Country extends string>(
+  country: Country,
+  province: `${NoInfer<Country>}-${string}`,
+) => ({
   type: "province" as const,
   country_code: country,
   province_code: province,
@@ -206,7 +214,7 @@ const provinceGeoZone = (country: string, province: string) => ({
 async function ensureStockLocation(
   container: MedusaContainer,
   salesChannelId: string,
-  declaration: TerritoryDeclaration,
+  declaration: AnyTerritoryDeclaration,
 ): Promise<string> {
   let location = await findDeclaredStockLocation(container, declaration);
 
@@ -235,7 +243,7 @@ async function ensureStockLocation(
 async function ensureServiceZones(
   container: MedusaContainer,
   stockLocationId: string,
-  declaration: TerritoryDeclaration,
+  declaration: AnyTerritoryDeclaration,
 ): Promise<void> {
   let location = requireStockLocation(
     await findStockLocationById(container, stockLocationId),
@@ -304,7 +312,7 @@ async function ensureServiceZones(
 async function ensureStoreDefaults(
   container: MedusaContainer,
   defaults: { salesChannelId: string; regionId: string },
-  declaration: TerritoryDeclaration,
+  declaration: AnyTerritoryDeclaration,
 ): Promise<void> {
   const store = await findStore(container);
 
