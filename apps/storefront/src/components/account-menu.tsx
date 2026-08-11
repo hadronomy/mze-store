@@ -41,11 +41,11 @@ export default function AccountMenu() {
           <DropdownMenuItem>{session.user.email}</DropdownMenuItem>
           <DropdownMenuItem
             variant="destructive"
-            onClick={() => {
-              void authClient.signOut({
+            onClick={async () => {
+              await authClient.signOut({
                 fetchOptions: {
-                  onSuccess: () => {
-                    void navigate({
+                  onSuccess: async () => {
+                    await navigate({
                       to: "/",
                     });
                   },
