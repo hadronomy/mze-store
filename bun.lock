@@ -21,6 +21,7 @@
         "typescript": "catalog:",
         "uuid": "catalog:",
         "vite-plus": "catalog:",
+        "yocto-spinner": "1.2.2",
       },
     },
     "apps/medusa": {
