@@ -2,13 +2,13 @@
 
 ADR-0005 decides that Canarias is a Province. This decides who owns the rows that come out of it.
 
-Every piece of the territory model exists twice: as constants in `apps/medusa/src/territory/spain.ts`, and as rows an Operator edits in the Medusa admin. The admin ships full CRUD for all of it — Tax Regions with per-Province pages and rate editing, Service Zones and their geo zones, Regions, tax overrides. Adding Ceuta and Melilla is a form, not a deploy.
+Every editable piece of the territory model exists twice: as a starting value in the Spanish Territory Declaration, and as rows an Operator edits in the Medusa admin. The admin ships full CRUD for all of it — Tax Regions with per-Province pages and rate editing, Service Zones and their geo zones, Regions, tax overrides. Adding Ceuta and Melilla is a form, not a deploy. The shared Spanish country module defines accepted Province identities, not these editable rows.
 
 **The database is authoritative. The constants only start a new one.**
 
 ## Why not the code
 
-A rate changes by law, on a date no release schedule can predict. The gestor who confirms a rate talks to an Operator, not to a developer. And nothing reads `spain.ts` at run time — only the code that creates a database that has no model yet.
+A rate changes by law, on a date no release schedule can predict. The gestor who confirms a rate talks to an Operator, not to a developer. No Shopper request reads the Spanish Territory Declaration. Only the code that creates a database with no model applies it.
 
 The tempting alternative is a converging seed: one source of truth in version control, applied on every deploy, drift impossible by construction. It is the right answer for a Kubernetes manifest and the wrong one here. It reverts a lawful rate change at the next release, silently, and the Operator who made the change has no way to make it stick short of a pull request. A tax rate is not a deployment artifact.
 
@@ -20,7 +20,7 @@ The tempting alternative is a converging seed: one source of truth in version co
 
 - **The model arrives as a run-once migration script.** `medusa db:migrate` runs `src/migration-scripts/`, records each file by name in `script_migrations`, and never runs it again. This makes "creates, never corrects" structural rather than a property maintained by hand, and it costs a deployment no second application boot. A later change to the model is a new file beside the first, not an edit to it — the history is append-only, and nothing reaches back over an Operator.
 
-- **Constants in `spain.ts` are the starting state, not the policy.** Documentation that called that file "the only place a rate is written" was wrong and has been corrected. A gestor approves the rate that the admin shows.
+- **The Declaration in `spain.ts` is the starting state, not the policy.** A gestor approves the rate that the admin shows. The Spanish country module has no rates or Service Zones.
 
 - **The tests assert a freshly seeded database.** They say nothing about a live store, and cannot: the rates they check are the ones the seed wrote, and a live store's rates are the ones an Operator set.
 

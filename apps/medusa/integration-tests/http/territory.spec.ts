@@ -3,6 +3,11 @@ import { ContainerRegistrationKeys } from "@medusajs/framework/utils";
 import type { MedusaContainer } from "@medusajs/framework/types";
 import { updateServiceZonesWorkflow } from "@medusajs/medusa/core-flows";
 import {
+  provinceCodeSchema,
+  provinces as spanishProvinces,
+  type ProvinceCode,
+} from "@mze-store/territory/spain";
+import {
   CANARIAS_IGIC,
   CANARIAS_PROVINCES,
   CURRENCY,
@@ -19,9 +24,9 @@ import { signInAsOperator } from "../utils/operator";
 jest.setTimeout(120 * 1000);
 
 /** Madrid, a Province that the seed leaves to the country-level Tax Region. */
-const PENINSULAR_PROVINCE = "es-m";
+const PENINSULAR_PROVINCE: ProvinceCode = "es-m";
 /** Santa Cruz de Tenerife, a Province with a Tax Region of its own. */
-const CANARIAN_PROVINCE = "es-tf";
+const CANARIAN_PROVINCE: ProvinceCode = "es-tf";
 
 /**
  * The two prices that a freshly seeded database returns, written out and not
@@ -64,7 +69,7 @@ medusaIntegrationTestRunner({
       return data as T[];
     };
 
-    const priceIn = async (province: string, productId = probe.productId) => {
+    const priceIn = async (province: ProvinceCode, productId = probe.productId) => {
       const response = await api.get(
         `/store/products/${productId}` +
           `?region_id=${seeded.regionId}&country_code=${SPAIN}&province=${province}` +
@@ -77,6 +82,25 @@ medusaIntegrationTestRunner({
 
     describe("Spanish territory", () => {
       describe("the model", () => {
+        it("partitions the Spanish Province list into three disjoint policy sets", () => {
+          const partition = [...PENINSULAR_PROVINCES, ...CANARIAS_PROVINCES, ...IPSI_PROVINCES];
+          const referenceCodes = spanishProvinces.map(({ code }) => code);
+
+          expect(partition).toHaveLength(referenceCodes.length);
+          expect(new Set(partition)).toEqual(new Set(referenceCodes));
+        });
+
+        it("uses canonical Province codes throughout the Spanish Declaration", () => {
+          const declaredProvinces = [
+            ...SPAIN_DECLARATION.provinceRegimes.flatMap(({ provinces }) => provinces),
+            ...SPAIN_DECLARATION.serviceZones.flatMap(({ provinces }) => provinces),
+          ];
+
+          for (const province of declaredProvinces) {
+            expect(provinceCodeSchema.safeParse(province)).toMatchObject({ success: true });
+          }
+        });
+
         it("carries exactly one Region for Spain, with its currency and payment providers", async () => {
           const regions = await graph("region", [
             "id",
@@ -101,13 +125,13 @@ medusaIntegrationTestRunner({
             { country_code: SPAIN },
           );
 
-          const rateOf = (provinceCode: string | null) =>
+          const rateOf = (provinceCode: ProvinceCode | null) =>
             taxRegions
               .find((region) => region.province_code === provinceCode)
               ?.tax_rates?.find((rate: { is_default: boolean }) => rate.is_default)?.rate;
 
           expect(rateOf(null)).toEqual(PENINSULAR_VAT.rate);
-          for (const province of Object.keys(CANARIAS_PROVINCES)) {
+          for (const province of CANARIAS_PROVINCES) {
             expect(rateOf(province)).toEqual(CANARIAS_IGIC.rate);
           }
         });
@@ -117,7 +141,7 @@ medusaIntegrationTestRunner({
 
           const provinces = taxRegions.map((region) => region.province_code);
 
-          for (const province of Object.keys(IPSI_PROVINCES)) {
+          for (const province of IPSI_PROVINCES) {
             expect(provinces).not.toContain(province);
           }
         });
@@ -143,10 +167,8 @@ medusaIntegrationTestRunner({
           const canarian = zones.find((zone) => provincesOf(zone).includes(CANARIAN_PROVINCE))!;
           const peninsular = zones.find((zone) => zone !== canarian)!;
 
-          expect(new Set(provincesOf(canarian))).toEqual(new Set(Object.keys(CANARIAS_PROVINCES)));
-          expect(new Set(provincesOf(peninsular))).toEqual(
-            new Set(Object.keys(PENINSULAR_PROVINCES)),
-          );
+          expect(new Set(provincesOf(canarian))).toEqual(new Set(CANARIAS_PROVINCES));
+          expect(new Set(provincesOf(peninsular))).toEqual(new Set(PENINSULAR_PROVINCES));
         });
       });
 
@@ -262,7 +284,7 @@ medusaIntegrationTestRunner({
         // the next release. The seed cannot tell that removal from a gap it
         // never filled, so it leaves an existing zone alone.
         it("leaves a Province an Operator removed from a Service Zone removed", async () => {
-          const zoneWith = async (province: string) => {
+          const zoneWith = async (province: ProvinceCode) => {
             const zones = await graph("service_zone", [
               "id",
               "geo_zones.id",

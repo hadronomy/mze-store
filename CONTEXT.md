@@ -71,6 +71,7 @@ _Avoid_: shipping zone, delivery area
 
 **Province**:
 An ISO 3166-2 subdivision. The finest granularity at which tax and shipping differ, and the reason Canarias cannot be modelled as its own Region — it shares country code `ES` with the peninsula.
+Application interfaces use the full lower-case form, such as `es-tf`.
 
 **Territory Declaration**:
 The declared set of Regions, Tax Regions, and Service Zones for one country, with the rate each Tax Region starts with. A starting state, never the policy: once a Declaration has been applied, the database is authoritative and an Operator owns the rows.

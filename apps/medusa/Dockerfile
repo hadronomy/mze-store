@@ -14,6 +14,7 @@ COPY packages/auth/package.json packages/auth/package.json
 COPY packages/config/package.json packages/config/package.json
 COPY packages/db/package.json packages/db/package.json
 COPY packages/env/package.json packages/env/package.json
+COPY packages/territory/package.json packages/territory/package.json
 COPY packages/ui/package.json packages/ui/package.json
 RUN --mount=type=cache,id=bun-install-cache,target=/root/.bun/install/cache \
   bun install --frozen-lockfile
@@ -33,11 +34,13 @@ COPY packages/auth/package.json packages/auth/package.json
 COPY packages/config/package.json packages/config/package.json
 COPY packages/db/package.json packages/db/package.json
 COPY packages/env/package.json packages/env/package.json
+COPY packages/territory/package.json packages/territory/package.json
 COPY packages/ui/package.json packages/ui/package.json
 RUN --mount=type=cache,id=bun-install-cache,target=/root/.bun/install/cache \
   bun install --frozen-lockfile --omit dev \
     --filter medusa \
-    --filter '@mze-store/env'
+    --filter '@mze-store/env' \
+    --filter '@mze-store/territory'
 
 # The Medusa server does not invoke esbuild. Keep its optional build binary out
 # of the runtime dependency store.
@@ -59,6 +62,9 @@ COPY --from=build --chown=node:node /app/apps/medusa/package.json ./apps/medusa/
 COPY --from=build --chown=node:node /app/packages/env/package.json ./packages/env/package.json
 COPY --from=production-deps --chown=node:node /app/packages/env/node_modules ./packages/env/node_modules
 COPY --from=build --chown=node:node /app/packages/env/dist ./packages/env/dist
+COPY --from=build --chown=node:node /app/packages/territory/package.json ./packages/territory/package.json
+COPY --from=production-deps --chown=node:node /app/packages/territory/node_modules ./packages/territory/node_modules
+COPY --from=build --chown=node:node /app/packages/territory/dist ./packages/territory/dist
 COPY --from=build --chown=node:node /app/apps/medusa/.medusa/server ./apps/medusa/.medusa/server
 
 WORKDIR /app/apps/medusa/.medusa/server

@@ -22,5 +22,6 @@ function runVitePlus(arguments_: string[]) {
 export function setup() {
   process.env.PATH = executablePath;
   runVitePlus(["run", "@mze-store/env#build"]);
+  runVitePlus(["run", "@mze-store/territory#build"]);
   runVitePlus(["run", "--filter", "@mze-store/db", "build"]);
 }
