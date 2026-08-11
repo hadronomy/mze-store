@@ -25,7 +25,7 @@ RUN bun run build:packages && ./node_modules/.bin/vp run -t storefront#build
 
 # Bun's isolated install uses links. Resolve React before copying it alone.
 RUN mkdir -p /tmp/storefront-runtime/node_modules \
-  && cp -aL node_modules/react /tmp/storefront-runtime/node_modules/react
+  && cp -aL apps/storefront/node_modules/react /tmp/storefront-runtime/node_modules/react
 
 FROM node:24-bookworm-slim@sha256:3638d9a6fe4030bd716be989438248074489337ba3275657f93595428be4fc03 AS runtime
 ENV NODE_ENV=production \
