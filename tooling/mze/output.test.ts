@@ -42,6 +42,49 @@ it.effect("passes child output through in human mode", () => {
   }).pipe(Effect.provide(Output.layer("human")), Effect.provide(capture.layer));
 });
 
+it.effect("renders the event rail without ANSI codes when color is disabled", () => {
+  const capture = captureStdio();
+
+  return Effect.gen(function* () {
+    const output = yield* Output.Service;
+    yield* output.write({ command: "mze dev", event: "started", stream: "stdout" });
+    yield* output.write({
+      command: "doctor",
+      data: { message: "✓ docker: healthy", name: "docker", passed: true },
+      event: "message",
+      stream: "stdout",
+    });
+    yield* output.write({
+      command: "mze dev",
+      data: { exitCode: 1, message: "route already owned" },
+      event: "failed",
+      stream: "stderr",
+    });
+
+    expect(capture.stdout).toEqual(["→ mze dev started\n", "✓ docker: healthy\n"]);
+    expect(capture.stderr).toEqual(["✗ mze dev failed (exit 1) — route already owned\n"]);
+  }).pipe(Effect.provide(Output.layer("human", { color: false })), Effect.provide(capture.layer));
+});
+
+it.effect("colors status marks when the terminal policy enables color", () => {
+  const capture = captureStdio();
+
+  return Effect.gen(function* () {
+    const output = yield* Output.Service;
+    yield* output.write({ command: "mze dev", event: "started", stream: "stdout" });
+    yield* output.write({
+      command: "mze dev",
+      data: { exitCode: 1, message: "route already owned" },
+      event: "failed",
+      stream: "stderr",
+    });
+
+    expect(capture.stdout[0]).toContain("\u001b[36m→\u001b[39m");
+    expect(capture.stderr[0]).toContain("\u001b[31m✗\u001b[39m");
+    expect(capture.stderr[0]).toContain("route already owned");
+  }).pipe(Effect.provide(Output.layer("human", { color: true })), Effect.provide(capture.layer));
+});
+
 it.effect("writes versioned NDJSON to the selected stream", () => {
   const capture = captureStdio();
 

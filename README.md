@@ -165,6 +165,16 @@ Use `bun run build` to build all applications. Use `bun run mze lint` to run
 Oxlint. Use `bun run mze format` to run Oxfmt. Run `bun run mze --help` for the
 complete command tree. Add `--json` for versioned NDJSON output.
 
+Human output uses a compact event rail. The status mark shows the lifecycle
+state. Child process output passes through unchanged. Colors appear when the
+destination supports them, and `--json` never includes ANSI codes:
+
+```text
+→ mze dev started
+· services — PostgreSQL 49122; Redis 49123
+✓ mze dev ready
+```
+
 Knip remains a report because its baseline is not empty. Vite+ caches the
 deterministic package builds and package type checks used by the normal
 commands.
