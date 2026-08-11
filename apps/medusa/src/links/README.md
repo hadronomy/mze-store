@@ -19,5 +19,5 @@ This defines a link between the Product Module's `product` data model and the Bl
 Then, in the Medusa application, run the following command to sync the links to the database:
 
 ```bash
-npx medusa db:migrate
+bunx medusa db:migrate
 ```

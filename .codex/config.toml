@@ -1,14 +1,14 @@
 [mcp_servers.better-t-stack]
 command = "bunx"
-args = ["create-better-t-stack@latest", "mcp"]
+args = ["create-better-t-stack@3.38.2", "mcp"]
 
 [mcp_servers.context7]
-command = "npx"
-args = ["-y", "@upstash/context7-mcp"]
+command = "bunx"
+args = ["@upstash/context7-mcp@4.0.0"]
 
 [mcp_servers.shadcn]
-command = "npx"
-args = ["-y", "shadcn@latest", "mcp"]
+command = "bunx"
+args = ["shadcn@4.16.2", "mcp"]
 
 [mcp_servers.better-auth]
 type = "http"

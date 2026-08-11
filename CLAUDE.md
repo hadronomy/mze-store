@@ -1,13 +1,9 @@
-# MZE Store
+# Claude Code pointer
 
-A Medusa v2 storefront and backend for a physical shop selling from the Canary
-Islands into Spain and the EU, with Odoo as the ERP.
-
-Start with [`CONTEXT.md`](./CONTEXT.md) for vocabulary, then
-[`docs/architecture.md`](./docs/architecture.md) for the shape and
-[`docs/adr/`](./docs/adr/) for why it is that way. Several ADRs record rejected
-alternatives that look obviously better on first reading — check before
-proposing one.
+Follow the canonical repository guidance in [`AGENTS.md`](./AGENTS.md). Start
+with [`CONTEXT.md`](./CONTEXT.md) for vocabulary, then read
+[`docs/architecture.md`](./docs/architecture.md) and the relevant
+[`docs/adr/`](./docs/adr/) records.
 
 ## Agent skills
 

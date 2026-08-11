@@ -90,7 +90,7 @@ function splitSuffix(specifier: string): { path: string; suffix: string } {
 }
 
 function getProject(filename: string): Project | null {
-  const configPath = ts.findConfigFile(dirname(filename), ts.sys.fileExists);
+  const configPath = ts.findConfigFile(dirname(filename), (path) => ts.sys.fileExists(path));
 
   if (!configPath) {
     return null;

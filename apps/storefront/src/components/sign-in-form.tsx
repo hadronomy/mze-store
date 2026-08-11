@@ -28,8 +28,8 @@ export default function SignInForm({ onSwitchToSignUp }: { onSwitchToSignUp: () 
           password: value.password,
         },
         {
-          onSuccess: () => {
-            navigate({
+          onSuccess: async () => {
+            await navigate({
               to: "/",
             });
             toast.success("Sign in successful");
@@ -57,10 +57,10 @@ export default function SignInForm({ onSwitchToSignUp }: { onSwitchToSignUp: () 
       <h1 className="mb-6 text-center text-3xl font-bold">Welcome Back</h1>
 
       <form
-        onSubmit={(e) => {
+        onSubmit={async (e) => {
           e.preventDefault();
           e.stopPropagation();
-          form.handleSubmit();
+          await form.handleSubmit();
         }}
         className="space-y-4"
       >

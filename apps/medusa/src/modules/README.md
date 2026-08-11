@@ -79,13 +79,13 @@ export default defineConfig({
 To generate migrations for your module, run the following command:
 
 ```bash
-npx medusa db:generate blog
+bunx medusa db:generate blog
 ```
 
 Then, to run migrations, run the following command:
 
 ```bash
-npx medusa db:migrate
+bunx medusa db:migrate
 ```
 
 ## Use Module

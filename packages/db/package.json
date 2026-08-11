@@ -16,12 +16,10 @@
     }
   },
   "scripts": {
-    "build": "tsc -b && tsc-alias -p tsconfig.json",
     "db:push": "vp run @mze-store/env#build && drizzle-kit push",
     "db:generate": "vp run @mze-store/env#build && drizzle-kit generate",
     "db:studio": "vp run @mze-store/env#build && drizzle-kit studio",
-    "db:migrate": "vp run @mze-store/env#build && drizzle-kit migrate",
-    "check-types": "tsc --noEmit"
+    "db:migrate": "vp run @mze-store/env#build && drizzle-kit migrate"
   },
   "dependencies": {
     "@mze-store/env": "workspace:*",

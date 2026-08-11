@@ -36,8 +36,6 @@
     }
   },
   "scripts": {
-    "build": "vp pack",
-    "check-types": "tsc --noEmit",
     "test": "vp run build && vp test --dir test"
   },
   "dependencies": {

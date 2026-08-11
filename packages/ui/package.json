@@ -25,10 +25,6 @@
     },
     "./postcss.config": "./postcss.config.mjs"
   },
-  "scripts": {
-    "build": "tsc -b && tsc-alias -p tsconfig.json",
-    "check-types": "tsc --noEmit"
-  },
   "dependencies": {
     "@base-ui/react": "^1.6.0",
     "@shadcn/react": "^0.2.0",

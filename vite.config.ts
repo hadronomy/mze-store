@@ -18,7 +18,12 @@ export default defineConfig({
     tsconfigPaths: true,
   },
   test: {
-    exclude: [...configDefaults.exclude, ...ignorePatterns, "apps/medusa/integration-tests/**"],
+    exclude: [
+      ...configDefaults.exclude,
+      ...ignorePatterns,
+      "e2e/**",
+      "apps/medusa/integration-tests/**",
+    ],
     globalSetup: "./tooling/test/global-setup.ts",
   },
   lint: {
@@ -33,7 +38,7 @@ export default defineConfig({
     jsPlugins: ["./tooling/oxlint/index.ts"],
     options: {
       reportUnusedDisableDirectives: "error",
-      typeAware: false,
+      typeAware: true,
       typeCheck: false,
     },
     rules: {

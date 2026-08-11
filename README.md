@@ -68,77 +68,129 @@ locking.
 
 ## Development
 
-The workspace uses the tool versions in [`mise.toml`](mise.toml). Install them.
-Then install the workspace dependencies:
+Use Mise to install the pinned Node and Bun versions:
 
 ```sh
 mise install
-bun install
 ```
 
-Start PostgreSQL and Redis:
+Install the locked workspace dependencies:
 
 ```sh
-bun run services:start
+bun install --frozen-lockfile
 ```
 
-Copy both environment templates:
+Create the application environment files from their committed templates:
 
 ```sh
 cp apps/storefront/.env.template apps/storefront/.env
 cp apps/medusa/.env.template apps/medusa/.env
 ```
 
-Push the Drizzle schema:
+Set a Stripe test secret in `apps/medusa/.env`. Then start PostgreSQL and Redis:
+
+```sh
+bun run services:start
+```
+
+Compose assigns a different host port to each worktree. Copy the ports from
+`bun run services:ports` into the two environment files when they differ from
+the template values.
+
+Push the Account schema and install the Vite+ Git hooks:
 
 ```sh
 bun run db:push
+bun run hooks:setup
 ```
 
-Before you start Medusa directly, set `STRIPE_API_KEY` in `apps/medusa/.env`.
-
-Start the development servers:
-
-```sh
-bun run dev
-```
-
-The Storefront runs at [http://localhost:3001](http://localhost:3001). The
-Medusa admin runs at [http://localhost:9000/app](http://localhost:9000/app).
-
-Portless is an optional path for local HTTPS development. It gives the
-Storefront and Medusa stable URLs, but it does not isolate PostgreSQL or Redis.
+Install the pinned Portless version, then start both development servers:
 
 ```sh
 bun add --global portless@0.15.5
 bun run dev:portless
 ```
 
-Read the [Portless integration note](docs/research/portless-integration.md) for
-the URL and origin rules.
+Portless gives the Storefront and Medusa stable local HTTPS URLs. Read the
+[Portless integration note](docs/research/portless-integration.md) for the URL
+and origin rules. Use `bun run dev` when fixed HTTP ports are required.
 
-Before you submit a change, run the workspace gate:
+Run the workspace checks before you submit a change:
 
 ```sh
 bun run check
+bun run check-types
+bun run test
 ```
 
-The main checks are also available on their own:
+`bun run test` needs PostgreSQL and Redis. The check and type-check commands do
+not need the backing services.
 
-- `bun run build` — Build all applications.
-- `bun run check-types` — Run the TypeScript check across the workspace.
-- `bun run test` — Run the workspace and Medusa test suites.
-- `bun run lint` — Run Oxlint.
-- `bun run format` — Format the workspace with Oxfmt.
+Run the placeholder browser suite:
+
+```sh
+bun run test:e2e
+```
+
+The placeholder has no page or accessibility flow. It does not start a server or
+need a browser binary. Set `PLAYWRIGHT_START_SERVER=1` when you add a real flow
+that needs the local Storefront, or set `PLAYWRIGHT_BASE_URL` for an existing
+server.
+
+The database commands are:
+
+```sh
+bun run db:push
+bun run db:generate
+bun run db:migrate
+```
+
+The Docker commands are:
+
+```sh
+bun run docker:build
+bun run docker:up
+bun run services:ports
+bun run docker:logs
+bun run docker:down
+```
+
+Discover application ports with:
+
+```sh
+docker compose port medusa 9000
+docker compose port storefront 3001
+```
+
+Use `bun run build` to build all applications. Use `bun run lint` to run
+Oxlint. Use `bun run format` to run Oxfmt.
+
+Knip remains a report because its baseline is not empty. Vite+ caches the
+deterministic package builds and package type checks used by the normal
+commands.
+
+```sh
+bun run knip:report
+bun run build:packages
+bun run check-types
+```
+
+Vite+ tracks package source and build output. It excludes TypeScript incremental
+state from the task fingerprint. Development servers, database commands,
+migrations, seeds, tests, and application builds stay uncached.
+Read the [Knip baseline](docs/research/knip-baseline.md) before you change the
+report configuration.
 
 ## Interfaces
 
 The Medusa Store API is the only API surface. The Storefront calls Medusa under
 `/store/*`.
 
-- `http://localhost:3001` — Storefront for Shoppers.
-- `http://localhost:9000/store/*` — Medusa Store API.
-- `http://localhost:9000/app` — Medusa admin for Operators.
+- Portless: `https://storefront.mze-store.localhost` — Storefront for Shoppers.
+- Portless: `https://medusa.mze-store.localhost/store/*` — Medusa Store API.
+- Portless: `https://medusa.mze-store.localhost/app` — Medusa admin for Operators.
+- Compose: use `docker compose port storefront 3001` and
+  `docker compose port medusa 9000` to find the HTTP URLs.
 
 ## Local stack
 
@@ -154,6 +206,10 @@ Start the complete stack with:
 ```sh
 bun run docker:up
 ```
+
+Compose assigns project-scoped containers, volumes, and random loopback host
+ports from the worktree directory. Run `bun run services:ports` and the
+application port commands above to find the active ports.
 
 View the stack:
 

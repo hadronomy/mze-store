@@ -30,8 +30,8 @@ export default function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () 
           name: value.name,
         },
         {
-          onSuccess: () => {
-            navigate({
+          onSuccess: async () => {
+            await navigate({
               to: "/",
             });
             toast.success("Sign up successful");
@@ -60,10 +60,10 @@ export default function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () 
       <h1 className="mb-6 text-center text-3xl font-bold">Create Account</h1>
 
       <form
-        onSubmit={(e) => {
+        onSubmit={async (e) => {
           e.preventDefault();
           e.stopPropagation();
-          form.handleSubmit();
+          await form.handleSubmit();
         }}
         className="space-y-4"
       >

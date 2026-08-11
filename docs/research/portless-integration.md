@@ -1,11 +1,14 @@
 # Portless local development
 
 Portless is an optional local development path for the Storefront and Medusa
-HTTP servers. It gives each server a stable HTTPS URL and avoids fixed HTTP
-port conflicts between linked Git worktrees.
+HTTP servers. It gives each server a stable HTTPS URL and avoids HTTP port
+conflicts between linked Git worktrees.
 
-Portless does not isolate PostgreSQL, Redis, or Docker Compose state. Run one
-Medusa revision against the shared development database and Redis instance.
+Each worktree gets its own PostgreSQL and Redis Compose project and volumes.
+Portless gives linked Storefront processes worktree-specific names, but the
+Medusa development script uses one shared stable name. Run one Medusa process
+at a time on that name. A second worktree can run its Storefront only, or run
+Medusa on a discovered Compose port with that worktree's environment file.
 
 ## Install
 
@@ -32,6 +35,9 @@ Start the backing services in one terminal:
 ```sh
 bun run services:start
 ```
+
+If you run the apps directly, copy the host ports from `bun run services:ports`
+into the two environment files before you start them.
 
 In another terminal, start Medusa and the current Storefront:
 
@@ -76,7 +82,10 @@ https://<worktree>.storefront.mze-store.localhost
 Only one Medusa process can own `medusa.mze-store.localhost`. If another
 worktree owns that route, the second Medusa command fails. Run
 `bun run dev:portless:storefront` to start another Storefront without taking
-the route.
+the route. To use the second worktree's isolated database and Redis, start its
+Compose Medusa service with `docker compose up -d medusa`. Discover its port
+with `docker compose port medusa 9000`, then point that Storefront's Medusa URL
+at the discovered port.
 
 ## Origins
 
@@ -89,9 +98,12 @@ stable Medusa name. The patterns do not allow arbitrary `.localhost` origins.
 
 ## Limits
 
-Portless only manages HTTP app processes. Docker Compose still publishes
-PostgreSQL on port `5432` and Redis on port `6379`, and both services keep the
-existing container names and persistent volumes. Worktrees share that state.
+Portless only manages HTTP app processes. Docker Compose gives PostgreSQL,
+Redis, and the HTTP services random loopback host ports for each Compose
+project. The Compose project also scopes the service containers and volumes, so
+linked worktrees do not share database or Redis state. Service-to-service
+traffic keeps the stable names `postgres` and `redis`. The shared Portless
+Medusa name is an application-route limit, not a Compose-state limit.
 
 Portless is not part of CI or Docker Compose. After automated checks, a
 two-worktree development session, and manual approval, promote it to the
