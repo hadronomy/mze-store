@@ -122,6 +122,15 @@ jobs:
       - name: Run live process tests
         run: ./node_modules/.bin/vp test tooling/mze/child-command.test.ts tooling/mze/cli.live.test.ts
 
+      - name: Run live process tests in a container
+        if: matrix.os == 'ubuntu-latest'
+        run: >-
+          docker run --rm
+          --volume "$PWD:/workspace"
+          --workdir /workspace
+          node:24.18.1-bookworm
+          ./node_modules/.bin/vp test tooling/mze/cli.live.test.ts
+
   docker:
     name: Docker smoke test
     runs-on: ubuntu-latest

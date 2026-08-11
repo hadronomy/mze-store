@@ -30,8 +30,15 @@ const inspect = <A, E, R>(name: string, effect: Effect.Effect<A, E, R>) =>
       }
 
       const error = Cause.squash(exit.cause);
+      const errorDetail =
+        typeof error === "object" &&
+        error !== null &&
+        "detail" in error &&
+        typeof error.detail === "string"
+          ? error.detail
+          : undefined;
       return {
-        detail: error instanceof Error ? error.message : String(error),
+        detail: errorDetail ?? (error instanceof Error ? error.message : String(error)),
         name,
         passed: false,
       };
@@ -41,7 +48,9 @@ const inspect = <A, E, R>(name: string, effect: Effect.Effect<A, E, R>) =>
 const requireValue = (condition: boolean, detail: string) =>
   condition ? Effect.void : Effect.fail(new DoctorCheckFailed({ detail }));
 
-export const servicesHealthy = (output: string): boolean => {
+const SHARED_MEDUSA_HOST = "medusa.mze-store.localhost";
+
+const servicesHealthy = (output: string): boolean => {
   try {
     const values = output
       .trim()
@@ -68,6 +77,20 @@ export const servicesHealthy = (output: string): boolean => {
   }
 };
 
+const sharedRouteAvailable = (output: string) => {
+  const route = output.split("\n").find((line) => line.includes(`://${SHARED_MEDUSA_HOST}`));
+  if (route === undefined) {
+    return Effect.void;
+  }
+
+  const owner = route.match(/\((?:pid (\d+)|alias)\)/)?.[0] ?? "an unknown owner";
+  return Effect.fail(
+    new DoctorCheckFailed({
+      detail: `${SHARED_MEDUSA_HOST} is owned by ${owner}. Use \`bun run mze dev storefront\` or stop that process.`,
+    }),
+  );
+};
+
 export const run = (options: {
   readonly cwd: string;
   readonly nodeVersion: string;
@@ -91,6 +114,9 @@ export const run = (options: {
       executable: "portless",
       arguments: ["doctor"],
     });
+    const routeOwnership = commands
+      .capture({ executable: "portless", arguments: ["list"] })
+      .pipe(Effect.flatMap((result) => sharedRouteAvailable(result.stdout)));
     const serviceHealth = commands
       .capture({
         executable: "docker",
@@ -124,7 +150,8 @@ export const run = (options: {
         inspect("bun", bunVersion),
         inspect("docker", docker),
         inspect("portless", Portless.checkVersion),
-        inspect("portless routes", portlessRoutes),
+        inspect("portless health", portlessRoutes),
+        inspect("Medusa route ownership", routeOwnership),
         inspect(
           "storefront environment",
           fs

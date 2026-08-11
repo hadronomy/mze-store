@@ -3,7 +3,6 @@ import { Prompt } from "effect/unstable/cli";
 
 import { ChildCommand } from "./child-command.ts";
 import { Output } from "./output.ts";
-import { Portless } from "./portless.ts";
 
 const NODE_VERSION = "24.18.1";
 const BUN_VERSION = "1.3.14";
@@ -38,7 +37,6 @@ const verifyTools = (nodeVersion: string) =>
     const bun = yield* commands.capture({ executable: "bun", arguments: ["--version"] });
     yield* assertVersion("Bun", bun.stdout.trim(), BUN_VERSION);
     yield* commands.capture({ executable: "docker", arguments: ["--version"] });
-    yield* Portless.checkVersion;
   });
 
 export const requireWritableMode = (mode: Output.Mode) =>

@@ -1,4 +1,4 @@
-import { Console, Effect, Option, Path } from "effect";
+import { Cause, Console, Effect, Option, Path } from "effect";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
 import { ChildCommand } from "./child-command.ts";
@@ -202,19 +202,56 @@ export const run = (arguments_: ReadonlyArray<string>) => {
   const normalized = arguments_.length === 0 ? ["--help"] : arguments_;
   const json = normalized.includes("--json");
   const parsed = Command.runWith(command, {
-    renderErrors: !json,
+    renderErrors: true,
     version: "1.0.0",
   })(normalized);
   const program = json
     ? Effect.gen(function* () {
-        const silentConsole: Console.Console = Object.assign(Object.create(console), {
-          debug: () => undefined,
-          error: () => undefined,
-          info: () => undefined,
-          log: () => undefined,
-          warn: () => undefined,
+        const entries: Array<{ readonly stream: Output.OutputStream; readonly text: string }> = [];
+        const capture =
+          (stream: Output.OutputStream) =>
+          (...values: ReadonlyArray<unknown>) => {
+            entries.push({ stream, text: values.map(String).join(" ") });
+          };
+        const capturedConsole: Console.Console = Object.assign(Object.create(console), {
+          debug: capture("stdout"),
+          error: capture("stderr"),
+          info: capture("stdout"),
+          log: capture("stdout"),
+          warn: capture("stderr"),
         });
-        return yield* parsed.pipe(Effect.provideService(Console.Console, silentConsole));
+        const emitEntries = Effect.gen(function* () {
+          const output = yield* Output.Service;
+          for (const entry of entries) {
+            yield* output.write({
+              command: "mze",
+              data: { message: entry.text },
+              event: "message",
+              stream: entry.stream,
+            });
+          }
+        }).pipe(Effect.provide(Output.layer("json")));
+
+        return yield* parsed.pipe(
+          Effect.provideService(Console.Console, capturedConsole),
+          Effect.matchCauseEffect({
+            onFailure: (cause) => {
+              const error = Cause.squash(cause);
+              if (error instanceof Reporter.ReportedError) {
+                return Effect.fail(error);
+              }
+
+              const detail = entries
+                .map((entry) => entry.text)
+                .join("\n")
+                .match(/(?:^|\n)ERROR\s*\n\s*([^\n]+)/)?.[1];
+              return emitEntries.pipe(
+                Effect.andThen(Effect.fail(new Error(detail ?? Reporter.message(error)))),
+              );
+            },
+            onSuccess: (value) => emitEntries.pipe(Effect.as(value)),
+          }),
+        );
       })
     : parsed;
 

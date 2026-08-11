@@ -81,7 +81,7 @@ bun install --frozen-lockfile
 ```
 
 Run the interactive setup. It creates only missing environment files after
-confirmation, verifies the pinned tools, and installs the Vite+ Git hooks:
+confirmation, verifies Node, Bun, and Docker, and installs the Vite+ Git hooks:
 
 ```sh
 bun run mze setup
