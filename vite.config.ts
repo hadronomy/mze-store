@@ -17,7 +17,7 @@ const ignorePatterns = [
 // run from `.tsbuildinfo` without reading the source files.
 const workspaceInputs = ["package.json", "bun.lock", "vite.config.ts", "packages/config/**"];
 
-const packageInputs = (cwd: string, dependencies: string[] = []) => {
+function packageInputs(cwd: string, dependencies: string[] = []) {
   const packages = [cwd, ...dependencies];
 
   return [
@@ -32,21 +32,25 @@ const packageInputs = (cwd: string, dependencies: string[] = []) => {
     ...packages.map((packagePath) => `!${packagePath}/**/*.tsbuildinfo`),
     ...packages.map((packagePath) => `!${packagePath}/dist/**`),
   ];
-};
+}
 
-const packageBuildTask = (cwd: string, command: string, dependencies: string[] = []) => ({
-  command,
-  cwd,
-  input: packageInputs(cwd, dependencies),
-  output: [{ auto: true }, `!${cwd}/**/*.tsbuildinfo`],
-});
+function packageBuildTask(cwd: string, command: string, dependencies: string[] = []) {
+  return {
+    command,
+    cwd,
+    input: packageInputs(cwd, dependencies),
+    output: [{ auto: true }, `!${cwd}/**/*.tsbuildinfo`],
+  };
+}
 
-const packageTypecheckTask = (cwd: string, dependencies: string[] = []) => ({
-  command: "tsc --noEmit",
-  cwd,
-  input: packageInputs(cwd, dependencies),
-  output: [],
-});
+function packageTypecheckTask(cwd: string, dependencies: string[] = []) {
+  return {
+    command: "tsc --noEmit",
+    cwd,
+    input: packageInputs(cwd, dependencies),
+    output: [],
+  };
+}
 
 export default defineConfig({
   resolve: {
