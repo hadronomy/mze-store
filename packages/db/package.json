@@ -16,12 +16,10 @@
     }
   },
   "scripts": {
-    "build": "vp run -w package-db-build",
-    "db:push": "vp run -w package-env-build && drizzle-kit push",
-    "db:generate": "vp run -w package-env-build && drizzle-kit generate",
-    "db:studio": "vp run -w package-env-build && drizzle-kit studio",
-    "db:migrate": "vp run -w package-env-build && drizzle-kit migrate",
-    "check-types": "vp run -w package-db-check-types"
+    "db:push": "vp run @mze-store/env#build && drizzle-kit push",
+    "db:generate": "vp run @mze-store/env#build && drizzle-kit generate",
+    "db:studio": "vp run @mze-store/env#build && drizzle-kit studio",
+    "db:migrate": "vp run @mze-store/env#build && drizzle-kit migrate"
   },
   "dependencies": {
     "@mze-store/env": "workspace:*",

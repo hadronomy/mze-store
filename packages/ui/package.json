@@ -25,10 +25,6 @@
     },
     "./postcss.config": "./postcss.config.mjs"
   },
-  "scripts": {
-    "build": "vp run -w package-ui-build",
-    "check-types": "vp run -w package-ui-check-types"
-  },
   "dependencies": {
     "@base-ui/react": "^1.6.0",
     "@shadcn/react": "^0.2.0",

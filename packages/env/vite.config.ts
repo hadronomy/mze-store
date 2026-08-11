@@ -1,4 +1,5 @@
 import { defineConfig } from "vite-plus";
+import { packageBuildTask, packageTypecheckTask } from "../../tooling/vite/package-tasks";
 
 const serverEntries = {
   database: "src/database.ts",
@@ -17,6 +18,12 @@ export default defineConfig({
     deps: {
       alwaysBundle: "@t3-oss/env-core",
       onlyBundle: false,
+    },
+  },
+  run: {
+    tasks: {
+      build: packageBuildTask("vp pack"),
+      "check-types": packageTypecheckTask(),
     },
   },
 });
