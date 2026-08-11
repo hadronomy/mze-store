@@ -39,6 +39,12 @@ RUN --mount=type=cache,id=bun-install-cache,target=/root/.bun/install/cache \
     --filter medusa \
     --filter '@mze-store/env'
 
+# The Medusa server does not invoke esbuild. Keep its optional build binary out
+# of the runtime dependency store.
+RUN find /app/node_modules/.bun -maxdepth 1 -type d \
+  \( -name 'esbuild@*' -o -name '@esbuild+*@*' \) \
+  -prune -exec rm -rf '{}' +
+
 FROM node:24-bookworm-slim@sha256:3638d9a6fe4030bd716be989438248074489337ba3275657f93595428be4fc03 AS runtime
 ENV NODE_ENV=production \
   HOST=0.0.0.0 \
