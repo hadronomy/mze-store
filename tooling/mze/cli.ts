@@ -255,7 +255,11 @@ export const run = (arguments_: ReadonlyArray<string>) => {
                 .join("\n")
                 .match(/(?:^|\n)ERROR\s*\n\s*([^\n]+)/)?.[1];
               return emitEntries(false).pipe(
-                Effect.andThen(Effect.fail(new Error(detail ?? Reporter.message(error)))),
+                Effect.andThen(
+                  Reporter.report("mze", detail ?? error, 2).pipe(
+                    Effect.provide(Output.layer("json")),
+                  ),
+                ),
               );
             },
             onSuccess: (value) => emitEntries(true).pipe(Effect.as(value)),

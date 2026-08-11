@@ -59,14 +59,16 @@ export const layer = (mode: "human" | "json", options: Options = {}) =>
           }
 
           return yield* Effect.acquireUseRelease(
-            Effect.try({
-              try: () =>
-                yoctoSpinner({
+            Effect.sync(() => {
+              try {
+                return yoctoSpinner({
                   handleSignals: false,
                   stream,
                   text: progress.message,
-                }).start(),
-              catch: () => undefined,
+                }).start();
+              } catch {
+                return undefined;
+              }
             }),
             (spinner: Spinner | undefined) =>
               spinner === undefined
@@ -79,7 +81,7 @@ export const layer = (mode: "human" | "json", options: Options = {}) =>
             (spinner: Spinner | undefined) =>
               Effect.sync(() => {
                 spinner?.stop();
-              }).pipe(Effect.zipRight(active.release(1)), Effect.asVoid),
+              }).pipe(Effect.andThen(active.release(1)), Effect.asVoid),
           );
         });
       };
