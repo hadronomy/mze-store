@@ -6,7 +6,7 @@ import {
   type ESTree,
   type Scope,
 } from "@oxlint/plugins";
-import { appendFileSync, realpathSync, statSync } from "node:fs";
+import { realpathSync, statSync } from "node:fs";
 import { dirname, extname, isAbsolute, relative, resolve, sep } from "node:path";
 import ts from "typescript";
 
@@ -48,47 +48,10 @@ interface CompilerOptionsWithPathsBasePath extends ts.CompilerOptions {
 }
 
 const projectCache = new Map<string, Project | null>();
-const probePath = process.env.MZE_OXLINT_PROBE_PATH;
 const parseConfigHost: ts.ParseConfigFileHost = {
   ...ts.sys,
   onUnRecoverableConfigFileDiagnostic() {},
 };
-
-interface ProbeObservation {
-  phase: "createOnce" | "before" | "visit" | "after";
-  context: Record<string, unknown>;
-}
-
-function readProbeValue(read: () => unknown): Record<string, unknown> {
-  try {
-    const value = read();
-    return { status: "value", value: typeof value === "string" ? value : null };
-  } catch (error) {
-    return {
-      status: "error",
-      error: error instanceof Error ? error.message : String(error),
-    };
-  }
-}
-
-function recordProbe(phase: ProbeObservation["phase"], context: Context): void {
-  if (!probePath) {
-    return;
-  }
-
-  const event: ProbeObservation = {
-    phase,
-    context: {
-      id: readProbeValue(() => context.id),
-      options: readProbeValue(() => context.options),
-      filename: readProbeValue(() => context.filename),
-      physicalFilename: readProbeValue(() => context.physicalFilename),
-      cwd: readProbeValue(() => context.cwd),
-    },
-  };
-
-  appendFileSync(probePath, `${JSON.stringify(event)}\n`);
-}
 
 function canonicalPath(path: string): string {
   let canonical = resolve(path);
@@ -478,41 +441,26 @@ const preferTildeImportsRule = defineRule({
     },
   },
   createOnce(context) {
-    recordProbe("createOnce", context);
-
     return {
-      before() {
-        recordProbe("before", context);
-      },
-      after() {
-        recordProbe("after", context);
-      },
       ImportDeclaration(node) {
-        recordProbe("visit", context);
         reportSpecifier(context, node.source);
       },
       ExportAllDeclaration(node) {
-        recordProbe("visit", context);
         reportSpecifier(context, node.source);
       },
       ExportNamedDeclaration(node) {
-        recordProbe("visit", context);
         reportSpecifier(context, node.source);
       },
       ImportExpression(node) {
-        recordProbe("visit", context);
         reportSpecifier(context, node.source);
       },
       TSImportType(node) {
-        recordProbe("visit", context);
         reportSpecifier(context, node.source);
       },
       TSExternalModuleReference(node) {
-        recordProbe("visit", context);
         reportSpecifier(context, node.expression);
       },
       CallExpression(node) {
-        recordProbe("visit", context);
         if (isGlobalRequire(context, node.callee)) {
           reportCallArgument(context, node.arguments[0]);
           return;
