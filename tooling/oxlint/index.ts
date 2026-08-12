@@ -446,62 +446,40 @@ const preferTildeImportsRule = Rule.defineOnce({
   },
   create: () =>
     Effect.succeed({
-      visitors: Visitor.merge(
-        Visitor.onEffect("ImportDeclaration", (node) =>
-          Effect.gen(function* () {
-            const context = yield* FileContext.FileContext;
-            reportSpecifier(context, node.source);
-          }),
-        ),
-        Visitor.onEffect("ExportAllDeclaration", (node) =>
-          Effect.gen(function* () {
-            const context = yield* FileContext.FileContext;
-            reportSpecifier(context, node.source);
-          }),
-        ),
-        Visitor.onEffect("ExportNamedDeclaration", (node) =>
-          Effect.gen(function* () {
-            const context = yield* FileContext.FileContext;
-            reportSpecifier(context, node.source);
-          }),
-        ),
-        Visitor.onEffect("ImportExpression", (node) =>
-          Effect.gen(function* () {
-            const context = yield* FileContext.FileContext;
-            reportSpecifier(context, node.source);
-          }),
-        ),
-        Visitor.onEffect("TSImportType", (node) =>
-          Effect.gen(function* () {
-            const context = yield* FileContext.FileContext;
-            reportSpecifier(context, node.source);
-          }),
-        ),
-        Visitor.onEffect("TSExternalModuleReference", (node) =>
-          Effect.gen(function* () {
-            const context = yield* FileContext.FileContext;
-            reportSpecifier(context, node.expression);
-          }),
-        ),
-        Visitor.onEffect("CallExpression", (node) =>
-          Effect.gen(function* () {
-            const context = yield* FileContext.FileContext;
+      syncVisitors: Visitor.merge(
+        Visitor.onSync("ImportDeclaration", (node, context) => {
+          reportSpecifier(context, node.source);
+        }),
+        Visitor.onSync("ExportAllDeclaration", (node, context) => {
+          reportSpecifier(context, node.source);
+        }),
+        Visitor.onSync("ExportNamedDeclaration", (node, context) => {
+          reportSpecifier(context, node.source);
+        }),
+        Visitor.onSync("ImportExpression", (node, context) => {
+          reportSpecifier(context, node.source);
+        }),
+        Visitor.onSync("TSImportType", (node, context) => {
+          reportSpecifier(context, node.source);
+        }),
+        Visitor.onSync("TSExternalModuleReference", (node, context) => {
+          reportSpecifier(context, node.expression);
+        }),
+        Visitor.onSync("CallExpression", (node, context) => {
+          if (isGlobalRequire(context, node.callee)) {
+            reportCallArgument(context, node.arguments[0]);
+            return;
+          }
 
-            if (isGlobalRequire(context, node.callee)) {
-              reportCallArgument(context, node.arguments[0]);
-              return;
-            }
-
-            if (
-              node.callee.type === "MemberExpression" &&
-              !node.callee.computed &&
-              node.callee.property.name === "resolve" &&
-              isGlobalRequire(context, node.callee.object)
-            ) {
-              reportCallArgument(context, node.arguments[0]);
-            }
-          }),
-        ),
+          if (
+            node.callee.type === "MemberExpression" &&
+            !node.callee.computed &&
+            node.callee.property.name === "resolve" &&
+            isGlobalRequire(context, node.callee.object)
+          ) {
+            reportCallArgument(context, node.arguments[0]);
+          }
+        }),
       ),
     }),
 });
