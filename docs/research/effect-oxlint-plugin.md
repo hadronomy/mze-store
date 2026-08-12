@@ -7,7 +7,7 @@
 **Revision:** [`v0.3.3` / `37ea33b`](https://github.com/mpsuesser/effect-oxlint/tree/v0.3.3)
 
 **Scope:** Use of Effect v4 in the repository Oxlint JavaScript plugin at
-[`tooling/oxlint/index.ts`](../../tooling/oxlint/index.ts).
+[`tooling/oxlint/src/index.ts`](../../tooling/oxlint/src/index.ts).
 
 ## Result
 
@@ -87,18 +87,18 @@ belongs in `before`, and cleanup belongs in `after`.
 The official authoring guide also says that a published plugin must list
 `@oxlint/plugins` as a runtime dependency. `effect-oxlint` follows that rule.
 
-The MZE configuration already uses the correct local-plugin boundary:
+The MZE configuration uses the package boundary:
 
 ```ts
 lint: {
-  jsPlugins: ["./tooling/oxlint/index.ts"],
+  jsPlugins: ["@mze-store/oxlint"],
   rules: {
     "hadronomy/prefer-tilde-imports": "error",
   },
 }
 ```
 
-Keep this Vite+ configuration. `Plugin.define`'s generated `configs` are for
+Keep this Vite+ configuration after the package build. `Plugin.define`'s generated `configs` are for
 shareable `oxlint.config.ts` presets. They are not needed for this local
 Vite+ plugin.
 
@@ -250,8 +250,9 @@ filenames. Those are correctness and performance risks, not style details.
 
 Use this sequence if the plugin moves to Effect:
 
-1. Add `effect-oxlint@0.3.3` as an exact development dependency. Keep the
-   repository's exact `effect@4.0.0-beta.107` and `@oxlint/plugins@1.73.0`
+1. Add `effect-oxlint@0.3.3` as an exact runtime dependency of the private
+   `tooling/oxlint` package. Keep the package's exact
+   `effect@4.0.0-beta.107` and `@oxlint/plugins@1.73.0`
    pins. Do not use a caret for the new package while Effect v4 and Oxlint JS
    plugins are beta and alpha APIs.
 2. Add a small local adapter for `RuleContext` that preserves
@@ -278,7 +279,7 @@ asynchronous fibers to the Oxlint plugin. Those services belong to
 
 Adopt the package as a constrained pilot and as a source of Effect v4 rule
 design patterns. Do not perform a direct full migration of
-`tooling/oxlint/index.ts` in the current tooling PR. The next implementation
+`tooling/oxlint/src/index.ts` in the current tooling package. The next implementation
 change must first add the physical-filename adapter, preserve or measure the
 `createOnce` lifecycle, and retain the real Vite+ integration test.
 

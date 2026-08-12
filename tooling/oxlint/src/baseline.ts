@@ -5,7 +5,7 @@ import { join, resolve } from "node:path";
 import { promisify } from "node:util";
 
 const execFileAsync = promisify(execFile);
-const workspaceRoot = resolve(import.meta.dirname, "../..");
+const workspaceRoot = resolve(import.meta.dirname, "../../..");
 const vpPath = resolve(workspaceRoot, "node_modules/.bin/vp");
 const baselineSeed = "effect-oxlint-baseline-v1";
 

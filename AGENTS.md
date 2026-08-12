@@ -55,6 +55,7 @@ Do not edit generated output. The root Vite+ config ignores these paths:
 - `apps/storefront/src/routeTree.gen.ts`
 - `apps/medusa/.medusa/`
 - `packages/*/dist/`
+- `tooling/oxlint/dist/`
 - `node_modules/` and `.cache/`
 - `.vite-hooks/`
 - `test-results/` and `playwright-report/`

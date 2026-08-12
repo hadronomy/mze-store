@@ -10,7 +10,7 @@ interface LintResult {
   readonly output: string;
 }
 
-const workspaceRoot = resolve(import.meta.dirname, "../..");
+const workspaceRoot = resolve(import.meta.dirname, "../../..");
 const vpPath = resolve(workspaceRoot, "node_modules/.bin/vp");
 
 function runLint(filename: string): Promise<LintResult> {

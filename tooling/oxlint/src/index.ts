@@ -1,6 +1,6 @@
 import { definePlugin, eslintCompatPlugin } from "@oxlint/plugins";
 
-import { noBroadRecordTypesRule, preferTildeImportsRule } from "./rules.ts";
+import { noBroadRecordTypesRule, preferTildeImportsRule } from "./rules";
 
 const plugin = definePlugin({
   meta: { name: "hadronomy" },

@@ -6,15 +6,15 @@ import { Diagnostic, FileContext, Rule, Visitor } from "effect-oxlint";
 import { createMockContext, importDecl } from "effect-oxlint/testing";
 
 const PackageManifest = Schema.Struct({
-  devDependencies: Schema.Record(Schema.String, Schema.String),
+  dependencies: Schema.Record(Schema.String, Schema.String),
 });
 
 it("certifies the fork pin and public compiler surface", async () => {
   const packageJson = Schema.decodeUnknownSync(Schema.fromJsonString(PackageManifest))(
-    await readFile(join(import.meta.dirname, "../../package.json"), "utf8"),
+    await readFile(join(import.meta.dirname, "../package.json"), "utf8"),
   );
 
-  expect(packageJson.devDependencies["effect-oxlint"]).toMatch(
+  expect(packageJson.dependencies["effect-oxlint"]).toMatch(
     /^github:hadronomy\/effect-oxlint#[0-9a-f]{7,40}$/,
   );
   expect(Rule.plan).toBeTypeOf("function");

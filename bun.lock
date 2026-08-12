@@ -9,12 +9,11 @@
         "@effect/platform-node": "4.0.0-beta.107",
         "@effect/vitest": "4.0.0-beta.107",
         "@mze-store/config": "workspace:*",
-        "@oxlint/plugins": "1.73.0",
+        "@mze-store/oxlint": "workspace:*",
         "@playwright/test": "1.62.1",
         "@types/node": "catalog:",
         "chalk": "6.0.0",
         "effect": "4.0.0-beta.107",
-        "effect-oxlint": "github:hadronomy/effect-oxlint#ef3bfa2",
         "ioredis": "catalog:",
         "knip": "6.32.1",
         "rolldown": "1.1.4",
@@ -175,6 +174,22 @@
         "@types/react-dom": "catalog:",
         "tailwindcss": "catalog:",
         "typescript": "catalog:",
+      },
+    },
+    "tooling/oxlint": {
+      "name": "@mze-store/oxlint",
+      "version": "0.0.0",
+      "dependencies": {
+        "@oxlint/plugins": "1.73.0",
+        "effect": "4.0.0-beta.107",
+        "effect-oxlint": "github:hadronomy/effect-oxlint#ef3bfa2",
+        "typescript": "catalog:",
+      },
+      "devDependencies": {
+        "@effect/vitest": "4.0.0-beta.107",
+        "@mze-store/config": "workspace:*",
+        "@types/node": "catalog:",
+        "vite-plus": "catalog:",
       },
     },
   },
@@ -826,6 +841,8 @@
     "@mze-store/db": ["@mze-store/db@workspace:packages/db"],
 
     "@mze-store/env": ["@mze-store/env@workspace:packages/env"],
+
+    "@mze-store/oxlint": ["@mze-store/oxlint@workspace:tooling/oxlint"],
 
     "@mze-store/territory": ["@mze-store/territory@workspace:packages/territory"],
 
