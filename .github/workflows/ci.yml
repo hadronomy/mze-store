@@ -458,7 +458,7 @@ jobs:
       # The current spec is a no-op. Add service setup and browser installation
       # when it starts exercising Storefront flows.
       - name: Run the browser test placeholder
-        run: bun run test:e2e
+        run: bun run mze test e2e
 
       - name: Upload browser traces
         if: failure()
