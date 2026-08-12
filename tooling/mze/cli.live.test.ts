@@ -172,8 +172,7 @@ it.live(
             "grandchild_pid=$!",
             'printf "%s" "$grandchild_pid" > "$MZE_PID_FILE"',
             "trap 'printf SIGTERM > \"$MZE_SIGNAL_FILE\"; exit 0' TERM INT",
-            'parent_pid="$(ps -o ppid= -p $$ | tr -d " ")"',
-            '(sleep 0.2; kill "-$MZE_TEST_SIGNAL" "$parent_pid") &',
+            '(sleep 0.2; kill "-$MZE_TEST_SIGNAL" "$PPID") &',
             "while :; do sleep 1; done",
           ].join("\n"),
         );
