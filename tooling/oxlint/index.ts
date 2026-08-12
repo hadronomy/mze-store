@@ -432,7 +432,7 @@ function reportCallArgument(
   }
 }
 
-const preferTildeImportsRule = Rule.defineOnce({
+const preferTildeImportsPlan = Rule.plan({
   meta: {
     type: "suggestion",
     docs: {
@@ -483,6 +483,8 @@ const preferTildeImportsRule = Rule.defineOnce({
       ),
     }),
 });
+
+const preferTildeImportsRule = Rule.compile(preferTildeImportsPlan);
 
 const plugin = definePlugin({
   meta: { name: "hadronomy" },

@@ -63,7 +63,7 @@
     "@types/node": "catalog:",
     "chalk": "6.0.0",
     "effect": "4.0.0-beta.107",
-    "effect-oxlint": "github:hadronomy/effect-oxlint#78c4cd1",
+    "effect-oxlint": "github:hadronomy/effect-oxlint#50d8fd1",
     "ioredis": "catalog:",
     "knip": "6.32.1",
     "rolldown": "1.1.4",
