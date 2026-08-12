@@ -168,9 +168,7 @@ it.live(
           docker,
           [
             "#!/bin/sh",
-            `"${process.execPath}" -e 'setInterval(() => {}, 1000)' &`,
-            "grandchild_pid=$!",
-            'printf "%s" "$grandchild_pid" > "$MZE_PID_FILE"',
+            `"${process.execPath}" -e 'const { writeFileSync } = require("node:fs"); process.once("SIGTERM", () => { writeFileSync(process.env.MZE_GRANDCHILD_SIGNAL_FILE, "SIGTERM"); process.exit(0) }); setInterval(() => {}, 1000)' &`,
             "trap 'printf SIGTERM > \"$MZE_SIGNAL_FILE\"; exit 0' TERM INT",
             '(sleep 0.2; kill "-$MZE_TEST_SIGNAL" "$PPID") &',
             "while :; do sleep 1; done",
@@ -187,15 +185,15 @@ it.live(
           ["INT", 130],
           ["TERM", 143],
         ] as const) {
-          const pidFile = path.join(directory, `${signal}.pid`);
           const signalFile = path.join(directory, `${signal}.txt`);
+          const grandchildSignalFile = path.join(directory, `${signal}.grandchild.txt`);
           const error = yield* commands
             .capture({
               executable: process.execPath,
               arguments: ["tooling/mze/main.ts", "services", "status"],
               cwd: process.cwd(),
               environment: {
-                MZE_PID_FILE: pidFile,
+                MZE_GRANDCHILD_SIGNAL_FILE: grandchildSignalFile,
                 MZE_SIGNAL_FILE: signalFile,
                 MZE_TEST_SIGNAL: signal,
                 PATH: `${directory}:${process.env.PATH ?? ""}`,
@@ -205,17 +203,8 @@ it.live(
 
           expect(error.exitCode).toBe(exitCode);
           yield* waitUntil(fs.exists(signalFile));
-          const grandchildPid = Number((yield* fs.readFileString(pidFile)).trim());
-          yield* waitUntil(
-            Effect.sync(() => {
-              try {
-                process.kill(grandchildPid, 0);
-                return false;
-              } catch {
-                return true;
-              }
-            }),
-          );
+          yield* waitUntil(fs.exists(grandchildSignalFile));
+          expect(yield* fs.readFileString(grandchildSignalFile)).toBe("SIGTERM");
         }
       }),
     ).pipe(provideLive),
