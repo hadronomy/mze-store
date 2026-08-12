@@ -5,6 +5,32 @@ import type { PlatformError } from "effect/PlatformError";
 export type Mode = "human" | "json";
 export type OutputStream = "stderr" | "stdout";
 
+type MessageData =
+  | {
+      readonly message: string;
+      readonly detail?: string;
+      readonly name?: never;
+      readonly passed?: never;
+      readonly postgres?: never;
+      readonly redis?: never;
+    }
+  | {
+      readonly detail?: string;
+      readonly message: string;
+      readonly name: string;
+      readonly passed: boolean;
+      readonly postgres?: never;
+      readonly redis?: never;
+    }
+  | {
+      readonly message: string;
+      readonly postgres: number;
+      readonly redis: number;
+      readonly detail?: never;
+      readonly name?: never;
+      readonly passed?: never;
+    };
+
 interface BaseEvent {
   readonly command: string;
   readonly stream: OutputStream;
@@ -20,13 +46,7 @@ export type Event =
       readonly event: "failed";
     })
   | (BaseEvent & {
-      readonly data: {
-        readonly detail?: string;
-        readonly message: string;
-        readonly name?: string;
-        readonly passed?: boolean;
-        readonly [key: string]: unknown;
-      };
+      readonly data: MessageData;
       readonly event: "message";
     })
   | (BaseEvent & {

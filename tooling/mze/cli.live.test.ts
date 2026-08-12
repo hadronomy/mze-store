@@ -1,6 +1,6 @@
 import { expect, it } from "@effect/vitest";
 import { NodeServices } from "@effect/platform-node";
-import { Effect, FileSystem, Layer, Path, Schedule } from "effect";
+import { Effect, FileSystem, Layer, Path, Schedule, Schema } from "effect";
 
 import { ChildCommand } from "./child-command.ts";
 import { Output } from "./output.ts";
@@ -16,12 +16,21 @@ const provideLive = <A, E>(
     Effect.provide(NodeServices.layer),
   );
 
-const events = (output: string): ReadonlyArray<Record<string, unknown>> =>
+const NdjsonEvent = Schema.Struct({
+  command: Schema.String,
+  data: Schema.optional(Schema.Unknown),
+  event: Schema.Literals(["child-output", "failed", "message", "started", "succeeded"]),
+  stream: Schema.Literals(["stderr", "stdout"]),
+  time: Schema.String,
+  version: Schema.Literal(1),
+});
+
+const events = (output: string): ReadonlyArray<typeof NdjsonEvent.Type> =>
   output
     .trim()
     .split("\n")
     .filter(Boolean)
-    .map((line) => JSON.parse(line));
+    .map((line) => Schema.decodeUnknownSync(Schema.fromJsonString(NdjsonEvent))(line));
 
 it.live("prints root help and exits successfully when no command is given", () =>
   Effect.gen(function* () {
@@ -69,8 +78,8 @@ it.live("keeps workflow failures in NDJSON mode", () =>
 
     expect(error.exitCode).toBe(2);
     if (error._tag === "CommandFailed") {
-      const started = JSON.parse(error.stdout.trim());
-      const failed = JSON.parse(error.stderr.trim());
+      const started = events(error.stdout)[0];
+      const failed = events(error.stderr)[0];
       expect(started).toMatchObject({
         command: "db push",
         event: "started",
