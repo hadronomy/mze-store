@@ -27,11 +27,6 @@ const originalSource = [
   "",
 ].join("\n");
 
-interface ProbeEvent {
-  phase: "createOnce" | "before" | "visit" | "after";
-  context: Record<string, unknown>;
-}
-
 export interface BaselineOptions {
   readonly samples?: number;
 }
@@ -41,14 +36,6 @@ export interface BehaviorResult {
   readonly changedOnFirstFix: boolean;
   readonly idempotentOnSecondFix: boolean;
   readonly outputBytes: number;
-}
-
-export interface LifecycleObservation {
-  readonly createOnceCalls: number;
-  readonly beforeCalls: number;
-  readonly visitCalls: number;
-  readonly afterCalls: number;
-  readonly events: readonly ProbeEvent[];
 }
 
 export interface TimingSummary {
@@ -67,7 +54,6 @@ export interface BaselineReport {
     readonly sourceBytes: number;
   };
   readonly behavior: readonly BehaviorResult[];
-  readonly lifecycle: LifecycleObservation;
   readonly timing: TimingSummary;
 }
 
@@ -101,30 +87,21 @@ function timingSummary(samplesMs: readonly number[]): TimingSummary {
   };
 }
 
-async function runLintFix(sourcePath: string, probePath?: string): Promise<void> {
+async function runLintFix(sourcePath: string): Promise<void> {
   await execFileAsync(vpPath, ["lint", "--fix", sourcePath], {
     cwd: workspaceRoot,
     env: {
       ...process.env,
       CI: "1",
       NO_COLOR: "1",
-      ...(probePath ? { MZE_OXLINT_PROBE_PATH: probePath } : {}),
     },
   });
-}
-
-function parseProbeEvents(contents: string): ProbeEvent[] {
-  return contents
-    .split("\n")
-    .filter((line) => line.length > 0)
-    .map((line) => JSON.parse(line) as ProbeEvent);
 }
 
 export async function runOxlintBaseline(options: BaselineOptions = {}): Promise<BaselineReport> {
   const samples = Math.max(1, Math.floor(options.samples ?? 3));
   const projectRoot = await mkdtemp(join(tmpdir(), "hadronomy-oxlint-baseline-"));
   const sourcePath = join(projectRoot, "src/pages/page.ts");
-  const probePath = join(projectRoot, "probe.jsonl");
 
   try {
     await writeFile(join(projectRoot, "tsconfig.json"), tsconfig);
@@ -133,12 +110,10 @@ export async function runOxlintBaseline(options: BaselineOptions = {}): Promise<
     await writeFile(join(projectRoot, "src/shared/value.ts"), "export const value = 1;\n");
     await writeFile(sourcePath, originalSource);
 
-    await runLintFix(sourcePath, probePath);
+    await runLintFix(sourcePath);
     const firstFix = await readFile(sourcePath, "utf8");
     await runLintFix(sourcePath);
     const secondFix = await readFile(sourcePath, "utf8");
-    const events = parseProbeEvents(await readFile(probePath, "utf8"));
-
     const samplesMs: number[] = [];
     await runLintFix(sourcePath);
 
@@ -165,13 +140,6 @@ export async function runOxlintBaseline(options: BaselineOptions = {}): Promise<
           outputBytes: Buffer.byteLength(firstFix),
         },
       ],
-      lifecycle: {
-        createOnceCalls: events.filter((event) => event.phase === "createOnce").length,
-        beforeCalls: events.filter((event) => event.phase === "before").length,
-        visitCalls: events.filter((event) => event.phase === "visit").length,
-        afterCalls: events.filter((event) => event.phase === "after").length,
-        events,
-      },
       timing: timingSummary(samplesMs),
     };
   } finally {
