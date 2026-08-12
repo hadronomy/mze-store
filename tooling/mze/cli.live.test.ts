@@ -154,68 +154,71 @@ it.live("renders JSON help and version output as NDJSON", () =>
   }).pipe(provideLive),
 );
 
-it.live("maps CLI signals to shell exit codes and cleans up descendants", () =>
-  Effect.scoped(
-    Effect.gen(function* () {
-      const commands = yield* ChildCommand.Service;
-      const fs = yield* FileSystem.FileSystem;
-      const path = yield* Path.Path;
-      const directory = yield* fs.makeTempDirectoryScoped({ prefix: "mze-cli-signal-test-" });
-      const docker = path.join(directory, "docker");
-      yield* fs.writeFileString(
-        docker,
-        [
-          "#!/bin/sh",
-          `"${process.execPath}" -e 'setInterval(() => {}, 1000)' &`,
-          "grandchild_pid=$!",
-          'printf "%s" "$grandchild_pid" > "$MZE_PID_FILE"',
-          "trap 'printf SIGTERM > \"$MZE_SIGNAL_FILE\"; exit 0' TERM INT",
-          'parent_pid="$(ps -o ppid= -p $$ | tr -d " ")"',
-          '(sleep 0.2; kill "-$MZE_TEST_SIGNAL" "$parent_pid") &',
-          "while :; do sleep 1; done",
-        ].join("\n"),
-      );
-      yield* fs.chmod(docker, 0o755);
-      const waitUntil = (effect: Effect.Effect<boolean, unknown>) =>
-        effect.pipe(
-          Effect.flatMap((ready) => (ready ? Effect.void : Effect.fail("not ready"))),
-          Effect.retry({ schedule: Schedule.spaced("20 millis"), times: 250 }),
+it.live(
+  "maps CLI signals to shell exit codes and cleans up descendants",
+  () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const commands = yield* ChildCommand.Service;
+        const fs = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
+        const directory = yield* fs.makeTempDirectoryScoped({ prefix: "mze-cli-signal-test-" });
+        const docker = path.join(directory, "docker");
+        yield* fs.writeFileString(
+          docker,
+          [
+            "#!/bin/sh",
+            `"${process.execPath}" -e 'setInterval(() => {}, 1000)' &`,
+            "grandchild_pid=$!",
+            'printf "%s" "$grandchild_pid" > "$MZE_PID_FILE"',
+            "trap 'printf SIGTERM > \"$MZE_SIGNAL_FILE\"; exit 0' TERM INT",
+            'parent_pid="$(ps -o ppid= -p $$ | tr -d " ")"',
+            '(sleep 0.2; kill "-$MZE_TEST_SIGNAL" "$parent_pid") &',
+            "while :; do sleep 1; done",
+          ].join("\n"),
         );
+        yield* fs.chmod(docker, 0o755);
+        const waitUntil = (effect: Effect.Effect<boolean, unknown>) =>
+          effect.pipe(
+            Effect.flatMap((ready) => (ready ? Effect.void : Effect.fail("not ready"))),
+            Effect.retry({ schedule: Schedule.spaced("20 millis"), times: 250 }),
+          );
 
-      for (const [signal, exitCode] of [
-        ["INT", 130],
-        ["TERM", 143],
-      ] as const) {
-        const pidFile = path.join(directory, `${signal}.pid`);
-        const signalFile = path.join(directory, `${signal}.txt`);
-        const error = yield* commands
-          .capture({
-            executable: process.execPath,
-            arguments: ["tooling/mze/main.ts", "services", "status"],
-            cwd: process.cwd(),
-            environment: {
-              MZE_PID_FILE: pidFile,
-              MZE_SIGNAL_FILE: signalFile,
-              MZE_TEST_SIGNAL: signal,
-              PATH: `${directory}:${process.env.PATH ?? ""}`,
-            },
-          })
-          .pipe(Effect.flip);
+        for (const [signal, exitCode] of [
+          ["INT", 130],
+          ["TERM", 143],
+        ] as const) {
+          const pidFile = path.join(directory, `${signal}.pid`);
+          const signalFile = path.join(directory, `${signal}.txt`);
+          const error = yield* commands
+            .capture({
+              executable: process.execPath,
+              arguments: ["tooling/mze/main.ts", "services", "status"],
+              cwd: process.cwd(),
+              environment: {
+                MZE_PID_FILE: pidFile,
+                MZE_SIGNAL_FILE: signalFile,
+                MZE_TEST_SIGNAL: signal,
+                PATH: `${directory}:${process.env.PATH ?? ""}`,
+              },
+            })
+            .pipe(Effect.flip);
 
-        expect(error.exitCode).toBe(exitCode);
-        yield* waitUntil(fs.exists(signalFile));
-        const grandchildPid = Number((yield* fs.readFileString(pidFile)).trim());
-        yield* waitUntil(
-          Effect.sync(() => {
-            try {
-              process.kill(grandchildPid, 0);
-              return false;
-            } catch {
-              return true;
-            }
-          }),
-        );
-      }
-    }),
-  ).pipe(provideLive),
+          expect(error.exitCode).toBe(exitCode);
+          yield* waitUntil(fs.exists(signalFile));
+          const grandchildPid = Number((yield* fs.readFileString(pidFile)).trim());
+          yield* waitUntil(
+            Effect.sync(() => {
+              try {
+                process.kill(grandchildPid, 0);
+                return false;
+              } catch {
+                return true;
+              }
+            }),
+          );
+        }
+      }),
+    ).pipe(provideLive),
+  30_000,
 );

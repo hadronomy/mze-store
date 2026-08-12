@@ -27,8 +27,8 @@ export const build = (cwd: string) =>
 
 export const check = (cwd: string) =>
   Effect.gen(function* () {
-    yield* runVp(cwd, ["check"]);
     yield* runVp(cwd, ["run", "--filter", "./packages/*", "build"]);
+    yield* runVp(cwd, ["check"]);
     yield* runVp(cwd, ["run", "--filter", "./packages/*", "check-types"]);
     yield* runVp(cwd, ["run", "--filter", "./apps/*", "check-types"]);
   });
