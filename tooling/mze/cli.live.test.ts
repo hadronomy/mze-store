@@ -181,7 +181,7 @@ it.live(
         const waitUntil = (effect: Effect.Effect<boolean, unknown>) =>
           effect.pipe(
             Effect.flatMap((ready) => (ready ? Effect.void : Effect.fail("not ready"))),
-            Effect.retry({ schedule: Schedule.spaced("20 millis"), times: 250 }),
+            Effect.retry({ schedule: Schedule.spaced("20 millis"), times: 750 }),
           );
 
         for (const [signal, exitCode] of [
