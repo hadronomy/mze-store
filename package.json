@@ -50,6 +50,7 @@
     "dev": "node tooling/mze/main.ts dev",
     "build": "node tooling/mze/main.ts build",
     "test": "node tooling/mze/main.ts test",
+    "test:e2e": "node tooling/mze/main.ts test e2e",
     "check": "node tooling/mze/main.ts check"
   },
   "devDependencies": {
