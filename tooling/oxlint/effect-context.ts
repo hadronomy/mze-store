@@ -1,7 +1,23 @@
-import { Context, Effect, Layer } from "effect";
+import { Context, Layer } from "effect";
 import type { Context as OxlintContext, Diagnostic, Options, SourceCode } from "@oxlint/plugins";
 
-export interface FileContextShape {
+export class FileContextUnavailable extends Error {
+  readonly _tag = "FileContextUnavailable";
+
+  constructor() {
+    super("FileContext is available only during a file callback");
+  }
+}
+
+export class FileContextClosed extends Error {
+  readonly _tag = "FileContextClosed";
+
+  constructor() {
+    super("FileContext is closed after the file callback");
+  }
+}
+
+export interface FileFrame {
   readonly id: string;
   readonly options: Readonly<Options>;
   readonly filename: string;
@@ -11,43 +27,78 @@ export interface FileContextShape {
   readonly report: (diagnostic: Diagnostic) => void;
 }
 
+export interface FileContextShape {
+  readonly use: <A>(callback: (file: FileFrame) => A) => A;
+}
+
 export class FileContext extends Context.Service<FileContext, FileContextShape>()(
   "@mze-store/oxlint/FileContext",
 ) {}
 
-/**
- * Create a file view that reads the host context when a property is used.
- * Oxlint gives createOnce a setup context before it selects the current file.
- */
-export const fromOxlint = (context: OxlintContext): FileContextShape => ({
-  get id() {
-    return context.id;
-  },
-  get options() {
-    return context.options;
-  },
-  get filename() {
-    return context.filename;
-  },
-  get physicalFilename() {
-    return context.physicalFilename;
-  },
-  get cwd() {
-    return context.cwd;
-  },
-  get sourceCode() {
-    return context.sourceCode;
-  },
-  report(diagnostic) {
-    context.report(diagnostic);
-  },
-});
+export interface FileContextController {
+  readonly service: FileContextShape;
+  readonly before: () => void;
+  readonly close: () => void;
+}
 
-export const layer = (context: OxlintContext) => Layer.succeed(FileContext, fromOxlint(context));
+function isPromiseLike(value: unknown): value is PromiseLike<unknown> {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "then" in value &&
+    typeof value.then === "function"
+  );
+}
 
-export const provide = <A, E, R>(
-  context: OxlintContext,
-  effect: Effect.Effect<A, E, R | FileContext>,
-): Effect.Effect<A, E, R> => effect.pipe(Effect.provide(layer(context)));
+export const makeController = (context: OxlintContext): FileContextController => {
+  let current: FileFrame | undefined;
+  let open = false;
+  let epoch = 0;
 
-export const service = (context: OxlintContext): FileContextShape => fromOxlint(context);
+  const service: FileContextShape = {
+    use<A>(callback: (file: FileFrame) => A): A {
+      if (!current) {
+        throw new FileContextUnavailable();
+      }
+
+      const result = callback(current);
+
+      if (isPromiseLike(result)) {
+        throw new TypeError("FileContext.use callbacks must return synchronously");
+      }
+
+      return result;
+    },
+  };
+
+  return {
+    service,
+    before() {
+      open = true;
+      const frameEpoch = ++epoch;
+      const frame: FileFrame = {
+        id: context.id,
+        options: context.options,
+        filename: context.filename,
+        physicalFilename: context.physicalFilename,
+        cwd: context.cwd,
+        sourceCode: context.sourceCode,
+        report(diagnostic) {
+          if (!open || frameEpoch !== epoch) {
+            throw new FileContextClosed();
+          }
+
+          context.report(diagnostic);
+        },
+      };
+      current = frame;
+    },
+    close() {
+      open = false;
+      epoch += 1;
+      current = undefined;
+    },
+  };
+};
+
+export const layer = (service: FileContextShape) => Layer.succeed(FileContext, service);

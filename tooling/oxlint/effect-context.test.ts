@@ -1,8 +1,13 @@
-import { expect, test } from "vite-plus/test";
 import { Effect } from "effect";
 import type { Context as OxlintContext } from "@oxlint/plugins";
+import { expect, test } from "vite-plus/test";
 
-import { FileContext, fromOxlint, provide } from "./effect-context";
+import {
+  FileContext,
+  FileContextClosed,
+  FileContextUnavailable,
+  makeController,
+} from "./effect-context";
 
 interface FakeState {
   id: string;
@@ -38,7 +43,7 @@ function fakeContext(state: FakeState): OxlintContext {
   } as OxlintContext;
 }
 
-test("the file view reads the current host context on each access", () => {
+test("the file service rejects setup access and exposes one file frame", () => {
   const state: FakeState = {
     id: "hadronomy/rule",
     filename: "logical.ts",
@@ -46,19 +51,40 @@ test("the file view reads the current host context on each access", () => {
     cwd: "/repo",
     reports: 0,
   };
-  const context = fakeContext(state);
-  const file = fromOxlint(context);
+  const controller = makeController(fakeContext(state));
 
-  expect(file.filename).toBe("logical.ts");
-  state.filename = "next.ts";
-  state.physicalFilename = "/repo/next.ts";
-  expect(file.filename).toBe("next.ts");
-  expect(file.physicalFilename).toBe("/repo/next.ts");
-  file.report({} as never);
+  expect(() => controller.service.use(() => "setup")).toThrow(FileContextUnavailable);
+  controller.before();
+
+  const frame = controller.service.use((file) => file);
+  expect(frame.filename).toBe("logical.ts");
+  expect(frame.physicalFilename).toBe("/repo/logical.ts");
+  frame.report({} as never);
   expect(state.reports).toBe(1);
 });
 
-test("the file view is available as an Effect service", () => {
+test("closing a file invalidates retained reporting and opens the next frame", () => {
+  const state: FakeState = {
+    id: "hadronomy/rule",
+    filename: "first.ts",
+    physicalFilename: "/repo/first.ts",
+    cwd: "/repo",
+    reports: 0,
+  };
+  const controller = makeController(fakeContext(state));
+  controller.before();
+  const first = controller.service.use((file) => file);
+  controller.close();
+
+  expect(() => first.report({} as never)).toThrow(FileContextClosed);
+
+  state.filename = "second.ts";
+  state.physicalFilename = "/repo/second.ts";
+  controller.before();
+  expect(controller.service.use((file) => file.filename)).toBe("second.ts");
+});
+
+test("the service is available inside an Effect supplied by the adapter", () => {
   const state: FakeState = {
     id: "hadronomy/rule",
     filename: "logical.ts",
@@ -66,15 +92,28 @@ test("the file view is available as an Effect service", () => {
     cwd: "/repo",
     reports: 0,
   };
-  const context = fakeContext(state);
+  const controller = makeController(fakeContext(state));
+  controller.before();
   const fileName = Effect.runSync(
-    provide(
-      context,
-      Effect.gen(function* () {
-        return (yield* FileContext).physicalFilename;
-      }),
-    ),
+    Effect.gen(function* () {
+      const file = yield* FileContext;
+      return file.use((frame) => frame.physicalFilename);
+    }).pipe(Effect.provideService(FileContext, controller.service)),
   );
 
   expect(fileName).toBe("/repo/logical.ts");
+});
+
+test("the file service rejects asynchronous callbacks", () => {
+  const state: FakeState = {
+    id: "hadronomy/rule",
+    filename: "logical.ts",
+    physicalFilename: "/repo/logical.ts",
+    cwd: "/repo",
+    reports: 0,
+  };
+  const controller = makeController(fakeContext(state));
+  controller.before();
+
+  expect(() => controller.service.use(async () => undefined)).toThrow(TypeError);
 });
