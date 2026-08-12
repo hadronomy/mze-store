@@ -11,15 +11,17 @@ mze-store/
 ├── apps/
 │   ├── medusa/                Medusa backend + admin   CJS, module: Node16
 │   └── storefront/            TanStack Start           ESM, moduleResolution: Bundler
-└── packages/
-    ├── medusa-sdk/            server half (holds token) + client half (calls server fns)
-    ├── auth/                  better-auth — source of record for Accounts
-    ├── db/                    Drizzle — better-auth tables only, `auth` schema
-    ├── email-tokens/          pure-TS design tokens, shared across both apps
-    ├── territory/             Province identity data and input schemas
-    ├── ui/                    shadcn primitives
-    ├── env/                   validated environment
-    └── config/                shared tsconfig base
+├── packages/
+│   ├── medusa-sdk/            server half (holds token) + client half (calls server fns)
+│   ├── auth/                  better-auth — source of record for Accounts
+│   ├── db/                    Drizzle — better-auth tables only, `auth` schema
+│   ├── email-tokens/          pure-TS design tokens, shared across both apps
+│   ├── territory/             Province identity data and input schemas
+│   ├── ui/                    shadcn primitives
+│   ├── env/                   validated environment
+│   └── config/                shared tsconfig base
+└── tooling/
+    └── oxlint/                private Effect-based Oxlint plugin package
 ```
 
 **The two apps cannot share a tsconfig.** Medusa needs CJS, `Node16` resolution, and decorators; the storefront needs ESM and `Bundler`. `packages/config` carries only the strictness flags they agree on; each app overrides module resolution. Unifying these is the most likely way to break the workspace — and it has been tested, not assumed. See ADR-0012.
@@ -28,12 +30,13 @@ mze-store/
 
 ## Build toolchain
 
-Three of four surfaces are Vite+ / rolldown. The backend is the exception, deliberately.
+Three surfaces use Vite+ / rolldown. Medusa admin and backend use separate toolchains.
 
 | Surface                   | Tool                               | Output                                  |
 | ------------------------- | ---------------------------------- | --------------------------------------- |
 | Storefront                | Vite+ / rolldown                   | bundled ESM                             |
 | `packages/*`              | Vite+ / rolldown                   | ESM, plus CJS if the backend imports it |
+| Oxlint plugin             | Vite+ / rolldown                   | ESM plugin with declarations            |
 | Medusa admin + extensions | `@medusajs/admin-bundler` (Vite 5) | bundled                                 |
 | Medusa backend            | TypeScript compiler API            | **unbundled, file-per-file CJS**        |
 

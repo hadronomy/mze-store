@@ -1,4 +1,4 @@
-import { definePlugin, eslintCompatPlugin, type ESTree, type Scope } from "@oxlint/plugins";
+import { type ESTree, type Scope } from "@oxlint/plugins";
 import * as Effect from "effect/Effect";
 import { FileContext, Rule, Visitor } from "effect-oxlint";
 import { realpathSync, statSync } from "node:fs";
@@ -6,7 +6,6 @@ import { dirname, extname, isAbsolute, relative, resolve, sep } from "node:path"
 import ts from "typescript";
 
 const ALIAS_PREFIX = "~/";
-const RULE_NAME = "prefer-tilde-imports";
 const FILE_EXTENSIONS = [
   ".ts",
   ".tsx",
@@ -433,6 +432,7 @@ function reportCallArgument(
 }
 
 const preferTildeImportsPlan = Rule.plan({
+  name: "prefer-tilde-imports",
   meta: {
     type: "suggestion",
     docs: {
@@ -486,10 +486,4 @@ const preferTildeImportsPlan = Rule.plan({
 
 const preferTildeImportsRule = Rule.compile(preferTildeImportsPlan);
 
-const plugin = definePlugin({
-  meta: { name: "hadronomy" },
-  rules: { [RULE_NAME]: preferTildeImportsRule },
-});
-
 export { preferTildeImportsRule };
-export default eslintCompatPlugin(plugin);

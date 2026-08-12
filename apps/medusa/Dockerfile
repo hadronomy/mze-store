@@ -16,6 +16,7 @@ COPY packages/db/package.json packages/db/package.json
 COPY packages/env/package.json packages/env/package.json
 COPY packages/territory/package.json packages/territory/package.json
 COPY packages/ui/package.json packages/ui/package.json
+COPY tooling/oxlint/package.json tooling/oxlint/package.json
 RUN --mount=type=cache,id=bun-install-cache,target=/root/.bun/install/cache \
   bun install --frozen-lockfile
 
@@ -36,6 +37,7 @@ COPY packages/db/package.json packages/db/package.json
 COPY packages/env/package.json packages/env/package.json
 COPY packages/territory/package.json packages/territory/package.json
 COPY packages/ui/package.json packages/ui/package.json
+COPY tooling/oxlint/package.json tooling/oxlint/package.json
 RUN --mount=type=cache,id=bun-install-cache,target=/root/.bun/install/cache \
   bun install --frozen-lockfile --omit dev \
     --filter medusa \

@@ -12,6 +12,7 @@ const ignorePatterns = [
   "apps/storefront/src/routeTree.gen.ts",
   "apps/medusa/.medusa/**",
   "packages/*/dist/**",
+  "tooling/oxlint/dist/**",
 ];
 
 export default defineConfig({
@@ -36,13 +37,14 @@ export default defineConfig({
       builtin: true,
     },
     ignorePatterns,
-    jsPlugins: ["./tooling/oxlint/index.ts"],
+    jsPlugins: ["@mze-store/oxlint"],
     options: {
       reportUnusedDisableDirectives: "error",
       typeAware: true,
       typeCheck: false,
     },
     rules: {
+      "hadronomy/no-broad-record-types": "error",
       "hadronomy/prefer-tilde-imports": "error",
       "unicorn/no-abusive-eslint-disable": "error",
     },

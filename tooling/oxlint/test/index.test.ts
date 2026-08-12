@@ -6,10 +6,10 @@ import { promisify } from "node:util";
 
 import { afterAll, beforeAll, expect, test } from "@effect/vitest";
 
-import { getPreferredSpecifier } from "./index";
+import { getPreferredSpecifier } from "../src/rules";
 
 const execFileAsync = promisify(execFile);
-const workspaceRoot = resolve(import.meta.dirname, "../..");
+const workspaceRoot = resolve(import.meta.dirname, "../../..");
 let projectRoot: string;
 
 async function writeProjectFile(relativePath: string, contents: string): Promise<string> {
