@@ -18,6 +18,12 @@ function getPortlessDevelopmentOrigin(source: Readonly<Record<string, string | u
 }
 
 const portlessDevelopmentOrigin = getPortlessDevelopmentOrigin(process.env);
+const runtimeEnv = { ...process.env };
+
+if (portlessDevelopmentOrigin !== undefined) {
+  runtimeEnv.BETTER_AUTH_URL = portlessDevelopmentOrigin;
+  runtimeEnv.CORS_ORIGIN = portlessDevelopmentOrigin;
+}
 
 export const env = createEnv({
   server: {
@@ -28,15 +34,7 @@ export const env = createEnv({
     NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
     PORTLESS_URL: z.url().optional(),
   },
-  runtimeEnv: {
-    ...process.env,
-    ...(portlessDevelopmentOrigin
-      ? {
-          BETTER_AUTH_URL: portlessDevelopmentOrigin,
-          CORS_ORIGIN: portlessDevelopmentOrigin,
-        }
-      : {}),
-  },
+  runtimeEnv,
   skipValidation: !!process.env.SKIP_ENV_VALIDATION,
   emptyStringAsUndefined: true,
 });

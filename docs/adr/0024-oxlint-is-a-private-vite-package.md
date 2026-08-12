@@ -1,8 +1,10 @@
 # The Oxlint plugin is a private Vite+ package
 
-The repository has two Effect-based Oxlint rules. The rules need the forked
-`effect-oxlint` runtime and TypeScript at runtime. A loose file under
-`tooling/` does not declare that boundary or own its build.
+The repository has one project-specific Effect-based Oxlint rule. It needs the
+forked `effect-oxlint` runtime and TypeScript at runtime. A loose file under
+`tooling/` does not declare that boundary or own its build. Generic anti-slop
+rules live in a copied source plugin beside the package and load directly from
+the root Vite+ config.
 
 ## Decision
 
@@ -15,9 +17,9 @@ The source layout is:
 
 ```text
 tooling/oxlint/
+├── anti-slop/
 ├── src/index.ts
 ├── src/rules/index.ts
-├── src/rules/no-broad-record-types.ts
 ├── src/rules/prefer-tilde-imports.ts
 └── test/
 ```
@@ -30,7 +32,7 @@ The package exposes two explicit entry points:
 
 ```ts
 import plugin from "@mze-store/oxlint";
-import { noBroadRecordTypesRule } from "@mze-store/oxlint/rules";
+import { preferTildeImportsRule } from "@mze-store/oxlint/rules";
 ```
 
 The root Vite+ configuration loads `@mze-store/oxlint`. The MZE task graph
@@ -39,10 +41,10 @@ output stays ignored and never enters source control.
 
 ## TypeScript and module resolution
 
-The package uses the shared ESM preset with bundler resolution. Source imports
-are extensionless, such as `./rules`. Vite+ resolves these imports during the
-pack step. The package type check passes without
-`allowImportingTsExtensions`, so `TS5097` cannot return through this package.
+The package uses the shared ESM preset with bundler resolution. The packaged
+source imports are extensionless, such as `./rules`. The copied anti-slop
+source is loaded directly by Vite+ and keeps its `.ts` imports. Its no-emit
+type check enables `allowImportingTsExtensions` for that direct-loading path.
 
 ## Consequences
 

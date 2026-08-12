@@ -1,6 +1,13 @@
-import { Effect, Runtime } from "effect";
+import { Effect, Runtime, Schema } from "effect";
 
+import { ChildCommand } from "./child-command.ts";
+import { DevelopmentProcessExited, UnsupportedPlatform } from "./dev.ts";
+import { DoctorCheckFailed, DoctorFailed } from "./doctor.ts";
 import { Output } from "./output.ts";
+import { PortlessRouteConflict, PortlessUnavailable, PortlessVersionMismatch } from "./portless.ts";
+import { ServicesStartFailed, ServicePortInvalid } from "./services.ts";
+import { SetupRequiresInteractiveTerminal, ToolVersionMismatch } from "./setup.ts";
+import { DataLossConfirmationRequired } from "./tasks.ts";
 
 export class ReportedError extends Error {
   readonly _tag = "ReportedError";
@@ -15,64 +22,78 @@ export class ReportedError extends Error {
   }
 }
 
-const field = (error: unknown, name: string): unknown =>
-  typeof error === "object" && error !== null && name in error
-    ? Reflect.get(error, name)
-    : undefined;
+const OperationalCauseSchema = Schema.Union([
+  ChildCommand.CommandFailed,
+  ChildCommand.CommandExecutionFailed,
+  ChildCommand.ExecutableMissing,
+  DataLossConfirmationRequired,
+  DevelopmentProcessExited,
+  DoctorCheckFailed,
+  DoctorFailed,
+  PortlessRouteConflict,
+  PortlessUnavailable,
+  PortlessVersionMismatch,
+  ServicePortInvalid,
+  ServicesStartFailed,
+  SetupRequiresInteractiveTerminal,
+  ToolVersionMismatch,
+  UnsupportedPlatform,
+]);
 
-const stringValues = (value: unknown): ReadonlyArray<string> =>
-  Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
+const operationalCause = (cause: unknown) =>
+  Schema.is(OperationalCauseSchema)(cause) ? cause : undefined;
 
-export const exitCode = (error: unknown): number => {
-  const code = field(error, "exitCode");
-  return typeof code === "number" ? code : 1;
+export const exitCode = (cause: unknown): number => {
+  if (cause instanceof ReportedError) return cause.exitCode;
+  return operationalCause(cause)?.exitCode ?? 1;
 };
 
-export const message = (error: unknown): string => {
-  const tag = field(error, "_tag");
+export const message = (cause: unknown): string => {
+  const error = operationalCause(cause);
 
-  switch (tag) {
+  switch (error?._tag) {
     case "CommandFailed":
-      return `Command failed with exit code ${String(field(error, "exitCode"))}: ${String(field(error, "command"))}`;
+      return `Command failed with exit code ${error.exitCode}: ${error.command}`;
     case "CommandExecutionFailed":
-      return `Could not run ${String(field(error, "command"))}: ${String(field(error, "description"))}`;
+      return `Could not run ${error.command}: ${error.description}`;
     case "ExecutableMissing":
-      return `Required executable not found: ${String(field(error, "command"))}`;
+      return `Required executable not found: ${error.command}`;
     case "PortlessUnavailable":
-      return `Portless ${String(field(error, "detail"))} is unavailable. Install it with: ${String(field(error, "installCommand"))}`;
+      return `Portless ${error.detail} is unavailable. Install it with: ${error.installCommand}`;
     case "PortlessVersionMismatch":
-      return `Portless ${String(field(error, "required"))} is required; found ${String(field(error, "found"))}. Install it with: ${String(field(error, "installCommand"))}`;
+      return `Portless ${error.required} is required; found ${error.found}. Install it with: ${error.installCommand}`;
     case "PortlessRouteConflict":
     case "ServicesStartFailed":
-      return String(field(error, "message"));
+      return error.message;
     case "ServicePortInvalid":
-      return `Docker returned an invalid port for ${String(field(error, "service"))}.`;
+      return `Docker returned an invalid port for ${error.service}.`;
     case "UnsupportedPlatform":
-      return `The mze tooling supports macOS and Linux. Found ${String(field(error, "platform"))}.`;
+      return `The mze tooling supports macOS and Linux. Found ${error.platform}.`;
     case "DevelopmentProcessExited":
-      return `${String(field(error, "process"))} exited unexpectedly.`;
+      return `${error.process} exited unexpectedly.`;
     case "SetupRequiresInteractiveTerminal":
       return "Setup requires an interactive terminal. JSON mode is read-only.";
     case "ToolVersionMismatch":
-      return `${String(field(error, "tool"))} ${String(field(error, "required"))} is required; found ${String(field(error, "found"))}.`;
+      return `${error.tool} ${error.required} is required; found ${error.found}.`;
     case "DoctorFailed":
-      return `Doctor found blocking problems: ${stringValues(field(error, "failures")).join(", ") || "unknown checks"}.`;
+      return `Doctor found blocking problems: ${error.failures.join(", ") || "unknown checks"}.`;
+    case "DoctorCheckFailed":
+      return error.detail;
     case "DataLossConfirmationRequired":
-      return `The ${String(field(error, "operation"))} operation requires ${String(field(error, "flag"))}.`;
+      return `The ${error.operation} operation requires ${error.flag}.`;
     default: {
-      const errorMessage = field(error, "message");
-      return typeof errorMessage === "string" ? errorMessage : String(error);
+      return cause instanceof Error ? cause.message : String(cause);
     }
   }
 };
 
-export const report = (command: string, error: unknown, codeOverride?: number) =>
+export const report = (command: string, cause: unknown, codeOverride?: number) =>
   Effect.gen(function* () {
     const output = yield* Output.Service;
-    const code = codeOverride ?? exitCode(error);
+    const code = codeOverride ?? exitCode(cause);
     yield* output.write({
       command,
-      data: { exitCode: code, message: message(error) },
+      data: { exitCode: code, message: message(cause) },
       event: "failed",
       stream: "stderr",
     });

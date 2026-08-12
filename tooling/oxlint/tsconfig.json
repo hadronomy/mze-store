@@ -2,8 +2,12 @@
   "$schema": "https://json.schemastore.org/tsconfig",
   "extends": "@mze-store/config/tsconfig.esm.json",
   "compilerOptions": {
-    "noEmit": true
+    "allowImportingTsExtensions": true,
+    "noEmit": true,
+    "paths": {
+      "~/*": ["./src/*"]
+    }
   },
-  "include": ["src/**/*.ts", "test/**/*.ts", "vite.config.ts"],
+  "include": ["anti-slop/**/*.ts", "src/**/*.ts", "test/**/*.ts", "vite.config.ts"],
   "exclude": ["dist"]
 }

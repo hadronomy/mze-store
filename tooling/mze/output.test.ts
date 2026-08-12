@@ -9,7 +9,7 @@ function captureStdio() {
   const writeTo = (target: Array<string>) =>
     Sink.forEach<string | Uint8Array, void, never, never>((chunk) =>
       Effect.sync(() =>
-        target.push(typeof chunk === "string" ? chunk : new TextDecoder().decode(chunk)),
+        target.push(chunk instanceof Uint8Array ? new TextDecoder().decode(chunk) : chunk),
       ),
     );
   const layer = Layer.succeed(

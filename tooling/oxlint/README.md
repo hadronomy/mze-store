@@ -24,9 +24,9 @@ vp test --run tooling/oxlint/test/index.test.ts
 
 Use a named lint suppression for a rare exception. Vite+ reports unused suppressions and rejects blanket `eslint-disable` comments.
 
-Oxlint JavaScript plugins are an alpha API. The CLI integration test protects this local plugin from upstream API changes. Keep `@oxlint/plugins` pinned to the version that Vite+ uses.
+Oxlint JavaScript plugins are an alpha API. The CLI integration test protects this local plugin from upstream API changes. Keep the local plugin packages on the same current `@oxlint/plugins` version.
 
-Each rule owns its Effect plan, visitors, and compiled rule in its own module. Import compiled rules from `@mze-store/oxlint/rules`. The plugin entry point only maps those rules to Oxlint names.
+The project-specific rule owns its Effect plan, visitors, and compiled rule in its own module. Import it from `@mze-store/oxlint/rules`. The plugin entry point only maps that rule to its Oxlint name.
 
 The directory is a private workspace package. Run these commands from the repository root:
 
@@ -38,18 +38,17 @@ vp run --filter @mze-store/oxlint test
 
 Vite+ packs the plugin as ESM with declarations. The root lint config loads `@mze-store/oxlint` after the package build.
 
-Import the compiled rule surface when another tool needs a rule value:
+Import the compiled project rule when another tool needs its value:
 
 ```ts
-import { noBroadRecordTypesRule, preferTildeImportsRule } from "@mze-store/oxlint/rules";
+import { preferTildeImportsRule } from "@mze-store/oxlint/rules";
 ```
 
-## Broad record lint rule
+## Generic anti-slop rules
 
-`hadronomy/no-broad-record-types` rejects these open object shapes:
+The root Vite+ config loads the bundled plugin from `tooling/oxlint/anti-slop/index.ts`.
+It enables all ten `anti-slop/*` rules at error level. The generic dictionary
+rules replace the removed broad-record rule.
 
-- `Record<string, unknown>`
-- `Record<string, any>`
-- a string-keyed index signature with an `unknown` value, such as `[key: string]: unknown`
-
-Use a named domain type with explicit fields. Decode external input at the boundary, for example with Effect Schema. Do not widen the type to make the error disappear. The rule does not reject specific value types, such as `Record<string, number>`.
+Keep the copied plugin source under `tooling/oxlint/anti-slop`. Update the copy
+through the `install-anti-slop` skill when the bundled rules change.

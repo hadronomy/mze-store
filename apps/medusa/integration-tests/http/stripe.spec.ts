@@ -1,6 +1,7 @@
 import { medusaIntegrationTestRunner } from "@medusajs/test-utils";
 import type { ProvinceCode } from "@mze-store/territory/spain";
 import nock from "nock";
+import { z } from "@medusajs/framework/zod";
 import { seedTerritoryProbe, type SeededProbe } from "~/territory/probe";
 import { seedTerritory, type SeededTerritory } from "~/territory/seed";
 import { CURRENCY, SPAIN, SPAIN_DECLARATION } from "~/territory/spain";
@@ -10,6 +11,53 @@ jest.setTimeout(120 * 1000);
 const PENINSULAR_PROVINCE: ProvinceCode = "es-m";
 const STRIPE_EMULATOR_PORT = 4_009;
 const STRIPE_PAYMENT_PROVIDER_ID = "pp_stripe_stripe";
+
+const StripePaymentIntentFormSchema = z.looseObject({
+  amount: z.coerce.number().int().positive(),
+  currency: z.literal(CURRENCY),
+  "metadata[session_id]": z.string().min(1),
+});
+
+type StripePaymentIntentForm = z.infer<typeof StripePaymentIntentFormSchema>;
+
+interface StripeDecodedPaymentIntentBody {
+  readonly raw: string;
+  readonly form: StripePaymentIntentForm;
+}
+
+const StripePaymentIntentBodyCodec = z.codec(z.string().min(1), StripePaymentIntentFormSchema, {
+  decode: (body): StripePaymentIntentForm =>
+    StripePaymentIntentFormSchema.parse(Object.fromEntries(new URLSearchParams(body))),
+  encode: (request) =>
+    new URLSearchParams({
+      amount: String(request.amount),
+      currency: request.currency,
+      "metadata[session_id]": request["metadata[session_id]"],
+    }).toString(),
+});
+
+const StripeRequestHeadersSchema = z.object({
+  authorization: z.string().startsWith("Bearer sk_"),
+  contentType: z
+    .string()
+    .regex(/^application\/x-www-form-urlencoded(?:;|$)/, "Stripe requires a form request."),
+});
+
+type StripeRequestHeaders = z.infer<typeof StripeRequestHeadersSchema>;
+
+function decodeStripePaymentIntentBody(body: nock.Body): StripeDecodedPaymentIntentBody {
+  const raw = z.string().min(1).parse(body);
+  return { form: StripePaymentIntentBodyCodec.decode(raw), raw };
+}
+
+function decodeStripeRequestHeaders(
+  headers: Readonly<Record<string, string>>,
+): StripeRequestHeaders {
+  return StripeRequestHeadersSchema.parse({
+    authorization: headers.authorization,
+    contentType: headers["content-type"],
+  });
+}
 
 const startStripeEmulator = async () => {
   const { createEmulator } = await import("emulate");
@@ -25,6 +73,7 @@ medusaIntegrationTestRunner({
     let seeded: SeededTerritory;
     let probe: SeededProbe;
     let stripeEmulator: StripeEmulator;
+    let capturedPaymentSessionId: string | undefined;
 
     beforeAll(async () => {
       stripeEmulator = await startStripeEmulator();
@@ -34,6 +83,7 @@ medusaIntegrationTestRunner({
 
     beforeEach(() => {
       stripeEmulator.reset();
+      capturedPaymentSessionId = undefined;
       nock.cleanAll();
       nock.disableNetConnect();
       nock.enableNetConnect(/^(127\.0\.0\.1|localhost)(:\d+)?$/);
@@ -52,23 +102,17 @@ medusaIntegrationTestRunner({
       const stripeBridge = nock("https://api.stripe.com")
         .post("/v1/payment_intents")
         .reply(async function (_path, body) {
-          const authorization = this.req.headers.authorization;
-          const contentType = this.req.headers["content-type"];
-
-          if (typeof body !== "string") {
-            throw new Error("Stripe sent a Payment Intent body that the test cannot forward");
-          }
-          if (typeof authorization !== "string" || typeof contentType !== "string") {
-            throw new Error("Stripe sent a Payment Intent request without its required headers");
-          }
+          const { form, raw } = decodeStripePaymentIntentBody(body);
+          const headers = decodeStripeRequestHeaders(this.req.headers);
+          capturedPaymentSessionId = form["metadata[session_id]"];
 
           const response = await fetch(`${stripeEmulator.url}/v1/payment_intents`, {
             method: "POST",
             headers: {
-              Authorization: authorization,
-              "Content-Type": contentType,
+              Authorization: headers.authorization,
+              "Content-Type": headers.contentType,
             },
-            body,
+            body: raw,
           });
 
           return [
@@ -127,6 +171,7 @@ medusaIntegrationTestRunner({
         status: "pending",
       });
       expect(session.data.id).toMatch(/^pi_/);
+      expect(capturedPaymentSessionId).toBe(session.id);
       expect(intentResponse.status).toEqual(200);
       expect(intent).toMatchObject({
         id: session.data.id,

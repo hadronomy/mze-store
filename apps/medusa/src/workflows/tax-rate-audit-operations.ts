@@ -138,7 +138,12 @@ async function retrieveRecordedTaxRegion(
   return requireTaxRegion(regions);
 }
 
-function fingerprintRequest(operation: string, input: object): string {
+type AuditedMutationInput =
+  | AuditedCreateTaxRateInput
+  | AuditedUpdateTaxRateInput
+  | AuditedCreateTaxRegionInput;
+
+function fingerprintRequest(operation: string, input: AuditedMutationInput): string {
   return createHash("sha256").update(stringify({ operation, input })).digest("hex");
 }
 

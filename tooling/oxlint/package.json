@@ -27,7 +27,7 @@
     "test": "vp run build && vp test --dir test"
   },
   "dependencies": {
-    "@oxlint/plugins": "1.73.0",
+    "@oxlint/plugins": "1.78.0",
     "effect": "4.0.0-beta.107",
     "effect-oxlint": "github:hadronomy/effect-oxlint#ef3bfa2",
     "typescript": "catalog:"

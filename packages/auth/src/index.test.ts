@@ -1,4 +1,5 @@
 import { expect, test } from "vite-plus/test";
+import { z } from "zod";
 
 const authModuleUrl = new URL("./index.ts", import.meta.url).href;
 const baseURL = "http://localhost:3000";
@@ -10,10 +11,20 @@ const environmentKeys = [
   "PORTLESS_URL",
 ] as const;
 
+type AuthRequestBody =
+  | { readonly email: string; readonly password: string }
+  | { readonly email: string; readonly name: string; readonly password: string };
+
+const SessionResponseSchema = z.looseObject({
+  user: z.looseObject({
+    email: z.email(),
+  }),
+});
+
 async function postJson(
   auth: { handler(request: Request): Promise<Response> },
   path: string,
-  body: unknown,
+  body: AuthRequestBody,
 ) {
   return auth.handler(
     new Request(`${baseURL}/api/auth/${path}`, {
@@ -77,6 +88,6 @@ test("an in-memory Account survives sign-up, sign-in, and a session read", async
   );
   expect(sessionResponse.status).toBe(200);
 
-  const session: unknown = await sessionResponse.json();
-  expect(session).toMatchObject({ user: { email } });
+  const session = SessionResponseSchema.parse(await sessionResponse.json());
+  expect(session.user.email).toBe(email);
 });

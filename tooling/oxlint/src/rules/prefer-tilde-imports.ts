@@ -1,5 +1,6 @@
 import { type ESTree, type Scope } from "@oxlint/plugins";
 import * as Effect from "effect/Effect";
+import * as Schema from "effect/Schema";
 import { FileContext, Rule, Visitor } from "effect-oxlint";
 import { realpathSync, statSync } from "node:fs";
 import { dirname, extname, isAbsolute, relative, resolve, sep } from "node:path";
@@ -358,7 +359,7 @@ function getStaticSpecifier(node: StaticSpecifier | ESTree.Expression | null): s
     return null;
   }
 
-  if (node.type === "Literal" && typeof node.value === "string") {
+  if (node.type === "Literal" && Schema.is(Schema.String)(node.value)) {
     return node.value;
   }
 

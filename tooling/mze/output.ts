@@ -82,10 +82,10 @@ function humanText(event: Event, colors: ChalkInstance): string {
   if (event.event === "message") {
     const rowIndent = event.command === "doctor" ? "  " : "";
     const detailIndent = `${rowIndent}  `;
-    if (typeof event.data.name === "string" && typeof event.data.passed === "boolean") {
+    if ("name" in event.data && "passed" in event.data) {
       const mark = event.data.passed ? colors.green("✓") : colors.red("✗");
       const detail =
-        typeof event.data.detail === "string" && event.data.detail.length > 0
+        event.data.detail !== undefined && event.data.detail.length > 0
           ? `\n${indent(colors.dim(event.data.detail), detailIndent)}`
           : "";
       return `${rowIndent}${mark} ${colors.bold(event.data.name)}${detail}\n`;

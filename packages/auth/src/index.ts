@@ -13,15 +13,14 @@ export interface AuthOptions {
 
 export function createAuth({ database, secret, baseURL, trustedOrigins }: AuthOptions) {
   return betterAuth({
-    ...(database
-      ? {
-          database: drizzleAdapter(database, {
+    database:
+      database === undefined
+        ? undefined
+        : drizzleAdapter(database, {
             provider: "pg",
             schema,
             schemaName: "auth",
           }),
-        }
-      : {}),
     trustedOrigins,
     emailAndPassword: {
       enabled: true,

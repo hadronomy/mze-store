@@ -3,7 +3,10 @@ import type { IAuthModuleService, MedusaContainer } from "@medusajs/framework/ty
 import { createUsersWorkflow } from "@medusajs/medusa/core-flows";
 
 type Api = {
-  post: (path: string, body?: unknown, config?: unknown) => Promise<{ data: { token: string } }>;
+  post: (
+    path: string,
+    body?: { readonly email: string; readonly password: string },
+  ) => Promise<{ data: { token: string } }>;
 };
 
 /**

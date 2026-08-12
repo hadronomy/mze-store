@@ -28,6 +28,7 @@
   "devDependencies": {
     "@mze-store/config": "workspace:*",
     "auth": "catalog:",
-    "typescript": "catalog:"
+    "typescript": "catalog:",
+    "zod": "catalog:"
   }
 }

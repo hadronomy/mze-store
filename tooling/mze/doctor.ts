@@ -33,13 +33,9 @@ const inspect = <A, E, R>(
       }
 
       const error = Cause.squash(cause);
-      const errorDetail =
-        typeof error === "object" &&
-        error !== null &&
-        "detail" in error &&
-        typeof error.detail === "string"
-          ? error.detail
-          : undefined;
+      const errorDetail = Schema.is(Schema.Struct({ detail: Schema.String }))(error)
+        ? error.detail
+        : undefined;
       return Effect.succeed({
         detail: errorDetail ?? (error instanceof Error ? error.message : String(error)),
         name,
@@ -68,11 +64,8 @@ const servicesHealthy = (output: string): boolean => {
     return ["postgres", "redis"].every((service) =>
       values.some(
         (value) =>
-          typeof value === "object" &&
-          value !== null &&
-          "Service" in value &&
+          Schema.is(Schema.Struct({ Health: Schema.String, Service: Schema.String }))(value) &&
           value.Service === service &&
-          "Health" in value &&
           value.Health === "healthy",
       ),
     );
