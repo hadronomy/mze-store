@@ -26,6 +26,8 @@ Use a named lint suppression for a rare exception. Vite+ reports unused suppress
 
 Oxlint JavaScript plugins are an alpha API. The CLI integration test protects this local plugin from upstream API changes. Keep `@oxlint/plugins` pinned to the version that Vite+ uses.
 
+Each rule owns its Effect plan, visitors, and compiled rule in its own module. Import compiled rules from `tooling/oxlint/rules.ts`. The plugin entry point only maps those rules to Oxlint names.
+
 ## Broad record lint rule
 
 `hadronomy/no-broad-record-types` rejects these open object shapes:

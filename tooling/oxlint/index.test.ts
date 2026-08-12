@@ -6,7 +6,7 @@ import { promisify } from "node:util";
 
 import { afterAll, beforeAll, expect, test } from "@effect/vitest";
 
-import { getPreferredSpecifier } from "./index";
+import { getPreferredSpecifier } from "./rules.ts";
 
 const execFileAsync = promisify(execFile);
 const workspaceRoot = resolve(import.meta.dirname, "../..");
