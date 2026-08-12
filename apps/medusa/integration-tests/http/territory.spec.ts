@@ -1,6 +1,6 @@
 import { medusaIntegrationTestRunner } from "@medusajs/test-utils";
 import { ContainerRegistrationKeys } from "@medusajs/framework/utils";
-import type { GraphResultSet, MedusaContainer } from "@medusajs/framework/types";
+import type { MedusaContainer } from "@medusajs/framework/types";
 import { updateServiceZonesWorkflow } from "@medusajs/medusa/core-flows";
 import {
   provinceCodeSchema,
@@ -43,12 +43,34 @@ const CANARIAN_PRICE = 107;
 
 type TerritoryEntity = "region" | "tax_region" | "service_zone";
 type TerritoryQueryFilters = { readonly country_code?: string };
-type RegionQueryRow = GraphResultSet<"region">["data"][number];
-type TaxRegionQueryRow = GraphResultSet<"tax_region">["data"][number];
-type ServiceZoneQueryRow = GraphResultSet<"service_zone">["data"][number];
+type RegionQueryRow = {
+  readonly countries?: ReadonlyArray<{ readonly iso_2?: string | null } | null>;
+  readonly currency_code?: string;
+  readonly id?: string;
+  readonly name?: string;
+  readonly payment_providers?: ReadonlyArray<{ readonly id?: string } | null>;
+};
+type TaxRegionQueryRow = {
+  readonly id?: string;
+  readonly province_code?: string | null;
+  readonly tax_rates?: ReadonlyArray<{
+    readonly is_default?: boolean;
+    readonly rate?: number;
+  } | null>;
+};
+type ServiceZoneQueryRow = {
+  readonly geo_zones: ReadonlyArray<{
+    readonly country_code?: string | null;
+    readonly id?: string;
+    readonly province_code?: string | null;
+    readonly type?: string;
+  }>;
+  readonly id?: string;
+  readonly name?: string;
+};
 type TerritoryQueryRow = RegionQueryRow | TaxRegionQueryRow | ServiceZoneQueryRow;
 type CountQueryEntity = "api_key" | "geo_zone" | "product" | "sales_channel" | "stock_location";
-type CountQueryRow = GraphResultSet<CountQueryEntity>["data"][number];
+type CountQueryRow = { readonly id?: string };
 type AnyQueryRow = TerritoryQueryRow | CountQueryRow;
 
 medusaIntegrationTestRunner({

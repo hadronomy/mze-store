@@ -1,4 +1,4 @@
-import type { GraphResultSet, MedusaContainer } from "@medusajs/framework/types";
+import type { MedusaContainer } from "@medusajs/framework/types";
 import { ContainerRegistrationKeys } from "@medusajs/framework/utils";
 import { medusaIntegrationTestRunner } from "@medusajs/test-utils";
 import {
@@ -17,9 +17,19 @@ const toyProvinceCodeSchema = createProvinceCodeSchema("pt", TOY_PROVINCES);
 type ToyProvinceCode = ProvinceCodeOf<typeof TOY_PROVINCES>;
 
 type TerritoryQueryFilters = { readonly country_code?: string };
-type RegionQueryRow = GraphResultSet<"region">["data"][number];
-type TaxRegionQueryRow = GraphResultSet<"tax_region">["data"][number];
-type ServiceZoneQueryRow = GraphResultSet<"service_zone">["data"][number];
+type RegionQueryRow = {
+  readonly countries?: ReadonlyArray<{ readonly iso_2?: string | null } | null>;
+  readonly currency_code?: string;
+  readonly name?: string;
+};
+type TaxRegionQueryRow = { readonly province_code?: string | null };
+type ServiceZoneQueryRow = {
+  readonly geo_zones: ReadonlyArray<{
+    readonly country_code?: string | null;
+    readonly province_code?: string | null;
+  }>;
+  readonly name?: string;
+};
 type TerritoryQueryRow = RegionQueryRow | TaxRegionQueryRow | ServiceZoneQueryRow;
 
 const TOY_DECLARATION = {
