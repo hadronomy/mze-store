@@ -1,4 +1,4 @@
-import { Cause, Effect, Exit, FileSystem, Path, Schema } from "effect";
+import { Cause, Effect, FileSystem, Path, Schema } from "effect";
 
 import { ChildCommand } from "./child-command.ts";
 import { Output } from "./output.ts";
@@ -22,14 +22,17 @@ export class DoctorFailed extends Schema.TaggedError<DoctorFailed>()("DoctorFail
   failures: Schema.Array(Schema.String),
 }) {}
 
-const inspect = <A, E, R>(name: string, effect: Effect.Effect<A, E, R>) =>
-  Effect.exit(effect).pipe(
-    Effect.map((exit): Check => {
-      if (Exit.isSuccess(exit)) {
-        return { name, passed: true };
+const inspect = <A, E, R>(
+  name: string,
+  effect: Effect.Effect<A, E, R>,
+): Effect.Effect<Check, E, R> =>
+  Effect.matchCauseEffect(effect, {
+    onFailure: (cause) => {
+      if (Cause.hasInterruptsOnly(cause)) {
+        return Effect.failCause(cause);
       }
 
-      const error = Cause.squash(exit.cause);
+      const error = Cause.squash(cause);
       const errorDetail =
         typeof error === "object" &&
         error !== null &&
@@ -37,13 +40,14 @@ const inspect = <A, E, R>(name: string, effect: Effect.Effect<A, E, R>) =>
         typeof error.detail === "string"
           ? error.detail
           : undefined;
-      return {
+      return Effect.succeed({
         detail: errorDetail ?? (error instanceof Error ? error.message : String(error)),
         name,
         passed: false,
-      };
-    }),
-  );
+      });
+    },
+    onSuccess: () => Effect.succeed({ name, passed: true }),
+  });
 
 const requireValue = (condition: boolean, detail: string) =>
   condition ? Effect.void : Effect.fail(new DoctorCheckFailed({ detail }));

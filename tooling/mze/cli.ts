@@ -5,7 +5,6 @@ import { ChildCommand } from "./child-command.ts";
 import { Dev } from "./dev.ts";
 import { Doctor } from "./doctor.ts";
 import { Output } from "./output.ts";
-import { Progress } from "./progress.ts";
 import { Reporter } from "./reporter.ts";
 import { RuntimeInfo } from "./runtime-info.ts";
 import { Services } from "./services.ts";
@@ -63,7 +62,6 @@ const execute = <A, E, R>(
         onSuccess: Effect.succeed,
       }),
       Effect.provide(Output.layer(mode)),
-      Effect.provide(Progress.layer(mode)),
     );
 
     return yield* program;
@@ -118,11 +116,7 @@ const servicesPorts = Command.make("ports", {}, () =>
   execute("services ports", ({ cwd }) =>
     Effect.gen(function* () {
       const output = yield* Output.Service;
-      const progress = yield* Progress.Service;
-      const ports = yield* progress.withProgress(
-        { command: "services ports", message: "Reading service ports" },
-        () => Services.ports(cwd),
-      );
+      const ports = yield* Services.ports(cwd);
       yield* output.write({
         command: "services ports",
         data: { message: `PostgreSQL ${ports.postgres}; Redis ${ports.redis}`, ...ports },

@@ -41,6 +41,38 @@ const CANARIAN_PROVINCE: ProvinceCode = "es-tf";
 const PENINSULAR_PRICE = 121;
 const CANARIAN_PRICE = 107;
 
+type TerritoryEntity = "region" | "tax_region" | "service_zone";
+type TerritoryQueryFilters = { readonly country_code?: string };
+type RegionQueryRow = {
+  readonly countries?: ReadonlyArray<{ readonly iso_2?: string | null } | null>;
+  readonly currency_code?: string;
+  readonly id?: string;
+  readonly name?: string;
+  readonly payment_providers?: ReadonlyArray<{ readonly id?: string } | null>;
+};
+type TaxRegionQueryRow = {
+  readonly id?: string;
+  readonly province_code?: string | null;
+  readonly tax_rates?: ReadonlyArray<{
+    readonly is_default?: boolean;
+    readonly rate?: number;
+  } | null>;
+};
+type ServiceZoneQueryRow = {
+  readonly geo_zones: ReadonlyArray<{
+    readonly country_code?: string | null;
+    readonly id?: string;
+    readonly province_code?: string | null;
+    readonly type?: string;
+  }>;
+  readonly id?: string;
+  readonly name?: string;
+};
+type TerritoryQueryRow = RegionQueryRow | TaxRegionQueryRow | ServiceZoneQueryRow;
+type CountQueryEntity = "api_key" | "geo_zone" | "product" | "sales_channel" | "stock_location";
+type CountQueryRow = { readonly id?: string };
+type AnyQueryRow = TerritoryQueryRow | CountQueryRow;
+
 medusaIntegrationTestRunner({
   inApp: true,
   env: {},
@@ -59,15 +91,32 @@ medusaIntegrationTestRunner({
       probe = await seedTerritoryProbe(getContainer(), seeded);
     });
 
-    const graph = async <T = Record<string, any>>(
-      entity: string,
+    async function graph(entity: "region", fields: string[]): Promise<RegionQueryRow[]>;
+    async function graph(
+      entity: "tax_region",
       fields: string[],
-      filters?: Record<string, unknown>,
-    ): Promise<T[]> => {
+      filters?: TerritoryQueryFilters,
+    ): Promise<TaxRegionQueryRow[]>;
+    async function graph(entity: "service_zone", fields: string[]): Promise<ServiceZoneQueryRow[]>;
+    async function graph(entity: CountQueryEntity, fields: string[]): Promise<CountQueryRow[]>;
+    async function graph(
+      entity: TerritoryEntity | CountQueryEntity,
+      fields: string[],
+      filters?: TerritoryQueryFilters,
+    ): Promise<AnyQueryRow[]> {
       const query = (getContainer() as MedusaContainer).resolve(ContainerRegistrationKeys.QUERY);
-      const { data } = await query.graph({ entity, fields, filters });
-      return data as T[];
-    };
+
+      switch (entity) {
+        case "region":
+          return (await query.graph({ entity, fields })).data;
+        case "tax_region":
+          return (await query.graph({ entity, fields, filters })).data;
+        case "service_zone":
+          return (await query.graph({ entity, fields })).data;
+        default:
+          return (await query.graph({ entity, fields })).data;
+      }
+    }
 
     const priceIn = async (province: ProvinceCode, productId = probe.productId) => {
       const response = await api.get(
@@ -110,12 +159,12 @@ medusaIntegrationTestRunner({
           ]);
 
           const spanish = regions.filter((region) =>
-            region.countries?.some((country: { iso_2: string }) => country.iso_2 === SPAIN),
+            region.countries?.some((country) => country?.iso_2 === SPAIN),
           );
 
           expect(spanish).toHaveLength(1);
           expect(spanish[0]!.currency_code).toEqual(CURRENCY);
-          expect(spanish[0]!.payment_providers.length).toBeGreaterThan(0);
+          expect(spanish[0]!.payment_providers?.length ?? 0).toBeGreaterThan(0);
         });
 
         it("carries the peninsular VAT rate on the country and IGIC on each Canarian Province", async () => {
@@ -128,7 +177,7 @@ medusaIntegrationTestRunner({
           const rateOf = (provinceCode: ProvinceCode | null) =>
             taxRegions
               .find((region) => region.province_code === provinceCode)
-              ?.tax_rates?.find((rate: { is_default: boolean }) => rate.is_default)?.rate;
+              ?.tax_rates?.find((rate) => rate?.is_default)?.rate;
 
           expect(rateOf(null)).toEqual(PENINSULAR_VAT.rate);
           for (const province of CANARIAS_PROVINCES) {
@@ -154,10 +203,8 @@ medusaIntegrationTestRunner({
           ]);
 
           const provincesOf = (zone: (typeof zones)[number]) =>
-            zone.geo_zones.map((geoZone: { province_code: string }) => geoZone.province_code);
-          const types = zones.flatMap((zone) =>
-            zone.geo_zones.map((geoZone: { type: string }) => geoZone.type),
-          );
+            zone.geo_zones.map((geoZone) => geoZone.province_code);
+          const types = zones.flatMap((zone) => zone.geo_zones.map((geoZone) => geoZone.type));
 
           expect(zones).toHaveLength(2);
           // A country geo zone covers Canarias too, and that removes the split
@@ -292,21 +339,19 @@ medusaIntegrationTestRunner({
             ]);
 
             return zones.find((zone) =>
-              zone.geo_zones.some(
-                (geoZone: { province_code: string }) => geoZone.province_code === province,
-              ),
+              zone.geo_zones.some((geoZone) => geoZone.province_code === province),
             );
           };
 
           const canarian = (await zoneWith(CANARIAN_PROVINCE))!;
           const kept = canarian.geo_zones.filter(
-            (geoZone: { province_code: string }) => geoZone.province_code !== CANARIAN_PROVINCE,
+            (geoZone) => geoZone.province_code !== CANARIAN_PROVINCE,
           );
 
           await updateServiceZonesWorkflow(getContainer()).run({
             input: {
               selector: { id: canarian.id },
-              update: { geo_zones: kept.map((geoZone: { id: string }) => ({ id: geoZone.id })) },
+              update: { geo_zones: kept.map((geoZone) => ({ id: geoZone.id })) },
             },
           });
 

@@ -16,6 +16,22 @@ const TOY_PROVINCES = [{ code: "pt-30", name: "Madeira" }] as const satisfies Pr
 const toyProvinceCodeSchema = createProvinceCodeSchema("pt", TOY_PROVINCES);
 type ToyProvinceCode = ProvinceCodeOf<typeof TOY_PROVINCES>;
 
+type TerritoryQueryFilters = { readonly country_code?: string };
+type RegionQueryRow = {
+  readonly countries?: ReadonlyArray<{ readonly iso_2?: string | null } | null>;
+  readonly currency_code?: string;
+  readonly name?: string;
+};
+type TaxRegionQueryRow = { readonly province_code?: string | null };
+type ServiceZoneQueryRow = {
+  readonly geo_zones: ReadonlyArray<{
+    readonly country_code?: string | null;
+    readonly province_code?: string | null;
+  }>;
+  readonly name?: string;
+};
+type TerritoryQueryRow = RegionQueryRow | TaxRegionQueryRow | ServiceZoneQueryRow;
+
 const TOY_DECLARATION = {
   country: "pt",
   currency: "eur",
@@ -45,15 +61,29 @@ medusaIntegrationTestRunner({
       await seedTerritory(getContainer(), TOY_DECLARATION);
     });
 
-    const graph = async <T = Record<string, any>>(
-      entity: string,
+    async function graph(entity: "region", fields: string[]): Promise<RegionQueryRow[]>;
+    async function graph(
+      entity: "tax_region",
       fields: string[],
-      filters?: Record<string, unknown>,
-    ): Promise<T[]> => {
+      filters?: TerritoryQueryFilters,
+    ): Promise<TaxRegionQueryRow[]>;
+    async function graph(entity: "service_zone", fields: string[]): Promise<ServiceZoneQueryRow[]>;
+    async function graph(
+      entity: "region" | "tax_region" | "service_zone",
+      fields: string[],
+      filters?: TerritoryQueryFilters,
+    ): Promise<TerritoryQueryRow[]> {
       const query = (getContainer() as MedusaContainer).resolve(ContainerRegistrationKeys.QUERY);
-      const { data } = await query.graph({ entity, fields, filters });
-      return data as T[];
-    };
+
+      switch (entity) {
+        case "region":
+          return (await query.graph({ entity, fields })).data;
+        case "tax_region":
+          return (await query.graph({ entity, fields, filters })).data;
+        case "service_zone":
+          return (await query.graph({ entity, fields })).data;
+      }
+    }
 
     it("uses canonical Province codes throughout the toy Declaration", () => {
       const declaredProvinces = [
@@ -69,9 +99,7 @@ medusaIntegrationTestRunner({
     it("applies the Region, Tax Regions, and Service Zone from a non-Spanish Declaration", async () => {
       const regions = await graph("region", ["name", "currency_code", "countries.iso_2"]);
       const region = regions.find((candidate) =>
-        candidate.countries?.some(
-          (country: { iso_2: string }) => country.iso_2 === TOY_DECLARATION.country,
-        ),
+        candidate.countries?.some((country) => country?.iso_2 === TOY_DECLARATION.country),
       );
 
       expect(region).toMatchObject({

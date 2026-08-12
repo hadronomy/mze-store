@@ -14,6 +14,7 @@
         "@types/node": "catalog:",
         "chalk": "6.0.0",
         "effect": "4.0.0-beta.107",
+        "effect-oxlint": "github:hadronomy/effect-oxlint#ef3bfa2",
         "ioredis": "catalog:",
         "knip": "6.32.1",
         "rolldown": "1.1.4",
@@ -21,7 +22,6 @@
         "typescript": "catalog:",
         "uuid": "catalog:",
         "vite-plus": "catalog:",
-        "yocto-spinner": "1.2.2",
       },
     },
     "apps/medusa": {
@@ -2018,6 +2018,8 @@
     "ee-first": ["ee-first@1.1.1", "", {}, "sha512-WMwm9LhRUo+WUaRN+vRuETqG89IgZphVSNkdFgeb6sS/E4OrDIN7t48CAewSHXc6C8lefD8KKfr5vY61brQlow=="],
 
     "effect": ["effect@4.0.0-beta.107", "", { "dependencies": { "@standard-schema/spec": "^1.1.0", "fast-check": "^4.9.0", "kubernetes-types": "^1.30.0", "msgpackr": "^2.0.4", "uuid": "^14.0.1" } }, "sha512-OoBAv8eF+yanc+C6xhgEUnWeXUSHA6ynnscYqpkAY9GSnzZWystsIjBowVqCkLpHGlnRtdIqYT3wHwpOY6JDnQ=="],
+
+    "effect-oxlint": ["effect-oxlint@github:hadronomy/effect-oxlint#ef3bfa2", { "dependencies": { "@oxlint/plugins": "^1.73.0" }, "peerDependencies": { "effect": "^4.0.0-beta.107" } }, "hadronomy-effect-oxlint-ef3bfa2", "sha512-+diVftcZLN6i3POrqCjhj+llDb0H7d44YSSjemPzj/EiVinaN3f0/BWC+cH4F+hC9S0uuAJyV+c6282U4by2Vg=="],
 
     "electron-to-chromium": ["electron-to-chromium@1.5.397", "", {}, "sha512-khGTy9U9x02KEtsKM8vx5A62BsRmcOsIgDpWr1ImE32Ax8GxHGPHZf+Eu9H8zOOyHJnB0jTbseyTHbq2XCT8yw=="],
 
