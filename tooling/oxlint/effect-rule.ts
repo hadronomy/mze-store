@@ -1,7 +1,39 @@
 import { Effect, Exit, Layer } from "effect";
-import { defineRule, type CreateOnceRule, type RuleMeta } from "@oxlint/plugins";
+import {
+  defineRule,
+  type CreateOnceRule,
+  type RuleMeta,
+  type Visitor as OxlintVisitor,
+} from "@oxlint/plugins";
 
-import { FileContext, type FileContextController, makeController } from "./effect-context";
+import {
+  FileContext,
+  type FileContextController,
+  type FileFrame,
+  makeController,
+} from "./effect-context";
+
+export type VisitorKey = Extract<keyof OxlintVisitor, string>;
+export type VisitorNode<Key extends VisitorKey> = Parameters<NonNullable<OxlintVisitor[Key]>>[0];
+
+export interface SyncVisitor<Key extends VisitorKey = VisitorKey> {
+  readonly _tag: "SyncVisitor";
+  readonly key: Key;
+  readonly run: (node: VisitorNode<Key>, file: FileFrame) => void;
+}
+
+export const Visitor = {
+  onSync<Key extends VisitorKey>(
+    key: Key,
+    run: (node: VisitorNode<Key>, file: FileFrame) => void,
+  ): SyncVisitor<Key> {
+    return { _tag: "SyncVisitor", key, run };
+  },
+
+  merge(...visitors: readonly SyncVisitor[]): readonly SyncVisitor[] {
+    return visitors;
+  },
+};
 
 export type EffectVisitor = Partial<
   Record<string, (node: unknown) => Effect.Effect<void, unknown, FileContext>>
@@ -11,6 +43,7 @@ export interface EffectRuleProgram {
   readonly before?: Effect.Effect<boolean | void, unknown, FileContext>;
   readonly after?: Effect.Effect<void, unknown, FileContext>;
   readonly visitors: EffectVisitor;
+  readonly syncVisitors?: readonly SyncVisitor[];
 }
 
 export interface EffectRuleDefinition<Requirements = never> {
@@ -94,6 +127,28 @@ export const Rule = {
         };
 
         const visitors: Record<string, (node: unknown) => void> = {};
+
+        const syncHandlers = new Map<string, Array<(node: unknown, file: FileFrame) => void>>();
+        for (const visitor of program.syncVisitors ?? []) {
+          const handlers = syncHandlers.get(visitor.key);
+          const handler = visitor.run as (node: unknown, file: FileFrame) => void;
+
+          if (handlers) {
+            handlers.push(handler);
+          } else {
+            syncHandlers.set(visitor.key, [handler]);
+          }
+        }
+
+        for (const [key, handlers] of syncHandlers) {
+          visitors[key] = (node) => {
+            controller.service.use((file) => {
+              for (const handler of handlers) {
+                handler(node, file);
+              }
+            });
+          };
+        }
 
         for (const [key, handler] of Object.entries(program.visitors)) {
           if (handler) {
