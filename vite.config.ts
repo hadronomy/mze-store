@@ -43,6 +43,7 @@ export default defineConfig({
       typeCheck: false,
     },
     rules: {
+      "hadronomy/no-broad-record-types": "error",
       "hadronomy/prefer-tilde-imports": "error",
       "unicorn/no-abusive-eslint-disable": "error",
     },

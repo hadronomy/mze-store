@@ -1,4 +1,6 @@
-# Path alias lint rule
+# Local Oxlint rules
+
+## Path alias lint rule
 
 `hadronomy/prefer-tilde-imports` keeps imports local to a source surface:
 
@@ -23,3 +25,13 @@ vp test --run tooling/oxlint/index.test.ts
 Use a named lint suppression for a rare exception. Vite+ reports unused suppressions and rejects blanket `eslint-disable` comments.
 
 Oxlint JavaScript plugins are an alpha API. The CLI integration test protects this local plugin from upstream API changes. Keep `@oxlint/plugins` pinned to the version that Vite+ uses.
+
+## Broad record lint rule
+
+`hadronomy/no-broad-record-types` rejects these open object shapes:
+
+- `Record<string, unknown>`
+- `Record<string, any>`
+- a string-keyed index signature with an `unknown` value, such as `[key: string]: unknown`
+
+Use a named domain type with explicit fields. Decode external input at the boundary, for example with Effect Schema. Do not widen the type to make the error disappear. The rule does not reject specific value types, such as `Record<string, number>`.

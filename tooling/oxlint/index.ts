@@ -5,8 +5,11 @@ import { realpathSync, statSync } from "node:fs";
 import { dirname, extname, isAbsolute, relative, resolve, sep } from "node:path";
 import ts from "typescript";
 
+import { noBroadRecordTypesRule } from "./no-broad-record-types.ts";
+
 const ALIAS_PREFIX = "~/";
 const RULE_NAME = "prefer-tilde-imports";
+const NO_BROAD_RECORD_TYPES_RULE_NAME = "no-broad-record-types";
 const FILE_EXTENSIONS = [
   ".ts",
   ".tsx",
@@ -488,8 +491,11 @@ const preferTildeImportsRule = Rule.compile(preferTildeImportsPlan);
 
 const plugin = definePlugin({
   meta: { name: "hadronomy" },
-  rules: { [RULE_NAME]: preferTildeImportsRule },
+  rules: {
+    [RULE_NAME]: preferTildeImportsRule,
+    [NO_BROAD_RECORD_TYPES_RULE_NAME]: noBroadRecordTypesRule,
+  },
 });
 
-export { preferTildeImportsRule };
+export { noBroadRecordTypesRule, preferTildeImportsRule };
 export default eslintCompatPlugin(plugin);
