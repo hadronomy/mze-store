@@ -1,11 +1,6 @@
-import {
-  definePlugin,
-  defineRule,
-  eslintCompatPlugin,
-  type Context,
-  type ESTree,
-  type Scope,
-} from "@oxlint/plugins";
+import { definePlugin, eslintCompatPlugin, type ESTree, type Scope } from "@oxlint/plugins";
+import * as Effect from "effect/Effect";
+import { FileContext, Rule, Visitor } from "effect-oxlint";
 import { realpathSync, statSync } from "node:fs";
 import { dirname, extname, isAbsolute, relative, resolve, sep } from "node:path";
 import ts from "typescript";
@@ -379,7 +374,10 @@ function getStaticSpecifier(node: StaticSpecifier | ESTree.Expression | null): s
   return null;
 }
 
-function reportSpecifier(context: Context, node: StaticSpecifier | ESTree.Expression | null): void {
+function reportSpecifier(
+  context: FileContext.FileContextService,
+  node: StaticSpecifier | ESTree.Expression | null,
+): void {
   const specifier = getStaticSpecifier(node);
 
   if (specifier === null || !node) {
@@ -402,7 +400,10 @@ function reportSpecifier(context: Context, node: StaticSpecifier | ESTree.Expres
   });
 }
 
-function isGlobalRequire(context: Context, node: ESTree.Expression): boolean {
+function isGlobalRequire(
+  context: FileContext.FileContextService,
+  node: ESTree.Expression,
+): boolean {
   if (node.type !== "Identifier" || node.name !== "require") {
     return false;
   }
@@ -422,13 +423,16 @@ function isGlobalRequire(context: Context, node: ESTree.Expression): boolean {
   return true;
 }
 
-function reportCallArgument(context: Context, argument: ESTree.Argument | undefined): void {
+function reportCallArgument(
+  context: FileContext.FileContextService,
+  argument: ESTree.Argument | undefined,
+): void {
   if (argument?.type !== "SpreadElement") {
     reportSpecifier(context, argument ?? null);
   }
 }
 
-const preferTildeImportsRule = defineRule({
+const preferTildeImportsRule = Rule.defineOnce({
   meta: {
     type: "suggestion",
     docs: {
@@ -440,43 +444,66 @@ const preferTildeImportsRule = defineRule({
       preferTildeImports: "Use '{{replacement}}' for this import.",
     },
   },
-  createOnce(context) {
-    return {
-      ImportDeclaration(node) {
-        reportSpecifier(context, node.source);
-      },
-      ExportAllDeclaration(node) {
-        reportSpecifier(context, node.source);
-      },
-      ExportNamedDeclaration(node) {
-        reportSpecifier(context, node.source);
-      },
-      ImportExpression(node) {
-        reportSpecifier(context, node.source);
-      },
-      TSImportType(node) {
-        reportSpecifier(context, node.source);
-      },
-      TSExternalModuleReference(node) {
-        reportSpecifier(context, node.expression);
-      },
-      CallExpression(node) {
-        if (isGlobalRequire(context, node.callee)) {
-          reportCallArgument(context, node.arguments[0]);
-          return;
-        }
+  create: () =>
+    Effect.succeed({
+      visitors: Visitor.merge(
+        Visitor.onEffect("ImportDeclaration", (node) =>
+          Effect.gen(function* () {
+            const context = yield* FileContext.FileContext;
+            reportSpecifier(context, node.source);
+          }),
+        ),
+        Visitor.onEffect("ExportAllDeclaration", (node) =>
+          Effect.gen(function* () {
+            const context = yield* FileContext.FileContext;
+            reportSpecifier(context, node.source);
+          }),
+        ),
+        Visitor.onEffect("ExportNamedDeclaration", (node) =>
+          Effect.gen(function* () {
+            const context = yield* FileContext.FileContext;
+            reportSpecifier(context, node.source);
+          }),
+        ),
+        Visitor.onEffect("ImportExpression", (node) =>
+          Effect.gen(function* () {
+            const context = yield* FileContext.FileContext;
+            reportSpecifier(context, node.source);
+          }),
+        ),
+        Visitor.onEffect("TSImportType", (node) =>
+          Effect.gen(function* () {
+            const context = yield* FileContext.FileContext;
+            reportSpecifier(context, node.source);
+          }),
+        ),
+        Visitor.onEffect("TSExternalModuleReference", (node) =>
+          Effect.gen(function* () {
+            const context = yield* FileContext.FileContext;
+            reportSpecifier(context, node.expression);
+          }),
+        ),
+        Visitor.onEffect("CallExpression", (node) =>
+          Effect.gen(function* () {
+            const context = yield* FileContext.FileContext;
 
-        if (
-          node.callee.type === "MemberExpression" &&
-          !node.callee.computed &&
-          node.callee.property.name === "resolve" &&
-          isGlobalRequire(context, node.callee.object)
-        ) {
-          reportCallArgument(context, node.arguments[0]);
-        }
-      },
-    };
-  },
+            if (isGlobalRequire(context, node.callee)) {
+              reportCallArgument(context, node.arguments[0]);
+              return;
+            }
+
+            if (
+              node.callee.type === "MemberExpression" &&
+              !node.callee.computed &&
+              node.callee.property.name === "resolve" &&
+              isGlobalRequire(context, node.callee.object)
+            ) {
+              reportCallArgument(context, node.arguments[0]);
+            }
+          }),
+        ),
+      ),
+    }),
 });
 
 const plugin = definePlugin({
