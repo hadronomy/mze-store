@@ -8,5 +8,5 @@
     "noEmit": true,
     "rewriteRelativeImportExtensions": true
   },
-  "include": ["mze/**/*.ts"]
+  "include": ["mze/**/*.ts", "oxlint/**/*.ts"]
 }

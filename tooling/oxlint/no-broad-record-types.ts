@@ -60,6 +60,7 @@ function reportBroadIndexSignature(
 }
 
 const noBroadRecordTypesPlan = Rule.plan({
+  name: "no-broad-record-types",
   meta: {
     type: "problem",
     docs: {

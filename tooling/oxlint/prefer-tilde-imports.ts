@@ -432,6 +432,7 @@ function reportCallArgument(
 }
 
 const preferTildeImportsPlan = Rule.plan({
+  name: "prefer-tilde-imports",
   meta: {
     type: "suggestion",
     docs: {

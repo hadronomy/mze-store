@@ -1,6 +1,6 @@
 import { expect, test } from "@effect/vitest";
 
-import { runOxlintBaseline } from "./baseline";
+import { runOxlintBaseline } from "./baseline.ts";
 
 test("records the current oxlint behavior and timing", { timeout: 120_000 }, async () => {
   const report = await runOxlintBaseline({ samples: 1 });
