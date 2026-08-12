@@ -222,9 +222,7 @@ The smallest change derives a union from the three existing map keys:
 
 ```ts
 type SpanishProvinceCode =
-  | keyof typeof PENINSULAR_PROVINCES
-  | keyof typeof CANARIAS_PROVINCES
-  | keyof typeof IPSI_PROVINCES;
+  keyof typeof PENINSULAR_PROVINCES | keyof typeof CANARIAS_PROVINCES | keyof typeof IPSI_PROVINCES;
 ```
 
 This gives exact compile-time membership and good literal authoring. It also
