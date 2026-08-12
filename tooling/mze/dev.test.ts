@@ -1,5 +1,5 @@
 import { expect, it } from "@effect/vitest";
-import { Effect, Layer, Path, Ref } from "effect";
+import { Deferred, Effect, Layer, Path, Ref } from "effect";
 
 import { ChildCommand } from "./child-command.ts";
 import { Dev } from "./dev.ts";
@@ -68,4 +68,99 @@ it.effect("rejects Windows before it starts a process", () =>
       expect(error.exitCode).toBe(1);
     }),
   ),
+);
+
+it.effect("maps a failed Storefront command to its development process", () =>
+  Effect.gen(function* () {
+    const commands = ChildCommand.Service.of({
+      capture: (spec) =>
+        Effect.succeed({
+          exitCode: 0,
+          stderr: "",
+          stdout: spec.executable === "portless" ? "0.15.5\n" : "127.0.0.1:41001\n",
+        }),
+      run: (spec) =>
+        spec.executable === "portless" && spec.arguments[0] === "run"
+          ? Effect.fail(
+              new ChildCommand.CommandFailed({
+                command: "portless run",
+                exitCode: 23,
+                stderr: "",
+                stdout: "",
+              }),
+            )
+          : Effect.void,
+    });
+    const error = yield* Dev.run({ cwd: "/repo", platform: "darwin", target: "storefront" }).pipe(
+      Effect.provideService(ChildCommand.Service, commands),
+      Effect.provide(Path.layer),
+      Effect.flip,
+    );
+
+    expect(error._tag).toBe("DevelopmentProcessExited");
+    if (error._tag === "DevelopmentProcessExited") {
+      expect(error.exitCode).toBe(23);
+      expect(error.process).toBe("Storefront");
+    }
+  }),
+);
+
+it.effect("interrupts the sibling when a development process exits", () =>
+  Effect.gen(function* () {
+    const bothStarted = yield* Deferred.make<void>();
+    const medusaInterrupted = yield* Deferred.make<void>();
+    const started = yield* Ref.make(0);
+    const commands = ChildCommand.Service.of({
+      capture: (spec) =>
+        Effect.succeed({
+          exitCode: 0,
+          stderr: "",
+          stdout: spec.executable === "portless" ? "0.15.5\n" : "127.0.0.1:41001\n",
+        }),
+      run: (spec) => {
+        if (spec.executable !== "portless") {
+          return Effect.void;
+        }
+
+        const storefront = spec.arguments[0] === "run";
+        return Effect.gen(function* () {
+          const count = yield* Ref.updateAndGet(started, (value) => value + 1);
+          if (count === 2) {
+            yield* Deferred.succeed(bothStarted, undefined);
+          }
+
+          if (storefront) {
+            yield* Deferred.await(bothStarted);
+            return yield* Effect.fail(
+              new ChildCommand.CommandFailed({
+                command: "portless run",
+                exitCode: 23,
+                stderr: "",
+                stdout: "",
+              }),
+            );
+          }
+
+          yield* Deferred.await(medusaInterrupted);
+        }).pipe(
+          Effect.onInterrupt(() =>
+            storefront ? Effect.void : Deferred.succeed(medusaInterrupted, undefined),
+          ),
+        );
+      },
+    });
+
+    const error = yield* Dev.run({ cwd: "/repo", platform: "darwin", target: "all" }).pipe(
+      Effect.provideService(ChildCommand.Service, commands),
+      Effect.provide(Path.layer),
+      Effect.flip,
+    );
+
+    expect(error._tag).toBe("DevelopmentProcessExited");
+    if (error._tag === "DevelopmentProcessExited") {
+      expect(error.exitCode).toBe(23);
+      expect(error.process).toBe("Storefront");
+    }
+    expect(yield* Deferred.isDone(medusaInterrupted)).toBe(true);
+  }),
 );

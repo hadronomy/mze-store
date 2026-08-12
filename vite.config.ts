@@ -4,6 +4,7 @@ import { configDefaults, defineConfig } from "vite-plus";
 const ignorePatterns = [
   "node_modules/**",
   "**/node_modules/**",
+  ".cache/**",
   "apps/storefront/dist/**",
   "apps/storefront/.vinxi/**",
   "apps/storefront/.tanstack/**",
