@@ -22,6 +22,19 @@ export class DevelopmentProcessExited extends Schema.TaggedError<DevelopmentProc
   },
 ) {}
 
+const supervise = <R>(process: string, effect: Effect.Effect<void, Portless.Error, R>) =>
+  effect.pipe(
+    Effect.catchTag("CommandFailed", (error) =>
+      Effect.fail(
+        new DevelopmentProcessExited({
+          exitCode: error.exitCode,
+          process,
+        }),
+      ),
+    ),
+    Effect.andThen(Effect.fail(new DevelopmentProcessExited({ exitCode: 1, process }))),
+  );
+
 export const run = (options: {
   readonly cwd: string;
   readonly platform: string;
@@ -43,28 +56,26 @@ export const run = (options: {
       cwd: options.cwd,
     });
 
-    const storefront = commands
-      .run({
+    const storefront = supervise(
+      "Storefront",
+      commands.run({
         executable: "portless",
         arguments: ["run", "--name", "storefront.mze-store", "vp", "dev"],
         cwd: path.join(options.cwd, "apps/storefront"),
         environment,
-      })
-      .pipe(
-        Effect.andThen(
-          Effect.fail(new DevelopmentProcessExited({ exitCode: 1, process: "Storefront" })),
-        ),
-      );
+      }),
+    );
 
     if (options.target === "storefront") {
       return yield* storefront;
     }
 
-    const medusa = Portless.runMedusa({
-      cwd: path.join(options.cwd, "apps/medusa"),
-      environment,
-    }).pipe(
-      Effect.andThen(Effect.fail(new DevelopmentProcessExited({ exitCode: 1, process: "Medusa" }))),
+    const medusa = supervise(
+      "Medusa",
+      Portless.runMedusa({
+        cwd: path.join(options.cwd, "apps/medusa"),
+        environment,
+      }),
     );
 
     yield* Effect.all([storefront, medusa], {

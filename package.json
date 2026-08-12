@@ -50,7 +50,6 @@
     "dev": "node tooling/mze/main.ts dev",
     "build": "node tooling/mze/main.ts build",
     "test": "node tooling/mze/main.ts test",
-    "test:e2e": "node tooling/mze/main.ts test e2e",
     "check": "node tooling/mze/main.ts check"
   },
   "devDependencies": {
@@ -63,15 +62,14 @@
     "@types/node": "catalog:",
     "chalk": "6.0.0",
     "effect": "4.0.0-beta.107",
-    "effect-oxlint": "github:hadronomy/effect-oxlint#6d3ea66",
+    "effect-oxlint": "github:hadronomy/effect-oxlint#ef3bfa2",
     "ioredis": "catalog:",
     "knip": "6.32.1",
     "rolldown": "1.1.4",
     "tsc-alias": "^1.9.1",
     "typescript": "catalog:",
     "uuid": "catalog:",
-    "vite-plus": "catalog:",
-    "yocto-spinner": "1.2.2"
+    "vite-plus": "catalog:"
   },
   "overrides": {
     "vite": "npm:@voidzero-dev/vite-plus-core@0.2.6"
