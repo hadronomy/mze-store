@@ -8,7 +8,6 @@
     "db:rollback": "vp run --filter '@mze-store/env' --filter '@mze-store/territory' build && medusa db:rollback",
     "dev": "vp run --filter '@mze-store/env' --filter '@mze-store/territory' build && vp run dev:raw",
     "dev:raw": "medusa develop",
-    "dev:portless:raw": "node ../../tooling/portless/medusa.mjs",
     "seed": "vp run --filter '@mze-store/env' --filter '@mze-store/territory' build && medusa exec ./src/scripts/seed.ts",
     "seed:probe": "vp run --filter '@mze-store/env' --filter '@mze-store/territory' build && medusa exec ./src/scripts/seed-probe.ts",
     "start": "medusa start",

@@ -22,7 +22,8 @@ RUN --mount=type=cache,id=bun-install-cache,target=/root/.bun/install/cache \
 
 COPY . .
 ENV NODE_ENV=production
-RUN bun run build:packages && ./node_modules/.bin/vp run -t storefront#build
+RUN ./node_modules/.bin/vp run --filter './packages/*' build \
+  && ./node_modules/.bin/vp run -t storefront#build
 
 # Bun's isolated install uses links. Resolve React before copying it alone.
 RUN mkdir -p /tmp/storefront-runtime/node_modules \

@@ -9,7 +9,7 @@
     "packages/db/drizzle.config.ts",
     "apps/storefront/src/routeTree.gen.ts"
   ],
-  "ignoreDependencies": ["@axe-core/playwright", "rolldown"],
+  "ignoreDependencies": ["@axe-core/playwright", "rolldown", "uuid"],
   "ignoreBinaries": ["auth", "drizzle-kit", "jest", "medusa", "portless", "tsc", "tsc-alias", "vp"],
   "workspaces": {
     ".": {

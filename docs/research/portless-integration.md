@@ -30,34 +30,30 @@ Funnel, ngrok, or wildcard routing for this pilot.
 
 ## Commands
 
-Start the backing services in one terminal:
+Start the backing services without starting the applications:
 
 ```sh
-bun run services:start
+bun run mze services start
 ```
 
-If you run the apps directly, copy the host ports from `bun run services:ports`
-into the two environment files before you start them.
-
-In another terminal, start Medusa and the current Storefront:
+Start Medusa and the current Storefront. The command discovers and injects the
+service ports in memory:
 
 ```sh
-bun run dev:portless
+bun run dev
 ```
 
 When the shared Medusa process is already running, start only the Storefront:
 
 ```sh
-bun run dev:portless:storefront
+bun run mze dev storefront
 ```
 
 When the session ends, stop the backing services:
 
 ```sh
-bun run services:stop
+bun run mze services stop
 ```
-
-The normal `bun run dev` command keeps the fixed-port path during the pilot.
 
 ## URLs
 
@@ -81,7 +77,7 @@ https://<worktree>.storefront.mze-store.localhost
 
 Only one Medusa process can own `medusa.mze-store.localhost`. If another
 worktree owns that route, the second Medusa command fails. Run
-`bun run dev:portless:storefront` to start another Storefront without taking
+`bun run mze dev storefront` to start another Storefront without taking
 the route. To use the second worktree's isolated database and Redis, start its
 Compose Medusa service with `docker compose up -d medusa`. Discover its port
 with `docker compose port medusa 9000`, then point that Storefront's Medusa URL
@@ -105,6 +101,5 @@ linked worktrees do not share database or Redis state. Service-to-service
 traffic keeps the stable names `postgres` and `redis`. The shared Portless
 Medusa name is an application-route limit, not a Compose-state limit.
 
-Portless is not part of CI or Docker Compose. After automated checks, a
-two-worktree development session, and manual approval, promote it to the
-normal `dev` path.
+Portless is not part of Docker Compose. The Effect tooling checks its exact
+version and supervises its child processes on macOS and Linux.

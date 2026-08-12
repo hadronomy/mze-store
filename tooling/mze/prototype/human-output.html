@@ -1,0 +1,618 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>MZE human output prototype</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --ink: #e7e8e2;
+        --muted: #8c938d;
+        --dim: #5e6761;
+        --surface: #151817;
+        --surface-raised: #1c211e;
+        --surface-high: #242a26;
+        --rule: #303832;
+        --green: #b5e28c;
+        --cyan: #8edbd4;
+        --yellow: #f0c674;
+        --red: #f28f83;
+        --orange: #e5a16f;
+        --mono: "SFMono-Regular", "Cascadia Code", "Roboto Mono", Consolas, monospace;
+        --sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        min-width: 320px;
+        background: #101211;
+        color: var(--ink);
+        font-family: var(--sans);
+      }
+      button {
+        font: inherit;
+      }
+      .page {
+        width: min(1180px, calc(100% - 40px));
+        margin: 0 auto;
+        padding: 38px 0 128px;
+      }
+      .masthead {
+        display: flex;
+        align-items: end;
+        justify-content: space-between;
+        gap: 24px;
+        margin-bottom: 24px;
+      }
+      .eyebrow {
+        margin: 0 0 8px;
+        color: var(--cyan);
+        font-family: var(--mono);
+        font-size: 12px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+      h1,
+      h2,
+      p {
+        margin: 0;
+      }
+      h1 {
+        font-size: clamp(28px, 4vw, 48px);
+        letter-spacing: -0.04em;
+        line-height: 0.98;
+      }
+      .lede {
+        max-width: 590px;
+        margin-top: 12px;
+        color: var(--muted);
+        line-height: 1.5;
+      }
+      .scenario {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 8px 10px;
+        border: 1px solid var(--rule);
+        background: var(--surface);
+        color: var(--muted);
+        font-family: var(--mono);
+        font-size: 12px;
+      }
+      .scenario button {
+        border: 0;
+        border-bottom: 1px solid var(--cyan);
+        padding: 2px 0;
+        background: none;
+        color: var(--cyan);
+        cursor: pointer;
+      }
+      .terminal {
+        overflow: hidden;
+        border: 1px solid var(--rule);
+        background: var(--surface);
+        box-shadow: 0 20px 45px rgb(0 0 0 / 0.24);
+      }
+      .terminal-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        min-height: 48px;
+        padding: 0 18px;
+        border-bottom: 1px solid var(--rule);
+        color: var(--muted);
+        font-family: var(--mono);
+        font-size: 12px;
+      }
+      .terminal-head strong {
+        color: var(--ink);
+        font-weight: 500;
+      }
+      .terminal-head span:last-child {
+        color: var(--dim);
+      }
+      .output {
+        min-height: 530px;
+        padding: 28px;
+      }
+      .mono {
+        font-family: var(--mono);
+      }
+      .green {
+        color: var(--green);
+      }
+      .cyan {
+        color: var(--cyan);
+      }
+      .yellow {
+        color: var(--yellow);
+      }
+      .red {
+        color: var(--red);
+      }
+      .orange {
+        color: var(--orange);
+      }
+      .muted {
+        color: var(--muted);
+      }
+      .dim {
+        color: var(--dim);
+      }
+      .rule {
+        border-top: 1px solid var(--rule);
+      }
+      .state {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        margin-top: 18px;
+        padding-top: 12px;
+        border-top: 1px solid var(--rule);
+        color: var(--muted);
+        font-size: 13px;
+      }
+      .state strong {
+        color: var(--green);
+        font-weight: 600;
+      }
+      .failure .state strong {
+        color: var(--red);
+      }
+
+      /* A — a dense event rail for people who keep the terminal open. */
+      .variant-a .prompt {
+        color: var(--dim);
+        font-size: 13px;
+      }
+      .variant-a .prompt strong {
+        color: var(--ink);
+        font-weight: 500;
+      }
+      .variant-a h2 {
+        margin-top: 24px;
+        font-size: 24px;
+        letter-spacing: -0.03em;
+      }
+      .rail {
+        margin-top: 28px;
+        border-left: 1px solid var(--rule);
+      }
+      .rail-row {
+        display: grid;
+        grid-template-columns: 72px 24px 1fr auto;
+        gap: 12px;
+        align-items: baseline;
+        min-height: 42px;
+        padding: 10px 0 10px 16px;
+        font-family: var(--mono);
+        font-size: 13px;
+      }
+      .rail-row + .rail-row {
+        border-top: 1px solid rgb(48 56 50 / 0.5);
+      }
+      .rail-row time {
+        color: var(--dim);
+      }
+      .rail-row .mark {
+        font-size: 16px;
+      }
+      .rail-row .tail {
+        color: var(--muted);
+        text-align: right;
+      }
+      .rail-row.failure {
+        background: rgb(242 143 131 / 0.06);
+      }
+      .rail-row.failure .mark,
+      .rail-row.failure .body {
+        color: var(--red);
+      }
+      .rail-note {
+        margin: 22px 0 0 16px;
+        padding: 12px 14px;
+        border-left: 2px solid var(--yellow);
+        background: rgb(240 198 116 / 0.06);
+        color: var(--yellow);
+        font-family: var(--mono);
+        font-size: 13px;
+        line-height: 1.5;
+      }
+
+      /* B — a runbook shape for people joining the project. */
+      .variant-b .output {
+        padding: 0;
+      }
+      .runbook-intro {
+        padding: 32px 30px 26px;
+        background: var(--surface-raised);
+      }
+      .runbook-intro h2 {
+        margin-top: 6px;
+        font-size: 32px;
+        letter-spacing: -0.05em;
+      }
+      .runbook-intro p {
+        max-width: 650px;
+        margin-top: 10px;
+        color: var(--muted);
+        line-height: 1.5;
+      }
+      .runbook-grid {
+        display: grid;
+        grid-template-columns: 1fr 270px;
+      }
+      .steps {
+        padding: 10px 30px 30px;
+      }
+      .step {
+        display: grid;
+        grid-template-columns: 34px 1fr;
+        gap: 16px;
+        padding: 22px 0;
+      }
+      .step + .step {
+        border-top: 1px solid var(--rule);
+      }
+      .step-no {
+        color: var(--dim);
+        font-family: var(--mono);
+        font-size: 13px;
+      }
+      .step h3 {
+        margin: 0;
+        font-size: 15px;
+        font-weight: 600;
+      }
+      .step p {
+        margin-top: 8px;
+        color: var(--muted);
+        font-family: var(--mono);
+        font-size: 13px;
+        line-height: 1.6;
+      }
+      .step .detail {
+        margin-top: 12px;
+        color: var(--green);
+        font-family: var(--mono);
+        font-size: 12px;
+      }
+      .aside {
+        padding: 26px 22px;
+        border-left: 1px solid var(--rule);
+        background: #121514;
+      }
+      .aside h3 {
+        color: var(--dim);
+        font-family: var(--mono);
+        font-size: 11px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+      .metric {
+        padding: 16px 0;
+        border-bottom: 1px solid var(--rule);
+      }
+      .metric strong {
+        display: block;
+        color: var(--ink);
+        font-family: var(--mono);
+        font-size: 20px;
+        font-weight: 500;
+      }
+      .metric span {
+        display: block;
+        margin-top: 5px;
+        color: var(--muted);
+        font-size: 12px;
+      }
+      .next {
+        margin-top: 22px;
+        color: var(--yellow);
+        font-family: var(--mono);
+        font-size: 12px;
+        line-height: 1.55;
+      }
+
+      /* C — a command-center view for a long-running dev session. */
+      .variant-c .output {
+        padding: 34px;
+      }
+      .broadcast-head {
+        display: flex;
+        align-items: end;
+        justify-content: space-between;
+        gap: 20px;
+        padding-bottom: 28px;
+      }
+      .broadcast-head h2 {
+        margin-top: 7px;
+        font-size: clamp(42px, 8vw, 88px);
+        letter-spacing: -0.08em;
+        line-height: 0.84;
+      }
+      .broadcast-head .elapsed {
+        color: var(--muted);
+        font-family: var(--mono);
+        font-size: 13px;
+      }
+      .broadcast-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        border-top: 1px solid var(--rule);
+        border-bottom: 1px solid var(--rule);
+      }
+      .broadcast-cell {
+        min-height: 228px;
+        padding: 22px 20px;
+      }
+      .broadcast-cell + .broadcast-cell {
+        border-left: 1px solid var(--rule);
+      }
+      .broadcast-cell h3 {
+        margin: 0 0 22px;
+        color: var(--dim);
+        font-family: var(--mono);
+        font-size: 11px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+      .big-value {
+        color: var(--green);
+        font-family: var(--mono);
+        font-size: 28px;
+      }
+      .item {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 13px 0;
+        border-top: 1px solid rgb(48 56 50 / 0.6);
+        font-family: var(--mono);
+        font-size: 12px;
+      }
+      .item span:first-child {
+        color: var(--ink);
+      }
+      .item span:last-child {
+        color: var(--muted);
+        text-align: right;
+      }
+      .broadcast-foot {
+        display: flex;
+        justify-content: space-between;
+        gap: 20px;
+        padding-top: 22px;
+        color: var(--muted);
+        font-family: var(--mono);
+        font-size: 12px;
+      }
+      .broadcast-foot strong {
+        color: var(--cyan);
+        font-weight: 500;
+      }
+      .variant-c.failure .broadcast-head h2 {
+        color: var(--red);
+      }
+      .variant-c.failure .big-value {
+        color: var(--red);
+      }
+
+      .switcher {
+        position: fixed;
+        z-index: 5;
+        right: 50%;
+        bottom: 24px;
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        transform: translateX(50%);
+        padding: 8px 10px;
+        border: 1px solid #465249;
+        background: #1c211e;
+        box-shadow: 0 12px 30px rgb(0 0 0 / 0.4);
+        font-family: var(--mono);
+        font-size: 12px;
+      }
+      .switcher button {
+        width: 28px;
+        height: 28px;
+        border: 1px solid var(--rule);
+        background: var(--surface-high);
+        color: var(--ink);
+        cursor: pointer;
+      }
+      .switcher button:hover,
+      .switcher button:focus-visible {
+        border-color: var(--cyan);
+        color: var(--cyan);
+        outline: none;
+      }
+      .switcher .current {
+        min-width: 190px;
+        color: var(--muted);
+        text-align: center;
+      }
+      .switcher .current strong {
+        color: var(--ink);
+        font-weight: 500;
+      }
+      @media (max-width: 760px) {
+        .page {
+          width: min(100% - 24px, 1180px);
+          padding-top: 24px;
+        }
+        .masthead {
+          display: block;
+        }
+        .scenario {
+          margin-top: 18px;
+          width: fit-content;
+        }
+        .output {
+          min-height: 590px;
+          padding: 20px;
+        }
+        .rail-row {
+          grid-template-columns: 58px 20px 1fr;
+          gap: 8px;
+        }
+        .rail-row .tail {
+          grid-column: 3;
+          text-align: left;
+        }
+        .runbook-grid,
+        .broadcast-grid {
+          grid-template-columns: 1fr;
+        }
+        .aside {
+          border-top: 1px solid var(--rule);
+          border-left: 0;
+        }
+        .broadcast-cell + .broadcast-cell {
+          border-top: 1px solid var(--rule);
+          border-left: 0;
+        }
+        .broadcast-head {
+          display: block;
+        }
+        .broadcast-head .elapsed {
+          display: block;
+          margin-top: 18px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Prototype question: Which human-output structure makes mze easiest to scan during dev work? -->
+    <main class="page">
+      <header class="masthead">
+        <div>
+          <p class="eyebrow">MZE / human output prototype</p>
+          <h1>One command. Three terminal voices.</h1>
+          <p class="lede">
+            Compare the same `mze dev` session as a dense event rail, a runbook, or a command-center
+            summary. Switch state to test the failure path too.
+          </p>
+        </div>
+        <div class="scenario">
+          scenario: <button id="scenarioButton" type="button">success</button>
+        </div>
+      </header>
+
+      <section id="terminal" class="terminal" aria-live="polite"></section>
+    </main>
+
+    <nav class="switcher" aria-label="Prototype variants">
+      <button id="previous" type="button" aria-label="Previous variant">←</button>
+      <div class="current">
+        <strong id="variantKey">A</strong> — <span id="variantName">Event rail</span>
+      </div>
+      <button id="next" type="button" aria-label="Next variant">→</button>
+    </nav>
+
+    <script>
+      const variants = [
+        { key: "A", name: "Event rail" },
+        { key: "B", name: "Runbook" },
+        { key: "C", name: "Command center" },
+      ];
+      const success = {
+        status: "ready",
+        statusLabel: "READY",
+        elapsed: "9.4s",
+        services: ["PostgreSQL  ·  49122", "Redis       ·  49123"],
+        routes: ["storefront.mze-store.localhost", "medusa.mze-store.localhost"],
+        processes: ["Storefront  ·  running", "Medusa      ·  running"],
+      };
+      const failure = {
+        status: "failure",
+        statusLabel: "BLOCKED",
+        elapsed: "1.8s",
+        services: ["PostgreSQL  ·  49122", "Redis       ·  49123"],
+        routes: ["medusa.mze-store.localhost  ·  pid 48112"],
+        processes: ["Medusa      ·  route conflict"],
+      };
+      let scenario =
+        new URLSearchParams(location.search).get("scenario") === "failure" ? failure : success;
+      const terminal = document.querySelector("#terminal");
+      const variantKey = document.querySelector("#variantKey");
+      const variantName = document.querySelector("#variantName");
+      const scenarioButton = document.querySelector("#scenarioButton");
+      const currentIndex = () =>
+        Math.max(
+          0,
+          variants.findIndex(
+            ({ key }) => key === (new URLSearchParams(location.search).get("variant") || "A"),
+          ),
+        );
+
+      function chrome(label) {
+        return `<div class="terminal-head"><strong>${label}</strong><span>read-only prototype</span></div>`;
+      }
+      function state() {
+        return `<div class="state"><span>full state · ${scenario.status === "ready" ? "all processes supervised" : "startup stopped safely"}</span><strong>${scenario.statusLabel}</strong></div>`;
+      }
+      function variantA() {
+        const rows =
+          scenario.status === "ready"
+            ? [
+                ["00.0s", "✓", "services", "healthy · PostgreSQL :49122 · Redis :49123", "green"],
+                ["00.3s", "↗", "storefront", "https://storefront.mze-store.localhost", "cyan"],
+                ["01.8s", "↗", "medusa", "https://medusa.mze-store.localhost", "cyan"],
+                ["09.4s", "✓", "dev", "two processes supervised", "green"],
+              ]
+            : [
+                ["00.0s", "✓", "services", "healthy · PostgreSQL :49122 · Redis :49123", "green"],
+                ["00.4s", "!", "medusa", "route already owned by pid 48112", "failure"],
+                ["01.8s", "·", "dev", "startup stopped · Storefront was not started", "muted"],
+              ];
+        return `<div class="variant-a ${scenario.status}">${chrome("mze dev")}<div class="output"><p class="prompt mono"><span class="dim">$</span> <strong>bun run mze dev</strong></p><h2>Development session</h2><div class="rail">${rows.map(([time, mark, name, detail, color]) => `<div class="rail-row ${color === "failure" ? "failure" : ""}"><time>${time}</time><span class="mark ${color}">${mark}</span><span class="body ${color}">${name} <span class="muted">— ${detail}</span></span><span class="tail">${color === "green" ? "done" : color === "cyan" ? "live" : color === "failure" ? "stop" : "skip"}</span></div>`).join("")}</div>${scenario.status === "failure" ? `<div class="rail-note">Next: stop pid 48112, then run <strong>bun run mze dev</strong> again. Use <strong>bun run mze dev storefront</strong> when another worktree owns Medusa.</div>` : ""}${state()}</div></div>`;
+      }
+      function variantB() {
+        const blocked = scenario.status === "failure";
+        return `<div class="variant-b ${scenario.status}">${chrome("mze dev · runbook")}<div class="output"><div class="runbook-intro"><p class="eyebrow">development session</p><h2>${blocked ? "Startup blocked" : "Your stack is ready"}</h2><p>${blocked ? "MZE stopped before it could start a partial stack. One shared route is already in use." : "Services are healthy and both applications are reachable through stable local URLs."}</p></div><div class="runbook-grid"><div class="steps"><div class="step"><span class="step-no">01</span><div><h3>Infrastructure</h3><p>PostgreSQL <span class="green">healthy</span> · Redis <span class="green">healthy</span></p><div class="detail">ports 49122 / 49123 · ready in 0.3s</div></div></div><div class="step"><span class="step-no">02</span><div><h3>Routes</h3><p>${blocked ? `<span class="red">medusa.mze-store.localhost</span> is owned by pid 48112` : `<span class="cyan">storefront.mze-store.localhost</span><br><span class="cyan">medusa.mze-store.localhost</span>`}</p><div class="detail ${blocked ? "red" : ""}">${blocked ? "route conflict · no app processes started" : "HTTPS routes registered"}</div></div></div><div class="step"><span class="step-no">03</span><div><h3>Applications</h3><p>${blocked ? "Storefront and Medusa were not started." : "Storefront and Medusa are supervised."}</p><div class="detail ${blocked ? "red" : ""}">${blocked ? "safe stop" : "watching child process groups"}</div></div></div></div><aside class="aside"><h3>session</h3><div class="metric"><strong>${scenario.elapsed}</strong><span>startup time</span></div><div class="metric"><strong>${blocked ? "1" : "2"}</strong><span>${blocked ? "blocking issue" : "apps online"}</span></div><p class="next">${blocked ? "next step → stop pid 48112 or use the Storefront-only command" : "next step → open the Storefront URL"}</p></aside></div>${state()}</div></div>`;
+      }
+      function variantC() {
+        const blocked = scenario.status === "failure";
+        return `<div class="variant-c ${scenario.status}">${chrome("mze dev · command center")}<div class="output"><div class="broadcast-head"><div><p class="eyebrow">mze dev</p><h2>${blocked ? "BLOCKED" : "READY"}</h2></div><span class="elapsed">elapsed ${scenario.elapsed}</span></div><div class="broadcast-grid"><section class="broadcast-cell"><h3>services</h3><div class="big-value">${blocked ? "2 / 2" : "2 / 2"}</div><div class="item"><span>PostgreSQL</span><span class="green">healthy</span></div><div class="item"><span>Redis</span><span class="green">healthy</span></div></section><section class="broadcast-cell"><h3>routes</h3><div class="big-value">${blocked ? "0 / 2" : "2 / 2"}</div>${scenario.routes.map((route) => `<div class="item"><span>${route.split("  ·  ")[0]}</span><span class="${blocked ? "red" : "cyan"}">${route.includes("pid") ? "owned" : "online"}</span></div>`).join("")}</section><section class="broadcast-cell"><h3>processes</h3><div class="big-value">${blocked ? "0 / 2" : "2 / 2"}</div>${scenario.processes.map((process) => `<div class="item"><span>${process.split("  ·  ")[0]}</span><span class="${blocked ? "red" : "green"}">${process.split("  ·  ")[1]}</span></div>`).join("")}</section></div><div class="broadcast-foot"><span>${blocked ? "startup stopped before partial state" : "all child groups supervised"}</span><strong>${blocked ? "run: mze dev storefront" : "open: storefront.mze-store.localhost"}</strong></div>${state()}</div></div>`;
+      }
+      function render() {
+        const index = currentIndex();
+        const variant = variants[index];
+        variantKey.textContent = variant.key;
+        variantName.textContent = variant.name;
+        scenarioButton.textContent = scenario.status === "ready" ? "success" : "failure";
+        terminal.innerHTML = index === 0 ? variantA() : index === 1 ? variantB() : variantC();
+        const params = new URLSearchParams(location.search);
+        params.set("variant", variant.key);
+        params.set("scenario", scenario.status);
+        history.replaceState(null, "", `?${params}`);
+      }
+      function move(step) {
+        const next = (currentIndex() + step + variants.length) % variants.length;
+        const params = new URLSearchParams(location.search);
+        params.set("variant", variants[next].key);
+        history.replaceState(null, "", `?${params}`);
+        render();
+      }
+      document.querySelector("#previous").addEventListener("click", () => move(-1));
+      document.querySelector("#next").addEventListener("click", () => move(1));
+      scenarioButton.addEventListener("click", () => {
+        scenario = scenario.status === "ready" ? failure : success;
+        render();
+      });
+      document.addEventListener("keydown", (event) => {
+        if (["INPUT", "TEXTAREA", "SELECT"].includes(document.activeElement?.tagName)) return;
+        if (event.key === "ArrowLeft") move(-1);
+        if (event.key === "ArrowRight") move(1);
+      });
+      render();
+    </script>
+  </body>
+</html>

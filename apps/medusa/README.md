@@ -10,16 +10,16 @@ why it is neither bundled nor bundle-able.
 ## Running it
 
 ```sh
-bun run services:start                 # from the repository root
+bun run mze services start             # from the repository root
 cp .env.template .env
-bun run db:migrate
+bun run mze db migrate                 # from the repository root
 bun run seed
 bun run seed:probe                     # development only, see below
 bun run user:create -e you@example.com -p yourpassword
 bun run dev                            # admin at http://localhost:9000/app
 ```
 
-After you start the services, run `bun run dev:portless` from the repository
+Run `bun run dev` from the repository
 root. The admin URL is
 `https://medusa.mze-store.localhost/app`. Only one Medusa process can own that
 URL. See the [Portless integration note](../../docs/research/portless-integration.md).
@@ -47,7 +47,7 @@ config and the admin bundle live. Starting it from the wrong one fails with
 Run this command from the repository root:
 
 ```sh
-bun run check-types
+bun run check
 ```
 
 CI runs the same command. The Medusa workspace maps its task to `medusa build`.

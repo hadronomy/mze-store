@@ -7,7 +7,7 @@ boundary.
 
 ## Toolchain
 
-- Mise pins Node 24 and Bun 1.3.14 in [`mise.toml`](./mise.toml).
+- Mise pins Node 24.18.1 and Bun 1.3.14 in [`mise.toml`](./mise.toml).
 - Bun is the package manager. Node runs Medusa and the other Node processes.
 - Vite+ owns formatting, linting, tests, staged checks, and workspace tasks.
 - Oxlint and Oxfmt use [`vite.config.ts`](./vite.config.ts).
@@ -19,15 +19,15 @@ Run these commands from the repository root:
 
 ```sh
 bun install --frozen-lockfile
+bun run mze setup
+bun run mze doctor
+bun run dev
 bun run check
-bun run check-types
 bun run test
-bun run hooks:setup
-bun run services:start
-bun run services:stop
-bun run dev:portless
-bun run docker:up
-bun run docker:down
+bun run mze services start
+bun run mze services stop
+bun run mze docker up
+bun run mze docker down
 ```
 
 `bun run test` and direct Medusa development need PostgreSQL and Redis. Copy
@@ -62,10 +62,11 @@ Do not edit generated output. The root Vite+ config ignores these paths:
 Compose uses the worktree directory as its project name by default. Use
 `docker compose port <service> <container-port>` to find a random host port.
 
-The Knip report is not a required check. Run `bun run knip:report` when you
+The Knip report is not a required check. Run
+`bunx knip --no-exit-code --reporter compact` when you
 change workspace entries or dependencies. Package builds and package type
-checks use the cached Vite+ tasks through `bun run build:packages` and
-`bun run check-types`. Do not add database, migration, seed, test,
+checks use the cached Vite+ tasks through `bun run build` and `bun run check`.
+Do not add database, migration, seed, test,
 development-server, or application-build scripts to cached task definitions.
 
 ## Further guidance

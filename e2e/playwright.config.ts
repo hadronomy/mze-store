@@ -23,7 +23,7 @@ export default defineConfig({
   webServer:
     startWebServer && !process.env.PLAYWRIGHT_BASE_URL
       ? {
-          command: "bun run dev:storefront",
+          command: "bun run mze dev storefront",
           url: baseURL,
           reuseExistingServer: !process.env.CI,
           timeout: 120_000,
