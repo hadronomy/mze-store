@@ -15,6 +15,7 @@ export const down = (cwd: string, deleteVolumes: boolean) =>
 
 export const logs = (cwd: string) => run(cwd, ["logs", "-f"]);
 
-export const up = (cwd: string) => run(cwd, ["up", "-d", "--build"]);
+export const up = (cwd: string) =>
+  run(cwd, ["up", "-d", "--build", "--wait", "--wait-timeout", "180"]);
 
 export * as Docker from "./docker.ts";
