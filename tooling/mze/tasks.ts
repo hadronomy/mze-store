@@ -38,6 +38,7 @@ export const test = (cwd: string, target: "e2e" | "workspace") =>
 export const lint = (cwd: string) =>
   Effect.gen(function* () {
     yield* runVp(cwd, ["run", "--filter", "@mze-store/oxlint", "build"]);
+    yield* runVp(cwd, ["run", "--filter", "./packages/*", "build"]);
     yield* runVp(cwd, ["lint"]);
   });
 
