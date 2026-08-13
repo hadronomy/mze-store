@@ -41,19 +41,20 @@ function median(values: readonly number[]): number {
   return sorted[Math.floor(sorted.length / 2)] ?? Number.POSITIVE_INFINITY;
 }
 
-function benchmark(callback: () => void): number {
+function benchmarkCpuMs(callback: () => void): number {
   for (let index = 0; index < warmupCount; index += 1) {
     callback();
   }
 
   const samples = Array.from({ length: sampleCount }, () => {
-    const startedAt = process.hrtime.bigint();
+    const startedAt = process.cpuUsage();
 
     for (let index = 0; index < callbackCount; index += 1) {
       callback();
     }
 
-    return Number(process.hrtime.bigint() - startedAt) / 1_000_000;
+    const elapsed = process.cpuUsage(startedAt);
+    return (elapsed.user + elapsed.system) / 1_000;
   });
 
   return median(samples);
@@ -203,8 +204,8 @@ it("keeps direct and effectful visitors within their thresholds", () => {
 
   directVisitor.before?.();
   effectfulVisitor.before?.();
-  const directMedianMs = benchmark(() => directHandler(node));
-  const effectfulMedianMs = benchmark(() => effectfulHandler(node));
+  const directMedianMs = benchmarkCpuMs(() => directHandler(node));
+  const effectfulMedianMs = benchmarkCpuMs(() => effectfulHandler(node));
   directVisitor.after?.();
   effectfulVisitor.after?.();
 
