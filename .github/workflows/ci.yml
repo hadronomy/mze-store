@@ -2,20 +2,16 @@ name: CI
 
 on:
   pull_request:
-  push:
-    branches:
-      - main
+  merge_group:
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ci-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 permissions:
   contents: read
 
 env:
-  # Integration tests route this test-shaped key to local Emulate and block
-  # real Stripe traffic. The Docker smoke test only initializes the provider.
   STRIPE_API_KEY: sk_test_ci
 
 jobs:
@@ -26,6 +22,8 @@ jobs:
     steps:
       - name: Check out the repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
 
       - name: Set up Node
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
@@ -41,32 +39,14 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      - name: Restore Vite Task cache
-        id: vite-task-cache
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: node_modules/.vite/task-cache
-          key: vite-task-${{ runner.os }}-${{ runner.arch }}-${{ github.run_id }}-${{ github.run_attempt }}
-          restore-keys: |
-            vite-task-${{ runner.os }}-${{ runner.arch }}-
-
       - name: Add workspace binaries to PATH
         run: echo "$GITHUB_WORKSPACE/node_modules/.bin" >> "$GITHUB_PATH"
 
       - name: Run repository checks
         run: bun run check
 
-      # Auth uses Vite+'s Vitest runner. Medusa keeps Jest because its test
-      # utilities require Jest. The root script also tests the lint plugin.
       - name: Run declared tests
         run: bun run test
-
-      - name: Save Vite Task cache
-        if: success()
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: node_modules/.vite/task-cache
-          key: ${{ steps.vite-task-cache.outputs.cache-primary-key }}
 
   oxlint-benchmark:
     name: Oxlint benchmark (informational)
@@ -76,6 +56,8 @@ jobs:
     steps:
       - name: Check out the repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
 
       - name: Set up Node
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
@@ -92,74 +74,10 @@ jobs:
         run: bun install --frozen-lockfile
 
       - name: Run the Oxlint benchmark
-        id: benchmark
         continue-on-error: true
-        shell: bash
-        run: |
-          set -euo pipefail
-          mkdir -p test-results
-          {
-            echo "Runner: ubuntu-latest (${RUNNER_OS}/${RUNNER_ARCH})"
-            echo "Node: $(node --version)"
-            echo "Bun: $(bun --version)"
-            echo "Oxlint: $(jq -r .version node_modules/oxlint/package.json)"
-            echo
-            ./node_modules/.bin/vp run @mze-store/oxlint#build
-            ./node_modules/.bin/vp test bench --run tooling/oxlint/test/visitor.bench.ts \
-              --outputJson test-results/oxlint-visitor-benchmark.json
-          } 2>&1 | tee test-results/oxlint-visitor-benchmark.txt
-
-      - name: Add the benchmark summary
-        if: always()
-        shell: bash
-        env:
-          BENCHMARK_OUTCOME: ${{ steps.benchmark.outcome }}
-        run: |
-          {
-            echo "## Oxlint benchmark"
-            echo
-            echo "This result is informational and does not block the workflow."
-            echo
-            echo "Runner: \`ubuntu-latest (${RUNNER_OS}/${RUNNER_ARCH})\`"
-            echo
-            echo "Node: \`$(node --version)\`"
-            echo
-            echo "Bun: \`$(bun --version)\`"
-            echo
-            echo "Oxlint: \`$(jq -r .version node_modules/oxlint/package.json)\`"
-            echo
-            echo "Step outcome: \`${BENCHMARK_OUTCOME}\`"
-            echo
-            if [[ -s test-results/oxlint-visitor-benchmark.json ]]; then
-              echo "| Benchmark | Mean ms/op | p75 | p99 | RME | Samples |"
-              echo "| --- | ---: | ---: | ---: | ---: | ---: |"
-              jq -r '
-                .files[].groups[].benchmarks[] |
-                "| \(.name) | \(.mean) | \(.p75) | \(.p99) | ±\(.rme)% | \(.sampleCount) |"
-              ' test-results/oxlint-visitor-benchmark.json
-            else
-              echo "The benchmark did not produce a JSON report."
-              echo
-              echo '```text'
-              if [[ -f test-results/oxlint-visitor-benchmark.txt ]]; then
-                tail -n 80 test-results/oxlint-visitor-benchmark.txt
-              else
-                echo "The benchmark did not produce a text report."
-              fi
-              echo '```'
-            fi
-          } >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Upload the benchmark reports
-        if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: oxlint-benchmark-${{ github.sha }}-${{ github.run_attempt }}
-          path: |
-            test-results/oxlint-visitor-benchmark.json
-            test-results/oxlint-visitor-benchmark.txt
-          if-no-files-found: ignore
-          retention-days: 14
+        run: >-
+          ./node_modules/.bin/vp test bench --run
+          tooling/oxlint/test/visitor.bench.ts
 
   tooling-live:
     name: Effect tooling (${{ matrix.os }})
@@ -174,6 +92,8 @@ jobs:
     steps:
       - name: Check out the repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
 
       - name: Set up Node
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
@@ -201,13 +121,15 @@ jobs:
           node:24.18.1-bookworm
           ./node_modules/.bin/vp test tooling/mze/cli.live.test.ts
 
-  docker:
+  docker-integration:
     name: Docker smoke test
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
       - name: Check out the repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
 
       - name: Build and start the applications
         run: docker compose up --detach --build --wait --wait-timeout 180 medusa storefront
@@ -215,23 +137,12 @@ jobs:
       - name: Check the applications
         shell: bash
         run: |
-          assert_http_200() {
-            local url="$1"
-            local status
-
-            status="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' "$url")"
-            if [[ "$status" != "200" ]]; then
-              echo "::error::$url returned HTTP $status"
-              return 1
-            fi
-          }
-
+          set -euo pipefail
           medusa_port="$(docker compose port medusa 9000 | sed 's/.*://')"
           storefront_port="$(docker compose port storefront 3001 | sed 's/.*://')"
-
-          assert_http_200 "http://127.0.0.1:${medusa_port}/health"
-          assert_http_200 "http://127.0.0.1:${medusa_port}/app"
-          assert_http_200 "http://127.0.0.1:${storefront_port}/"
+          curl --fail --silent --show-error "http://127.0.0.1:${medusa_port}/health" >/dev/null
+          curl --fail --silent --show-error "http://127.0.0.1:${medusa_port}/app" >/dev/null
+          curl --fail --silent --show-error "http://127.0.0.1:${storefront_port}/" >/dev/null
 
       - name: Show Compose logs
         if: failure()
@@ -241,19 +152,14 @@ jobs:
         if: always()
         run: docker compose down --volumes
 
-  docker-images:
-    name: Docker image (${{ matrix.name }})
+  docker-image-pr:
+    name: Docker image validation (${{ matrix.name }})
     needs:
       - checks
-      - docker
+      - docker-integration
       - tooling-live
     runs-on: ubuntu-latest
     timeout-minutes: 45
-    permissions:
-      contents: read
-      packages: write
-      id-token: write
-      attestations: write
     strategy:
       fail-fast: false
       matrix:
@@ -262,41 +168,16 @@ jobs:
             dockerfile: apps/medusa/Dockerfile
           - name: storefront
             dockerfile: apps/storefront/Dockerfile
-    env:
-      IMAGE_REPOSITORY: ghcr.io/${{ github.repository_owner }}/mze-store-${{ matrix.name }}
-
     steps:
       - name: Check out the repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@96fe6ef7f33517b61c61be40b68a1882f3264fb8 # v4.2.0
+        with:
+          persist-credentials: false
 
       - name: Set up Buildx
         uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
 
-      - name: Log in to GHCR
-        if: github.event_name == 'push'
-        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Restore the main image baseline
-        if: github.event_name == 'pull_request'
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: /tmp/docker-baseline
-          key: docker-image-baseline-${{ matrix.name }}-${{ github.sha }}
-          restore-keys: |
-            docker-image-baseline-${{ matrix.name }}-
-
-      - name: Start the image build timer
-        run: echo "DOCKER_BUILD_STARTED=$(date +%s)" >> "$GITHUB_ENV"
-
-      - name: Build the pull request image
-        if: github.event_name == 'pull_request'
+      - name: Build the pull-request image
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
           context: .
@@ -304,46 +185,10 @@ jobs:
           platforms: linux/amd64
           load: true
           tags: mze-store-${{ matrix.name }}:pr
-          cache-from: type=gha,scope=mze-store-${{ matrix.name }}
-          cache-to: type=gha,mode=max,scope=mze-store-${{ matrix.name }}
+          cache-from: type=gha,scope=mze-store-${{ matrix.name }}-main
+          cache-to: type=gha,mode=min,scope=mze-store-${{ matrix.name }}-pr-${{ github.event.pull_request.number || github.ref_name }}
 
-      - name: Build the immutable main candidate
-        if: github.event_name == 'push'
-        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
-        with:
-          context: .
-          file: ${{ matrix.dockerfile }}
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: ${{ env.IMAGE_REPOSITORY }}:${{ github.sha }}
-          cache-from: type=registry,ref=${{ env.IMAGE_REPOSITORY }}:buildcache
-          cache-to: type=registry,ref=${{ env.IMAGE_REPOSITORY }}:buildcache,mode=max
-          provenance: mode=max
-          sbom: true
-
-      - name: Record the image build time
-        if: always()
-        run: |
-          finished="$(date +%s)"
-          started="${DOCKER_BUILD_STARTED:-$finished}"
-          echo "DOCKER_BUILD_SECONDS=$((finished - started))" >> "$GITHUB_ENV"
-
-      # Keep all critical findings visible. The current Debian base reports
-      # several critical CVEs without an upstream fix, so only fixable critical
-      # findings block the image.
-      - name: Report critical vulnerabilities in the pull request image
-        if: github.event_name == 'pull_request'
-        uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8 # v0.36.0
-        with:
-          image-ref: mze-store-${{ matrix.name }}:pr
-          format: table
-          exit-code: "0"
-          ignore-unfixed: false
-          vuln-type: os,library
-          severity: CRITICAL
-
-      - name: Gate fixable critical vulnerabilities in the pull request image
-        if: github.event_name == 'pull_request'
+      - name: Gate fixable critical vulnerabilities
         uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8 # v0.36.0
         with:
           image-ref: mze-store-${{ matrix.name }}:pr
@@ -353,187 +198,19 @@ jobs:
           vuln-type: os,library
           severity: CRITICAL
 
-      - name: Report high vulnerabilities in the pull request image
-        if: github.event_name == 'pull_request'
-        uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8 # v0.36.0
-        with:
-          image-ref: mze-store-${{ matrix.name }}:pr
-          format: table
-          exit-code: "0"
-          ignore-unfixed: false
-          vuln-type: os,library
-          severity: HIGH
-
-      - name: Report critical vulnerabilities in the immutable main candidate
-        if: github.event_name == 'push'
-        uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8 # v0.36.0
-        with:
-          image-ref: ${{ env.IMAGE_REPOSITORY }}:${{ github.sha }}
-          format: table
-          exit-code: "0"
-          ignore-unfixed: false
-          vuln-type: os,library
-          severity: CRITICAL
-
-      - name: Gate fixable critical vulnerabilities in the immutable main candidate
-        if: github.event_name == 'push'
-        uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8 # v0.36.0
-        with:
-          image-ref: ${{ env.IMAGE_REPOSITORY }}:${{ github.sha }}
-          format: table
-          exit-code: "1"
-          ignore-unfixed: true
-          vuln-type: os,library
-          severity: CRITICAL
-
-      - name: Report high vulnerabilities in the immutable main candidate
-        if: github.event_name == 'push'
-        uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8 # v0.36.0
-        with:
-          image-ref: ${{ env.IMAGE_REPOSITORY }}:${{ github.sha }}
-          format: table
-          exit-code: "0"
-          ignore-unfixed: false
-          vuln-type: os,library
-          severity: HIGH
-
-      - name: Promote the scanned image to main
-        if: github.event_name == 'push'
-        run: docker buildx imagetools create --tag "${IMAGE_REPOSITORY}:main" "${IMAGE_REPOSITORY}:${GITHUB_SHA}"
-
-      - name: Measure the pull request image
-        if: github.event_name == 'pull_request'
-        env:
-          IMAGE_REF: mze-store-${{ matrix.name }}:pr
-        run: |
-          set -euo pipefail
-          mkdir -p /tmp/docker-metrics
-          uncompressed_bytes="$(docker image inspect "$IMAGE_REF" --format '{{.Size}}')"
-          compressed_bytes="$(docker save "$IMAGE_REF" | gzip -c | wc -c | tr -d ' ')"
-          jq -n \
-            --arg platform linux/amd64 \
-            --argjson uncompressed_bytes "$uncompressed_bytes" \
-            --argjson compressed_bytes "$compressed_bytes" \
-            '{platform: $platform, uncompressed_bytes: $uncompressed_bytes, compressed_bytes: $compressed_bytes}' \
-            > /tmp/docker-metrics/linux-amd64.json
-
-      - name: Measure the published main image
-        if: github.event_name == 'push'
-        env:
-          IMAGE_REF: ${{ env.IMAGE_REPOSITORY }}:${{ github.sha }}
-        run: |
-          set -euo pipefail
-          mkdir -p /tmp/docker-metrics
-          for platform in linux/amd64 linux/arm64; do
-            docker pull --platform "$platform" "$IMAGE_REF"
-            local_ref="mze-store-${{ matrix.name }}:${platform##*/}"
-            docker tag "$IMAGE_REF" "$local_ref"
-            uncompressed_bytes="$(docker image inspect "$local_ref" --format '{{.Size}}')"
-            compressed_bytes="$(docker save "$local_ref" | gzip -c | wc -c | tr -d ' ')"
-            jq -n \
-              --arg platform "$platform" \
-              --argjson uncompressed_bytes "$uncompressed_bytes" \
-              --argjson compressed_bytes "$compressed_bytes" \
-              '{platform: $platform, uncompressed_bytes: $uncompressed_bytes, compressed_bytes: $compressed_bytes}' \
-              > "/tmp/docker-metrics/${platform//\//-}.json"
-          done
-
-      - name: Assemble image metrics
-        run: |
-          set -euo pipefail
-          jq -s \
-            --arg image "${{ matrix.name }}" \
-            --argjson build_seconds "$DOCKER_BUILD_SECONDS" \
-            '{image: $image, build_seconds: $build_seconds, platforms: .}' \
-            /tmp/docker-metrics/linux-*.json \
-            > "/tmp/docker-metrics/${{ matrix.name }}.json"
-
-      - name: Compare the pull request image with the main baseline
-        if: github.event_name == 'pull_request'
-        env:
-          IMAGE_NAME: ${{ matrix.name }}
-        run: |
-          set -euo pipefail
-          baseline="/tmp/docker-baseline/${IMAGE_NAME}.json"
-          current="/tmp/docker-metrics/${IMAGE_NAME}.json"
-          if [[ ! -f "$baseline" ]]; then
-            echo "No main baseline exists for ${IMAGE_NAME}; save the first main build before enforcing the limit."
-            exit 0
-          fi
-
-          baseline_bytes="$(jq -r '.platforms[] | select(.platform == "linux/amd64") | .uncompressed_bytes' "$baseline")"
-          current_bytes="$(jq -r '.platforms[] | select(.platform == "linux/amd64") | .uncompressed_bytes' "$current")"
-          baseline_compressed_bytes="$(jq -r '.platforms[] | select(.platform == "linux/amd64") | .compressed_bytes' "$baseline")"
-          current_compressed_bytes="$(jq -r '.platforms[] | select(.platform == "linux/amd64") | .compressed_bytes' "$current")"
-          byte_limit=$((baseline_bytes + baseline_bytes / 10))
-          compressed_byte_limit=$((baseline_compressed_bytes + baseline_compressed_bytes / 10))
-
-          if (( current_bytes > byte_limit )); then
-            echo "::error::${IMAGE_NAME} is more than 10% larger than the main baseline."
-            exit 1
-          fi
-          if (( current_compressed_bytes > compressed_byte_limit )); then
-            echo "::error::${IMAGE_NAME} compressed size is more than 10% larger than the main baseline."
-            exit 1
-          fi
-          # Release builds use multi-platform registry output. Pull requests use
-          # a local amd64 image for scanning, so build time is telemetry only.
-
-      - name: Prepare the main baseline
-        if: github.event_name == 'push'
-        run: |
-          set -euo pipefail
-          mkdir -p /tmp/docker-baseline
-          cp "/tmp/docker-metrics/${{ matrix.name }}.json" "/tmp/docker-baseline/${{ matrix.name }}.json"
-
-      - name: Save the main image baseline
-        if: github.event_name == 'push'
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: /tmp/docker-baseline
-          key: docker-image-baseline-${{ matrix.name }}-${{ github.sha }}
-
-      - name: Upload image metrics
-        if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: docker-metrics-${{ matrix.name }}-${{ github.sha }}
-          path: /tmp/docker-metrics/${{ matrix.name }}.json
-          if-no-files-found: ignore
-          retention-days: 14
-
-  browser:
-    name: Browser test placeholder
-    needs: checks
+  ci-gate:
+    name: CI gate
+    if: ${{ always() }}
+    needs:
+      - checks
+      - tooling-live
+      - docker-integration
+      - docker-image-pr
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 5
     steps:
-      - name: Check out the repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-
-      - name: Set up Node
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
-        with:
-          node-version: 24.18.1
-          package-manager-cache: false
-
-      - name: Set up Bun
-        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
-        with:
-          bun-version: 1.3.14
-
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
-
-      # The current spec is a no-op. Add service setup and browser installation
-      # when it starts exercising Storefront flows.
-      - name: Run the browser test placeholder
-        run: bun run test:e2e
-
-      - name: Upload browser traces
-        if: failure()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: playwright-traces
-          path: test-results/
-          if-no-files-found: ignore
+      - name: Require applicable checks
+        env:
+          CHECK_RESULTS: ${{ toJSON(needs) }}
+        run: |
+          jq --exit-status 'all(.[]; .result == "success")' <<<"$CHECK_RESULTS"
