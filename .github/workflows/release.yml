@@ -126,11 +126,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - name: medusa
-            dockerfile: apps/medusa/Dockerfile
-          - name: storefront
-            dockerfile: apps/storefront/Dockerfile
+        name:
+          - medusa
+          - storefront
     env:
       IMAGE_REPOSITORY: ghcr.io/${{ github.repository_owner }}/mze-store-${{ matrix.name }}
     steps:
@@ -152,18 +150,17 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Record image metadata
+        run: echo "CREATED=$(git show --no-patch --format=%cI "$GITHUB_SHA")" >> "$GITHUB_ENV"
+
       - name: Build the immutable candidate
-        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        uses: docker/bake-action@d3418bd7d0e9324001bca92fa8ba175ea7e6dc9b # v7.3.0
+        env:
+          REGISTRY: ghcr.io/${{ github.repository_owner }}
+          REVISION: ${{ github.sha }}
         with:
-          context: .
-          file: ${{ matrix.dockerfile }}
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: ${{ env.IMAGE_REPOSITORY }}:${{ github.sha }}
-          cache-from: type=registry,ref=${{ env.IMAGE_REPOSITORY }}:buildcache
-          cache-to: type=registry,ref=${{ env.IMAGE_REPOSITORY }}:buildcache,mode=max
-          provenance: mode=max
-          sbom: true
+          files: docker-bake.hcl
+          targets: ${{ matrix.name }}-release
 
       - name: Gate fixable critical vulnerabilities
         uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8 # v0.36.0

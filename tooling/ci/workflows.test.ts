@@ -180,3 +180,26 @@ it("pins CI inputs and validates workflow and container definitions", async () =
     );
   }
 });
+
+it("uses one Bake graph for local, pull-request, and release images", async () => {
+  const [ci, release, bake] = await Promise.all([
+    readWorkflow("ci.yml"),
+    readWorkflow("release.yml"),
+    readRepositoryFile("docker-bake.hcl"),
+  ]);
+  const workflows = JSON.stringify({ ci, release });
+
+  expect(bake).toContain('target "medusa"');
+  expect(bake).toContain('target "storefront"');
+  expect(bake).toContain('group "ci"');
+  expect(bake).toContain('group "release"');
+  expect(bake).toContain("org.opencontainers.image.revision");
+  expect(bake).toContain("cache-from");
+  expect(bake).toContain("cache-to");
+  expect(bake).toContain("type=gha,scope=mze-store-medusa-pr-${CACHE_SCOPE}");
+  expect(bake).toContain("type=gha,scope=mze-store-storefront-pr-${CACHE_SCOPE}");
+  expect(bake).toContain("type=gha,mode=max,scope=mze-store-medusa-main");
+  expect(bake).toContain("type=gha,mode=max,scope=mze-store-storefront-main");
+  expect(workflows).toContain("docker/bake-action@");
+  expect(workflows).not.toContain("docker/build-push-action@");
+});
