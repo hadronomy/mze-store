@@ -95,7 +95,7 @@ export const report = (command: string, cause: unknown, codeOverride?: number) =
       command,
       data: { exitCode: code, message: message(cause) },
       event: "failed",
-      stream: "stderr",
+      stream: command === "doctor" && Schema.is(DoctorFailed)(cause) ? "stdout" : "stderr",
     });
     return yield* Effect.fail(new ReportedError(code));
   });
