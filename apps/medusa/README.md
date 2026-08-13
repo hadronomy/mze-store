@@ -10,17 +10,16 @@ why it is neither bundled nor bundle-able.
 ## Running it
 
 ```sh
-bun run mze services start             # from the repository root
-cp .env.template .env
-bun run mze db migrate                 # from the repository root
-bun run seed
-bun run seed:probe                     # development only, see below
-bun run operator:create -e you@example.com -p yourpassword
-bun run dev                            # admin at http://localhost:9000/app
+bun run mze services start
+cp apps/medusa/.env.template apps/medusa/.env
+bun --cwd apps/medusa run db:migrate
+bun --cwd apps/medusa run seed
+bun --cwd apps/medusa run seed:probe   # development only, see below
+bun --cwd apps/medusa run operator:create -e you@example.com -p yourpassword
+bun run dev
 ```
 
-Run `bun run dev` from the repository
-root. The admin URL is
+Run these commands from the repository root. The admin URL is
 `https://medusa.mze-store.localhost/app`. Only one Medusa process can own that
 URL. See the [Portless integration note](../../docs/research/portless-integration.md).
 
@@ -56,7 +55,8 @@ admin dashboard. A bare `tsc --noEmit` does not prove that the backend builds.
 
 ## The seed
 
-`bun run seed` creates the Spanish territory model in the database:
+`bun --cwd apps/medusa run seed` creates the Spanish territory model in the
+database:
 
 - One Region for Spain.
 - Tax Regions for peninsular VAT and for Canarian IGIC.
@@ -66,14 +66,14 @@ It creates nothing that a Shopper sees, so it is safe against any database. A
 deployment does not need it: `db:migrate` creates the same model through a
 migration script. Use this command against a database you are working on.
 
-`bun run seed:probe` adds a Product, a Variant with a price, and a publishable
-API key. Together they read a price back from the Store API.
+`bun --cwd apps/medusa run seed:probe` adds a Product, a Variant with a price,
+and a publishable API key. Together they read a price back from the Store API.
 
-**CAUTION: Do not run `bun run seed:probe` against a live store.** The Product
-is published and it is in the Sales Channel, so a Shopper sees it and can buy
-it. Use it on a development or a test database. The two commands are separate
-for this reason: one carries the tax model, which is policy, and the other
-carries a fixture.
+**CAUTION: Do not run `bun --cwd apps/medusa run seed:probe` against a live
+store.** The Product is published and it is in the Sales Channel, so a Shopper
+sees it and can buy it. Use it on a development or a test database. The two
+commands are separate for this reason: one carries the tax model, which is
+policy, and the other carries a fixture.
 
 [ADR-0005](../../docs/adr/0005-canarias-is-a-province-not-a-region.md) gives the
 reason for this shape. `src/territory/spain.ts` holds the rates and the Province
