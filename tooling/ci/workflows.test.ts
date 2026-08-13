@@ -35,7 +35,13 @@ const readWorkflow = async (name: string): Promise<Workflow> =>
 const readRepositoryFile = (path: string): Promise<string> =>
   readFile(new URL(`../../${path}`, import.meta.url), "utf8");
 
-const writePermissions = new Set(["attestations", "contents", "id-token", "packages"]);
+const writePermissions = new Set([
+  "attestations",
+  "contents",
+  "id-token",
+  "packages",
+  "security-events",
+]);
 
 it("keeps pull-request and merge-group validation read-only behind ci-gate", async () => {
   const workflow = await readWorkflow("ci.yml");
@@ -227,4 +233,28 @@ it("builds and smokes exact platform digests on native runners", async () => {
   expect(buildPolicy).toContain("imagetools create");
   expect(buildPolicy).toContain("@${DIGEST}");
   expect(bake).toContain("platforms  = [PLATFORM]");
+});
+
+it("enforces fixed image budgets and publishes complete scan evidence", async () => {
+  const [ci, release, budgets, scanAction] = await Promise.all([
+    readWorkflow("ci.yml"),
+    readWorkflow("release.yml"),
+    readRepositoryFile("tooling/ci/image-budgets.json"),
+    readRepositoryFile(".github/actions/scan-image/action.yml"),
+  ]);
+  const policy = JSON.stringify({ ci, release, budgets, scanAction });
+
+  expect(budgets).toContain('"compressedBytes": 90000000');
+  expect(budgets).toContain('"uncompressedBytes": 285000000');
+  expect(budgets).toContain('"compressedBytes": 230000000');
+  expect(budgets).toContain('"uncompressedBytes": 900000000');
+  expect(policy).toContain("tooling/ci/enforce-image-policy.sh");
+  expect(policy).toContain("severity: HIGH,CRITICAL");
+  expect(policy).toContain("--scanners misconfig,secret,license");
+  expect(policy).toContain("--format sarif");
+  expect(policy).toContain("trivy version --format json");
+  expect(policy).not.toContain("trivy --version --format json");
+  expect(policy).toContain("github/codeql-action/upload-sarif@");
+  expect(policy).toContain("actions/upload-artifact@");
+  expect(policy).toContain("${IMAGE_REPOSITORY}@${DIGEST}");
 });

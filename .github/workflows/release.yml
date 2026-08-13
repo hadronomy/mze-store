@@ -121,6 +121,7 @@ jobs:
     permissions:
       contents: read
       packages: write
+      security-events: write
     strategy:
       fail-fast: false
       matrix:
@@ -216,15 +217,15 @@ jobs:
       - name: Smoke-test the exact platform digest
         run: tooling/ci/smoke-image.sh "${IMAGE_REPOSITORY}@${DIGEST}" "${{ matrix.name }}"
 
-      - name: Gate fixable critical vulnerabilities
-        uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8 # v0.36.0
+      - name: Enforce image policy
+        uses: ./.github/actions/scan-image
         with:
           image-ref: ${{ env.IMAGE_REPOSITORY }}@${{ env.DIGEST }}
-          format: table
-          exit-code: "1"
-          ignore-unfixed: true
-          vuln-type: os,library
-          severity: CRITICAL
+          image-name: ${{ matrix.name }}
+          platform: ${{ matrix.platform }}
+          architecture: ${{ matrix.architecture }}
+          evidence-scope: release
+          upload-sarif: "true"
 
       - name: Upload the platform digest
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

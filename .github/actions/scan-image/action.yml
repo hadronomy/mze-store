@@ -1,0 +1,155 @@
+name: Scan image
+description: Enforce image size and vulnerability policy and publish evidence.
+
+inputs:
+  image-ref:
+    description: Local tag or immutable image digest to scan.
+    required: true
+  image-name:
+    description: Image budget name.
+    required: true
+  platform:
+    description: OCI platform name.
+    required: true
+  architecture:
+    description: File-safe platform architecture.
+    required: true
+  evidence-scope:
+    description: File-safe workflow evidence scope.
+    required: true
+  upload-sarif:
+    description: Upload SARIF to GitHub code scanning.
+    required: false
+    default: "false"
+
+runs:
+  using: composite
+  steps:
+    - name: Measure the image
+      shell: bash
+      env:
+        ARCHITECTURE: ${{ inputs.architecture }}
+        EVIDENCE_SCOPE: ${{ inputs.evidence-scope }}
+        IMAGE_NAME: ${{ inputs.image-name }}
+        IMAGE_REF: ${{ inputs.image-ref }}
+        PLATFORM: ${{ inputs.platform }}
+      run: |
+        prefix="${EVIDENCE_SCOPE}-${IMAGE_NAME}-${ARCHITECTURE}"
+        tooling/ci/measure-image.sh \
+          "$IMAGE_REF" \
+          "$IMAGE_NAME" \
+          "$PLATFORM" \
+          "tooling/ci/evidence/size-${prefix}.json"
+
+    - name: Scan all high and critical vulnerabilities
+      uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8 # v0.36.0
+      with:
+        image-ref: ${{ inputs.image-ref }}
+        version: v0.73.0
+        format: json
+        output: tooling/ci/evidence/vulnerabilities-${{ inputs.evidence-scope }}-${{ inputs.image-name }}-${{ inputs.architecture }}.json
+        scanners: vuln
+        severity: HIGH,CRITICAL
+        ignore-unfixed: false
+        exit-code: "0"
+        timeout: 20m
+
+    - name: Show all high and critical vulnerabilities
+      shell: bash
+      env:
+        ARCHITECTURE: ${{ inputs.architecture }}
+        EVIDENCE_SCOPE: ${{ inputs.evidence-scope }}
+        IMAGE_NAME: ${{ inputs.image-name }}
+        TRIVY_CACHE_DIR: ${{ github.workspace }}/.cache/trivy
+      run: >-
+        trivy convert
+        --format table
+        --scanners vuln
+        --severity HIGH,CRITICAL
+        "tooling/ci/evidence/vulnerabilities-${EVIDENCE_SCOPE}-${IMAGE_NAME}-${ARCHITECTURE}.json"
+
+    - name: Scan report-only signals
+      shell: bash
+      env:
+        ARCHITECTURE: ${{ inputs.architecture }}
+        EVIDENCE_SCOPE: ${{ inputs.evidence-scope }}
+        IMAGE_NAME: ${{ inputs.image-name }}
+        IMAGE_REF: ${{ inputs.image-ref }}
+        TRIVY_CACHE_DIR: ${{ github.workspace }}/.cache/trivy
+      run: >-
+        trivy image
+        --timeout 20m
+        --skip-version-check
+        --exit-code 0
+        --format json
+        --output "tooling/ci/evidence/signals-${EVIDENCE_SCOPE}-${IMAGE_NAME}-${ARCHITECTURE}.json"
+        --scanners misconfig,secret,license
+        "$IMAGE_REF"
+
+    - name: Create SARIF evidence
+      shell: bash
+      env:
+        ARCHITECTURE: ${{ inputs.architecture }}
+        EVIDENCE_SCOPE: ${{ inputs.evidence-scope }}
+        IMAGE_NAME: ${{ inputs.image-name }}
+        TRIVY_CACHE_DIR: ${{ github.workspace }}/.cache/trivy
+      run: >-
+        trivy convert
+        --format sarif
+        --output "tooling/ci/evidence/vulnerabilities-${EVIDENCE_SCOPE}-${IMAGE_NAME}-${ARCHITECTURE}.sarif"
+        --scanners vuln
+        --severity HIGH,CRITICAL
+        "tooling/ci/evidence/vulnerabilities-${EVIDENCE_SCOPE}-${IMAGE_NAME}-${ARCHITECTURE}.json"
+
+    - name: Record scanner metadata
+      shell: bash
+      env:
+        ARCHITECTURE: ${{ inputs.architecture }}
+        EVIDENCE_SCOPE: ${{ inputs.evidence-scope }}
+        IMAGE_NAME: ${{ inputs.image-name }}
+        TRIVY_CACHE_DIR: ${{ github.workspace }}/.cache/trivy
+      run: >-
+        trivy version --format json
+        >"tooling/ci/evidence/trivy-${EVIDENCE_SCOPE}-${IMAGE_NAME}-${ARCHITECTURE}.json"
+
+    - name: Enforce image policy
+      id: policy
+      if: always()
+      continue-on-error: true
+      shell: bash
+      env:
+        ARCHITECTURE: ${{ inputs.architecture }}
+        EVIDENCE_SCOPE: ${{ inputs.evidence-scope }}
+        IMAGE_NAME: ${{ inputs.image-name }}
+        PLATFORM: ${{ inputs.platform }}
+      run: |
+        prefix="${EVIDENCE_SCOPE}-${IMAGE_NAME}-${ARCHITECTURE}"
+        tooling/ci/enforce-image-policy.sh \
+          "$IMAGE_NAME" \
+          "$PLATFORM" \
+          "tooling/ci/evidence/vulnerabilities-${prefix}.json" \
+          "tooling/ci/evidence/size-${prefix}.json" \
+          tooling/ci/vulnerability-exceptions.json \
+          "tooling/ci/evidence/trivy-${prefix}.json" \
+          "tooling/ci/evidence/policy-${prefix}.json"
+
+    - name: Upload SARIF evidence
+      if: inputs.upload-sarif == 'true'
+      uses: github/codeql-action/upload-sarif@988661ebb5e81487b3fb31b2185d2856c0a10679 # v4
+      with:
+        sarif_file: tooling/ci/evidence/vulnerabilities-${{ inputs.evidence-scope }}-${{ inputs.image-name }}-${{ inputs.architecture }}.sarif
+        category: trivy-${{ inputs.image-name }}-${{ inputs.architecture }}
+
+    - name: Upload image evidence
+      if: always()
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      with:
+        name: image-evidence-${{ inputs.evidence-scope }}-${{ inputs.image-name }}-${{ inputs.architecture }}
+        path: tooling/ci/evidence/
+        if-no-files-found: error
+        retention-days: 90
+
+    - name: Require image policy
+      if: always() && steps.policy.outcome != 'success'
+      shell: bash
+      run: exit 1
