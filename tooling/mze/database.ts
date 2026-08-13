@@ -1,6 +1,7 @@
 import { Effect, Schema } from "effect";
 
 import { ChildCommand } from "./child-command.ts";
+import { Services } from "./services.ts";
 
 export class DataLossConfirmationRequired extends Schema.TaggedError<DataLossConfirmationRequired>()(
   "DataLossConfirmationRequired",
@@ -25,6 +26,7 @@ export const run = (
       });
     }
 
+    const environment = yield* Services.start(cwd);
     const commands = yield* ChildCommand.Service;
     yield* commands.run({
       executable: "vp",
@@ -36,6 +38,7 @@ export const run = (
         ...(operation === "push" && acceptDataLoss ? ["--force"] : []),
       ],
       cwd,
+      environment,
     });
   });
 

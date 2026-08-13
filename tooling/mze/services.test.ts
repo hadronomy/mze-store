@@ -1,5 +1,5 @@
 import { expect, it } from "@effect/vitest";
-import { Effect, Layer, Ref } from "effect";
+import { ConfigProvider, Effect, Layer, Ref } from "effect";
 
 import { ChildCommand } from "./child-command.ts";
 import { Services } from "./services.ts";
@@ -24,16 +24,28 @@ it.effect("starts healthy services and returns their discovered environment", ()
       }),
     );
 
-    const environment = yield* Services.start("/repo").pipe(Effect.provide(commandLayer));
+    const environment = yield* Services.start("/repo").pipe(
+      Effect.provide(commandLayer),
+      Effect.provideService(
+        ConfigProvider.ConfigProvider,
+        ConfigProvider.fromEnv({ env: { POSTGRES_PASSWORD: "p@ss word" } }),
+      ),
+    );
     const recorded = yield* Ref.get(calls);
 
     expect(recorded[0]).toEqual({
       executable: "docker",
       arguments: ["compose", "up", "-d", "--wait", "--wait-timeout", "60", "postgres", "redis"],
       cwd: "/repo",
+      environment: { POSTGRES_PASSWORD: "p@ss word" },
     });
     expect(environment).toEqual({
-      DATABASE_URL: "postgresql://postgres:password@127.0.0.1:49153/mze-store",
+      DATABASE_URL: "postgresql://postgres:p%40ss%20word@127.0.0.1:49153/mze-store?sslmode=disable",
+      DB_HOST: "127.0.0.1",
+      DB_PASSWORD: "p@ss word",
+      DB_PORT: "49153",
+      DB_USERNAME: "postgres",
+      POSTGRES_PASSWORD: "p@ss word",
       REDIS_URL: "redis://127.0.0.1:49154",
     });
   }),

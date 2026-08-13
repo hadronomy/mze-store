@@ -1,9 +1,14 @@
-import { Effect, Schema } from "effect";
+import { Config, Effect, Redacted, Schema } from "effect";
 
 import { ChildCommand } from "./child-command.ts";
 
 export interface Environment {
   readonly DATABASE_URL: string;
+  readonly DB_HOST: string;
+  readonly DB_PASSWORD: string;
+  readonly DB_PORT: string;
+  readonly DB_USERNAME: string;
+  readonly POSTGRES_PASSWORD: string;
   readonly REDIS_URL: string;
 }
 
@@ -63,9 +68,16 @@ export const ports = (cwd: string) =>
 export const start = (cwd: string) =>
   Effect.gen(function* () {
     const commands = yield* ChildCommand.Service;
+    const configuredPassword = yield* Config.redacted("POSTGRES_PASSWORD").pipe(
+      Config.withDefault(Redacted.make("password")),
+    );
+    const password = Redacted.value(configuredPassword) || "password";
 
     yield* commands
-      .run(compose(cwd, ["up", "-d", "--wait", "--wait-timeout", "60", "postgres", "redis"]))
+      .run({
+        ...compose(cwd, ["up", "-d", "--wait", "--wait-timeout", "60", "postgres", "redis"]),
+        environment: { POSTGRES_PASSWORD: password },
+      })
       .pipe(
         Effect.catchTag(
           "CommandFailed",
@@ -81,9 +93,15 @@ export const start = (cwd: string) =>
       );
 
     const discovered = yield* ports(cwd);
+    const encodedPassword = encodeURIComponent(password);
 
     return {
-      DATABASE_URL: `postgresql://postgres:password@127.0.0.1:${discovered.postgres}/mze-store`,
+      DATABASE_URL: `postgresql://postgres:${encodedPassword}@127.0.0.1:${discovered.postgres}/mze-store?sslmode=disable`,
+      DB_HOST: "127.0.0.1",
+      DB_PASSWORD: password,
+      DB_PORT: String(discovered.postgres),
+      DB_USERNAME: "postgres",
+      POSTGRES_PASSWORD: password,
       REDIS_URL: `redis://127.0.0.1:${discovered.redis}`,
     } satisfies Environment;
   });

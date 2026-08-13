@@ -1,11 +1,22 @@
 import { Effect } from "effect";
 
 import { ChildCommand } from "./child-command.ts";
+import { Services } from "./services.ts";
 
-const run = (cwd: string, executable: string, arguments_: ReadonlyArray<string>) =>
+const run = (
+  cwd: string,
+  executable: string,
+  arguments_: ReadonlyArray<string>,
+  environment?: ChildCommand.Spec["environment"],
+) =>
   Effect.gen(function* () {
     const commands = yield* ChildCommand.Service;
-    yield* commands.run({ executable, arguments: arguments_, cwd });
+    const spec = {
+      executable,
+      arguments: arguments_,
+      cwd,
+    } satisfies ChildCommand.Spec;
+    yield* commands.run(environment === undefined ? spec : { ...spec, environment });
   });
 
 const runVp = (cwd: string, arguments_: ReadonlyArray<string>) => run(cwd, "vp", arguments_);
@@ -31,8 +42,9 @@ export const test = (cwd: string, target: "e2e" | "workspace") =>
     ? run(cwd, "playwright", ["test", "--config=e2e/playwright.config.ts"])
     : Effect.gen(function* () {
         yield* runVp(cwd, ["run", "--filter", "@mze-store/oxlint", "build"]);
-        yield* runVp(cwd, ["test"]);
-        yield* runVp(cwd, ["run", "--filter", "medusa", "test"]);
+        const environment = yield* Services.start(cwd);
+        yield* run(cwd, "vp", ["test"], environment);
+        yield* run(cwd, "vp", ["run", "--filter", "medusa", "test"], environment);
       });
 
 export const lint = (cwd: string) =>
