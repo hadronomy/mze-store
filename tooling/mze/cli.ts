@@ -9,7 +9,6 @@ import { Docker } from "./docker.ts";
 import { Doctor } from "./doctor.ts";
 import { Output } from "./output.ts";
 import { Reporter } from "./reporter.ts";
-import { RuntimeInfo } from "./runtime-info.ts";
 import { Services } from "./services.ts";
 import { Setup } from "./setup.ts";
 import { Tasks } from "./tasks.ts";
@@ -35,7 +34,10 @@ const execute = <A, E, R>(
   Effect.gen(function* () {
     const { json } = yield* root;
     const path = yield* Path.Path;
-    const runtime = yield* RuntimeInfo.Service;
+    const runtime = {
+      nodeVersion: process.version.replace(/^v/, ""),
+      platform: process.platform,
+    };
     const cwd = path.resolve(import.meta.dirname, "../..");
     const mode: Output.Mode = json ? "json" : "human";
     const program = Effect.gen(function* () {
