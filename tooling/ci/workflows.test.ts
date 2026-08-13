@@ -240,6 +240,10 @@ it("builds and smokes exact platform digests on native runners", async () => {
   expect(buildPolicy).toContain("ubuntu-24.04-arm");
   expect(buildPolicy).toContain("linux/arm64");
   expect(buildPolicy).toContain("push-by-digest=true");
+  expect(bake).toContain('tags       = ["${REGISTRY}/mze-store-medusa"]');
+  expect(bake).toContain('tags       = ["${REGISTRY}/mze-store-storefront"]');
+  expect(bake).not.toContain('tags       = ["${REGISTRY}/mze-store-medusa:${REVISION}"]');
+  expect(bake).not.toContain('tags       = ["${REGISTRY}/mze-store-storefront:${REVISION}"]');
   expect(buildPolicy).toContain("docker image inspect");
   expect(buildPolicy).toContain("/health");
   expect(buildPolicy).toContain("/app");

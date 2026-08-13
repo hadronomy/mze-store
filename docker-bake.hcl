@@ -101,7 +101,7 @@ target "storefront-ci" {
 
 target "medusa-release" {
   inherits   = ["medusa"]
-  tags       = ["${REGISTRY}/mze-store-medusa:${REVISION}"]
+  tags       = ["${REGISTRY}/mze-store-medusa"]
   platforms  = [PLATFORM]
   cache-from = [
     "type=registry,ref=${REGISTRY}/mze-store-medusa:buildcache-${CACHE_ARCH}",
@@ -116,7 +116,7 @@ target "medusa-release" {
 
 target "storefront-release" {
   inherits   = ["storefront"]
-  tags       = ["${REGISTRY}/mze-store-storefront:${REVISION}"]
+  tags       = ["${REGISTRY}/mze-store-storefront"]
   platforms  = [PLATFORM]
   cache-from = [
     "type=registry,ref=${REGISTRY}/mze-store-storefront:buildcache-${CACHE_ARCH}",
