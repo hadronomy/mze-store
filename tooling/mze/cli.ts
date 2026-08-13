@@ -201,7 +201,10 @@ export const command = root.pipe(
 );
 
 export const run = (arguments_: ReadonlyArray<string>) => {
-  const normalized = arguments_.length === 0 ? ["--help"] : arguments_;
+  const normalized =
+    arguments_.length === 0 || (arguments_.length === 1 && arguments_[0] === "--json")
+      ? [...arguments_, "--help"]
+      : arguments_;
   const json = normalized.includes("--json");
   const parsed = Command.runWith(command, {
     renderErrors: true,

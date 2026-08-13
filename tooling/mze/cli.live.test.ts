@@ -135,6 +135,11 @@ it.live("keeps parser failures in NDJSON mode", () =>
 it.live("renders JSON help and version output as NDJSON", () =>
   Effect.gen(function* () {
     const commands = yield* ChildCommand.Service;
+    const implicitHelp = yield* commands.capture({
+      executable: process.execPath,
+      arguments: ["tooling/mze/main.ts", "--json"],
+      cwd: process.cwd(),
+    });
     const help = yield* commands.capture({
       executable: process.execPath,
       arguments: ["tooling/mze/main.ts", "--json", "--help"],
@@ -146,13 +151,16 @@ it.live("renders JSON help and version output as NDJSON", () =>
       cwd: process.cwd(),
     });
 
-    expect(events(help.stdout)[0]).toMatchObject({
-      command: "mze",
-      data: { message: expect.stringContaining("mze <subcommand> [flags]") },
-      event: "message",
-      stream: "stdout",
-      version: 1,
-    });
+    for (const result of [implicitHelp, help]) {
+      expect(result.stderr).toBe("");
+      expect(events(result.stdout)[0]).toMatchObject({
+        command: "mze",
+        data: { message: expect.stringContaining("mze <subcommand> [flags]") },
+        event: "message",
+        stream: "stdout",
+        version: 1,
+      });
+    }
     expect(events(version.stdout)[0]).toMatchObject({
       command: "mze",
       data: { message: "mze v1.0.0" },
@@ -160,6 +168,27 @@ it.live("renders JSON help and version output as NDJSON", () =>
       stream: "stdout",
       version: 1,
     });
+  }).pipe(provideLive),
+);
+
+it.live("keeps the canonical Bun command silent around NDJSON", () =>
+  Effect.gen(function* () {
+    const commands = yield* ChildCommand.Service;
+    const error = yield* commands
+      .capture({
+        executable: "bun",
+        arguments: ["run", "mze", "db", "push", "--json"],
+        cwd: process.cwd(),
+      })
+      .pipe(Effect.flip);
+
+    expect(error.exitCode).toBe(2);
+    if (error._tag === "CommandFailed") {
+      expect(events(error.stdout).map(({ event }) => event)).toEqual(["started"]);
+      expect(events(error.stderr).map(({ event }) => event)).toEqual(["failed"]);
+      expect(error.stderr).not.toContain("error: script");
+      expect(error.stderr).not.toContain("$ node");
+    }
   }).pipe(provideLive),
 );
 
