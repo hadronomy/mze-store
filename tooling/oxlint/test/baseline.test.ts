@@ -9,11 +9,11 @@ import { createMockContext, importDecl } from "effect-oxlint/testing";
 import { createOnceContextContract, runOxlintBaseline } from "~/baseline";
 import { preferTildeImportsRule } from "~/rules";
 
-test("records each module reference, fix, and timing sample", { timeout: 120_000 }, async () => {
-  const report = await runOxlintBaseline({ samples: 1 });
+test("records each module reference and fix", { timeout: 120_000 }, async () => {
+  const report = await runOxlintBaseline();
 
-  expect(report.schemaVersion).toBe(2);
-  expect(report.seed).toBe("effect-oxlint-baseline-v2");
+  expect(report.schemaVersion).toBe(3);
+  expect(report.seed).toBe("effect-oxlint-baseline-v3");
   expect(report.input).toMatchObject({
     fileCount: 2,
     supportedReferenceCount: 10,
@@ -64,8 +64,6 @@ test("records each module reference, fix, and timing sample", { timeout: 120_000
     cleanOnSecondRun: true,
   });
   expect(report.lifecycle).toEqual(createOnceContextContract);
-  expect(report.timing.samplesMs).toHaveLength(1);
-  expect(report.timing.medianMs).toBeGreaterThan(0);
 });
 
 test("uses the physical filename when Oxlint supplies a virtual filename", async () => {

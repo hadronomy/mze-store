@@ -30,36 +30,6 @@ const decodePackageManifest = Schema.decodeUnknownSync(Schema.fromJsonString(Pac
 const decodeViteManifest = Schema.decodeUnknownSync(Schema.fromJsonString(ViteManifest));
 const decodeVersionManifest = Schema.decodeUnknownSync(Schema.fromJsonString(VersionManifest));
 
-const callbackCount = 10_000;
-const sampleCount = 5;
-const warmupCount = 1_000;
-const directThresholdMs = 1;
-const effectfulThresholdMs = 25;
-
-function median(values: readonly number[]): number {
-  const sorted = [...values].sort((left, right) => left - right);
-  return sorted[Math.floor(sorted.length / 2)] ?? Number.POSITIVE_INFINITY;
-}
-
-function benchmarkCpuMs(callback: () => void): number {
-  for (let index = 0; index < warmupCount; index += 1) {
-    callback();
-  }
-
-  const samples = Array.from({ length: sampleCount }, () => {
-    const startedAt = process.cpuUsage();
-
-    for (let index = 0; index < callbackCount; index += 1) {
-      callback();
-    }
-
-    const elapsed = process.cpuUsage(startedAt);
-    return (elapsed.user + elapsed.system) / 1_000;
-  });
-
-  return median(samples);
-}
-
 it("certifies the exact supported version cohort", async () => {
   const [
     rootSource,
@@ -158,65 +128,8 @@ it("certifies the createOnce lifecycle and both visitor paths", () => {
   ]);
 });
 
-it("keeps direct and effectful visitors within their thresholds", () => {
-  let directVisits = 0;
-  let effectfulVisits = 0;
-  const node = importDecl("effect");
-  const directContext = createMockContext({ filename: "/project/direct.ts" }).context;
-  const effectfulContext = createMockContext({ filename: "/project/effectful.ts" }).context;
-  const directVisitor = Rule.compile(
-    Rule.plan({
-      name: "direct-benchmark",
-      meta: Rule.meta({ type: "suggestion", description: "Direct benchmark" }),
-      create: () =>
-        Effect.succeed({
-          syncVisitors: Visitor.onSync("ImportDeclaration", (_node, file) => {
-            if (file.physicalFilename.length > 0) {
-              directVisits += 1;
-            }
-          }),
-        }),
-    }),
-  ).createOnce(directContext);
-  const effectfulVisitor = Rule.compile(
-    Rule.plan({
-      name: "effectful-benchmark",
-      meta: Rule.meta({ type: "suggestion", description: "Effectful benchmark" }),
-      create: () =>
-        Effect.succeed({
-          visitors: Visitor.onEffect("ImportDeclaration", () =>
-            Effect.gen(function* () {
-              const file = yield* FileContext.FileContext;
-              if (file.physicalFilename.length > 0) {
-                effectfulVisits += 1;
-              }
-            }),
-          ),
-        }),
-    }),
-  ).createOnce(effectfulContext);
-  const directHandler = directVisitor.ImportDeclaration;
-  const effectfulHandler = effectfulVisitor.ImportDeclaration;
-
-  if (!directHandler || !effectfulHandler) {
-    throw new Error("The benchmark visitors did not compile.");
-  }
-
-  directVisitor.before?.();
-  effectfulVisitor.before?.();
-  const directMedianMs = benchmarkCpuMs(() => directHandler(node));
-  const effectfulMedianMs = benchmarkCpuMs(() => effectfulHandler(node));
-  directVisitor.after?.();
-  effectfulVisitor.after?.();
-
-  expect(directVisits).toBe(warmupCount + callbackCount * sampleCount);
-  expect(effectfulVisits).toBe(warmupCount + callbackCount * sampleCount);
-  expect(directMedianMs).toBeLessThanOrEqual(directThresholdMs);
-  expect(effectfulMedianMs).toBeLessThanOrEqual(effectfulThresholdMs);
-});
-
 it("certifies the real Vite+ lint and fix consumer", { timeout: 120_000 }, async () => {
-  const report = await runOxlintBaseline({ samples: 1 });
+  const report = await runOxlintBaseline();
 
   expect(report.behavior).toHaveLength(10);
   expect(report.fix).toMatchObject({

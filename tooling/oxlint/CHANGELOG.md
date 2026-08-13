@@ -8,7 +8,10 @@
 - `Visitor.onSync` compiles to a direct callback. It does not enter the Effect
   runtime for each AST event.
 - `Visitor.onEffect` uses one prepared Effect runtime for file callbacks.
-- The certification gate measures 10,000 callbacks in five samples. The median
-  limits are 1 ms for the direct path and 25 ms for the effectful path.
+- A separate Vitest benchmark measures `Visitor.onSync`, `Visitor.onEffect`,
+  and the real Vite+ consumer fixture. CI publishes the benchmark reports
+  without an absolute timing gate.
+- Baseline report schema 3 contains deterministic contract data only. Timing
+  belongs to the separate benchmark.
 - The real Vite+ lint fixture remains a required consumer check. It verifies
   diagnostics, fixes, and a clean second fix without network access.

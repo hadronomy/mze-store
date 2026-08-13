@@ -7,7 +7,7 @@ import { Schema } from "effect";
 
 const workspaceRoot = resolve(import.meta.dirname, "../../..");
 const vpPath = resolve(workspaceRoot, "node_modules/.bin/vp");
-const baselineSeed = "effect-oxlint-baseline-v2";
+const baselineSeed = "effect-oxlint-baseline-v3";
 
 interface ReferenceCase {
   readonly name: string;
@@ -132,10 +132,6 @@ export const createOnceContextContract = {
   },
 } as const;
 
-export interface BaselineOptions {
-  readonly samples?: number;
-}
-
 export interface BehaviorResult {
   readonly name: string;
   readonly diagnostic: {
@@ -151,16 +147,8 @@ export interface BehaviorResult {
   };
 }
 
-export interface TimingSummary {
-  readonly samplesMs: readonly number[];
-  readonly minimumMs: number;
-  readonly medianMs: number;
-  readonly maximumMs: number;
-  readonly medianAbsoluteDeviationMs: number;
-}
-
 export interface BaselineReport {
-  readonly schemaVersion: 2;
+  readonly schemaVersion: 3;
   readonly seed: typeof baselineSeed;
   readonly input: {
     readonly fileCount: number;
@@ -179,7 +167,6 @@ export interface BaselineReport {
     readonly outputBytes: number;
   };
   readonly lifecycle: typeof createOnceContextContract;
-  readonly timing: TimingSummary;
 }
 
 const tsconfig = `{
@@ -189,28 +176,6 @@ const tsconfig = `{
     "paths": { "~/*": ["./src/*"] }
   }
 }`;
-
-function median(values: readonly number[]): number {
-  const sorted = [...values].sort((left, right) => left - right);
-  const middle = Math.floor(sorted.length / 2);
-
-  return sorted.length % 2 === 0
-    ? ((sorted[middle - 1] ?? 0) + (sorted[middle] ?? 0)) / 2
-    : (sorted[middle] ?? 0);
-}
-
-function timingSummary(samplesMs: readonly number[]): TimingSummary {
-  const medianMs = median(samplesMs);
-  const deviations = samplesMs.map((sample) => Math.abs(sample - medianMs));
-
-  return {
-    samplesMs,
-    minimumMs: Math.min(...samplesMs),
-    medianMs,
-    maximumMs: Math.max(...samplesMs),
-    medianAbsoluteDeviationMs: median(deviations),
-  };
-}
 
 function runVp(
   arguments_: readonly string[],
@@ -260,8 +225,7 @@ async function runLintFix(sourcePath: string): Promise<void> {
   await runVp(["lint", "--fix", sourcePath], [0]);
 }
 
-export async function runOxlintBaseline(options: BaselineOptions = {}): Promise<BaselineReport> {
-  const samples = Math.max(1, Math.floor(options.samples ?? 3));
+export async function runOxlintBaseline(): Promise<BaselineReport> {
   const projectRoot = await mkdtemp(join(tmpdir(), "hadronomy-oxlint-baseline-"));
   const sourcePath = join(projectRoot, "src/pages/page.ts");
 
@@ -307,18 +271,8 @@ export async function runOxlintBaseline(options: BaselineOptions = {}): Promise<
         },
       };
     });
-    const samplesMs: number[] = [];
-
-    for (let index = 0; index < samples; index += 1) {
-      await writeFile(sourcePath, originalSource);
-      const startedAt = process.hrtime.bigint();
-      await runLintFix(sourcePath);
-      const elapsedNs = process.hrtime.bigint() - startedAt;
-      samplesMs.push(Number(elapsedNs) / 1_000_000);
-    }
-
     return {
-      schemaVersion: 2,
+      schemaVersion: 3,
       seed: baselineSeed,
       input: {
         fileCount: 2,
@@ -337,7 +291,6 @@ export async function runOxlintBaseline(options: BaselineOptions = {}): Promise<
         outputBytes: Buffer.byteLength(firstFix),
       },
       lifecycle: createOnceContextContract,
-      timing: timingSummary(samplesMs),
     };
   } finally {
     await rm(projectRoot, { recursive: true, force: true });

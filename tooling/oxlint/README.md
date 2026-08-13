@@ -48,8 +48,8 @@ import { preferTildeImportsRule } from "@mze-store/oxlint/rules";
 
 `test/baseline.test.ts` runs the fixture through the real `vp lint` command.
 It records one diagnostic and one fix for each supported module reference.
-It also records the input byte count and wall time for each sample. The test
-uses local files, installed packages, and no secrets or network access.
+It also records the input byte count. The test uses local files, installed
+packages, and no secrets or network access.
 
 The first fix must match the complete expected file. A second fix must report
 no change. Computed imports and a locally shadowed `require` must stay unchanged.
@@ -75,7 +75,7 @@ Run the baseline with:
 vp test --run tooling/oxlint/test/baseline.test.ts
 ```
 
-## Certified versions and performance
+## Certified versions
 
 The package supports this exact cohort:
 
@@ -96,17 +96,29 @@ The local plugin API and the Vite+ host API are separate compatibility
 surfaces. The package compiles with 1.78.0. The real Vite+ consumer test loads
 the result through the 1.73.0 host API and Oxlint 1.75.0.
 
-The hot-path gate runs 1,000 warm-up callbacks. It then measures five samples
-of 10,000 callbacks and uses the median. The direct `Visitor.onSync` limit is
-1 ms. The `Visitor.onEffect` limit is 25 ms. A reference run on Node 24.18.1
-and an Apple M4 measured about 0.1 ms and 7 ms respectively.
+## Performance benchmark
+
+`test/visitor.bench.ts` measures batches of 10,000 callbacks for
+`Visitor.onSync` and `Visitor.onEffect`. It also measures the complete real Vite+
+consumer fixture. Vitest records the mean, standard deviation, percentiles,
+relative margin of error, and sample count.
+
+Run the benchmark with:
+
+```sh
+vp test bench tooling/oxlint/test/visitor.bench.ts
+```
+
+CI publishes the JSON and text reports as informational artifacts. Benchmark
+results do not block a pull request. The hosted runner does not provide a fixed
+CPU model, so an absolute timing limit is not a portable code contract.
 
 Run the complete certification with:
 
 ```sh
-bunx vp run --filter @mze-store/oxlint build
-bunx vp test --run tooling/oxlint/test/certification.test.ts tooling/oxlint/test/baseline.test.ts tooling/oxlint/test/index.test.ts
-bunx vp lint --fix
+vp run --filter @mze-store/oxlint build
+vp test --run tooling/oxlint/test/certification.test.ts tooling/oxlint/test/baseline.test.ts tooling/oxlint/test/index.test.ts
+vp lint --fix
 bun run check
 ```
 
