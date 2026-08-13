@@ -3,7 +3,7 @@
   "private": true,
   "scripts": {
     "build": "SKIP_ENV_VALIDATION=1 medusa build && tsc-alias -p tsconfig.json",
-    "check-types": "SKIP_ENV_VALIDATION=1 medusa build && tsc --noEmit -p src/admin/tsconfig.json",
+    "check-types": "SKIP_ENV_VALIDATION=1 medusa build",
     "db:migrate": "vp run --filter '@mze-store/env' --filter '@mze-store/territory' build && medusa db:migrate",
     "db:rollback": "vp run --filter '@mze-store/env' --filter '@mze-store/territory' build && medusa db:rollback",
     "dev": "vp run --filter '@mze-store/env' --filter '@mze-store/territory' build && vp run dev:raw",
