@@ -203,3 +203,28 @@ it("uses one Bake graph for local, pull-request, and release images", async () =
   expect(workflows).toContain("docker/bake-action@");
   expect(workflows).not.toContain("docker/build-push-action@");
 });
+
+it("builds and smokes exact platform digests on native runners", async () => {
+  const [ci, release, bake, smoke] = await Promise.all([
+    readWorkflow("ci.yml"),
+    readWorkflow("release.yml"),
+    readRepositoryFile("docker-bake.hcl"),
+    readRepositoryFile("tooling/ci/smoke-image.sh"),
+  ]);
+  const buildPolicy = `${JSON.stringify({ ci, release, smoke })}${bake}`;
+  const releaseCheckout = release.jobs?.["image-build"]?.steps?.find((step) =>
+    step.uses?.startsWith("actions/checkout@"),
+  );
+
+  expect(releaseCheckout?.with?.["persist-credentials"]).toBe(false);
+  expect(buildPolicy).not.toContain("setup-qemu-action");
+  expect(buildPolicy).toContain("ubuntu-24.04-arm");
+  expect(buildPolicy).toContain("linux/arm64");
+  expect(buildPolicy).toContain("push-by-digest=true");
+  expect(buildPolicy).toContain("docker image inspect");
+  expect(buildPolicy).toContain("/health");
+  expect(buildPolicy).toContain("/app");
+  expect(buildPolicy).toContain("imagetools create");
+  expect(buildPolicy).toContain("@${DIGEST}");
+  expect(bake).toContain("platforms  = [PLATFORM]");
+});

@@ -236,19 +236,56 @@ jobs:
         run: docker compose down --volumes
 
   docker-image-pr:
-    name: Docker image validation (${{ matrix.name }})
+    name: Docker image validation (${{ matrix.name }}, ${{ matrix.platform }})
     needs:
       - checks
       - docker-integration
       - tooling-live
-    runs-on: ubuntu-24.04
+    runs-on: ${{ matrix.runner }}
     timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
-        name:
-          - medusa
-          - storefront
+        include:
+          - name: medusa
+            platform: linux/amd64
+            architecture: amd64
+            runner: ubuntu-24.04
+          - name: medusa
+            platform: linux/arm64
+            architecture: arm64
+            runner: ubuntu-24.04-arm
+          - name: storefront
+            platform: linux/amd64
+            architecture: amd64
+            runner: ubuntu-24.04
+          - name: storefront
+            platform: linux/arm64
+            architecture: arm64
+            runner: ubuntu-24.04-arm
+    services:
+      postgres:
+        image: postgres:18@sha256:a02db8cac496f15b094798a38254f14d6e00741f709360e5e00bb6668ea31636
+        env:
+          POSTGRES_DB: mze-store
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:8-alpine@sha256:978f0e01593e65eed801f2402944efcd936d43b5027e4908a7897baf88ed6241
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     steps:
       - name: Check out the repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -261,11 +298,16 @@ jobs:
       - name: Build the pull-request image
         uses: docker/bake-action@d3418bd7d0e9324001bca92fa8ba175ea7e6dc9b # v7.3.0
         env:
+          CACHE_ARCH: ${{ matrix.architecture }}
           CACHE_SCOPE: ${{ github.event.pull_request.number || github.ref_name }}
+          PLATFORM: ${{ matrix.platform }}
           REVISION: ${{ github.sha }}
         with:
           files: docker-bake.hcl
           targets: ${{ matrix.name }}-ci
+
+      - name: Smoke-test the exact platform image
+        run: tooling/ci/smoke-image.sh "mze-store-${{ matrix.name }}:pr" "${{ matrix.name }}"
 
       - name: Gate fixable critical vulnerabilities
         uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8 # v0.36.0
@@ -298,7 +340,9 @@ jobs:
           echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
 
       - name: Validate workflows and shell source
-        run: actionlint -shellcheck shellcheck -color
+        run: |
+          actionlint -shellcheck shellcheck -color
+          shellcheck tooling/ci/*.sh
 
   container-definitions:
     name: Container definition checks

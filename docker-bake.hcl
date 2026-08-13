@@ -14,8 +14,16 @@ variable "CACHE_SCOPE" {
   default = "local"
 }
 
+variable "CACHE_ARCH" {
+  default = "amd64"
+}
+
 variable "SOURCE_URL" {
   default = "https://github.com/hadronomy/mze-store"
+}
+
+variable "PLATFORM" {
+  default = "linux/amd64"
 }
 
 group "default" {
@@ -55,55 +63,53 @@ target "storefront" {
 target "medusa-ci" {
   inherits   = ["medusa"]
   tags       = ["mze-store-medusa:pr"]
-  platforms  = ["linux/amd64"]
+  platforms  = [PLATFORM]
   cache-from = [
-    "type=gha,scope=mze-store-medusa-pr-${CACHE_SCOPE}",
-    "type=gha,scope=mze-store-medusa-main",
+    "type=gha,scope=mze-store-medusa-pr-${CACHE_SCOPE}-${CACHE_ARCH}",
+    "type=gha,scope=mze-store-medusa-main-${CACHE_ARCH}",
   ]
-  cache-to = ["type=gha,mode=min,scope=mze-store-medusa-pr-${CACHE_SCOPE}"]
+  cache-to   = ["type=gha,mode=min,scope=mze-store-medusa-pr-${CACHE_SCOPE}-${CACHE_ARCH}"]
   output     = ["type=docker"]
 }
 
 target "storefront-ci" {
   inherits   = ["storefront"]
   tags       = ["mze-store-storefront:pr"]
-  platforms  = ["linux/amd64"]
+  platforms  = [PLATFORM]
   cache-from = [
-    "type=gha,scope=mze-store-storefront-pr-${CACHE_SCOPE}",
-    "type=gha,scope=mze-store-storefront-main",
+    "type=gha,scope=mze-store-storefront-pr-${CACHE_SCOPE}-${CACHE_ARCH}",
+    "type=gha,scope=mze-store-storefront-main-${CACHE_ARCH}",
   ]
-  cache-to = ["type=gha,mode=min,scope=mze-store-storefront-pr-${CACHE_SCOPE}"]
+  cache-to   = ["type=gha,mode=min,scope=mze-store-storefront-pr-${CACHE_SCOPE}-${CACHE_ARCH}"]
   output     = ["type=docker"]
 }
 
 target "medusa-release" {
   inherits   = ["medusa"]
   tags       = ["${REGISTRY}/mze-store-medusa:${REVISION}"]
-  platforms  = ["linux/amd64", "linux/arm64"]
+  platforms  = [PLATFORM]
   cache-from = [
-    "type=registry,ref=${REGISTRY}/mze-store-medusa:buildcache",
-    "type=gha,scope=mze-store-medusa-main",
+    "type=registry,ref=${REGISTRY}/mze-store-medusa:buildcache-${CACHE_ARCH}",
+    "type=gha,scope=mze-store-medusa-main-${CACHE_ARCH}",
   ]
   cache-to = [
-    "type=registry,ref=${REGISTRY}/mze-store-medusa:buildcache,mode=max",
-    "type=gha,mode=max,scope=mze-store-medusa-main",
+    "type=registry,ref=${REGISTRY}/mze-store-medusa:buildcache-${CACHE_ARCH},mode=max",
+    "type=gha,mode=max,scope=mze-store-medusa-main-${CACHE_ARCH}",
   ]
-  output = ["type=registry"]
-  attest     = ["type=provenance,mode=max", "type=sbom"]
+  output     = ["type=image,push-by-digest=true,name-canonical=true,push=true"]
 }
 
 target "storefront-release" {
   inherits   = ["storefront"]
   tags       = ["${REGISTRY}/mze-store-storefront:${REVISION}"]
-  platforms  = ["linux/amd64", "linux/arm64"]
+  platforms  = [PLATFORM]
   cache-from = [
-    "type=registry,ref=${REGISTRY}/mze-store-storefront:buildcache",
-    "type=gha,scope=mze-store-storefront-main",
+    "type=registry,ref=${REGISTRY}/mze-store-storefront:buildcache-${CACHE_ARCH}",
+    "type=gha,scope=mze-store-storefront-main-${CACHE_ARCH}",
   ]
   cache-to = [
-    "type=registry,ref=${REGISTRY}/mze-store-storefront:buildcache,mode=max",
-    "type=gha,mode=max,scope=mze-store-storefront-main",
+    "type=registry,ref=${REGISTRY}/mze-store-storefront:buildcache-${CACHE_ARCH},mode=max",
+    "type=gha,mode=max,scope=mze-store-storefront-main-${CACHE_ARCH}",
   ]
-  output = ["type=registry"]
-  attest     = ["type=provenance,mode=max", "type=sbom"]
+  output     = ["type=image,push-by-digest=true,name-canonical=true,push=true"]
 }
