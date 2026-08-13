@@ -97,7 +97,9 @@ export const start = (cwd: string) =>
 
     return {
       DATABASE_URL: `postgresql://postgres:${encodedPassword}@127.0.0.1:${discovered.postgres}/mze-store?sslmode=disable`,
-      DB_HOST: "127.0.0.1",
+      // Medusa test-utils enables TLS unless its generated URL contains this
+      // literal. The worktree PostgreSQL service does not provide TLS.
+      DB_HOST: "localhost",
       DB_PASSWORD: password,
       DB_PORT: String(discovered.postgres),
       DB_USERNAME: "postgres",

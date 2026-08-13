@@ -48,7 +48,7 @@ it.effect("maps accepted data loss to a non-interactive database push", () =>
       cwd: "/repo",
       environment: {
         DATABASE_URL: "postgresql://postgres:password@127.0.0.1:49153/mze-store?sslmode=disable",
-        DB_HOST: "127.0.0.1",
+        DB_HOST: "localhost",
         DB_PASSWORD: "password",
         DB_PORT: "49153",
         DB_USERNAME: "postgres",

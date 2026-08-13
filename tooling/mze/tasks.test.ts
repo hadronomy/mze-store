@@ -30,7 +30,7 @@ it.effect("builds workspace declarations before type-aware lint", () =>
   }),
 );
 
-it.effect("passes worktree service ports to Medusa tests", () =>
+it.effect("passes the worktree service environment to Medusa tests", () =>
   Effect.gen(function* () {
     const calls = yield* Ref.make<Array<ChildCommand.Spec>>([]);
     const commands = ChildCommand.Service.of({
@@ -61,6 +61,7 @@ it.effect("passes worktree service ports to Medusa tests", () =>
     expect(workspace?.environment).toEqual(medusa?.environment);
     expect(medusa?.environment).toMatchObject({
       DATABASE_URL: "postgresql://postgres:password@127.0.0.1:41001/mze-store?sslmode=disable",
+      DB_HOST: "localhost",
       DB_PORT: "41001",
       REDIS_URL: "redis://127.0.0.1:41002",
     });

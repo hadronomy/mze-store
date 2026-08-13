@@ -41,7 +41,7 @@ it.effect("starts healthy services and returns their discovered environment", ()
     });
     expect(environment).toEqual({
       DATABASE_URL: "postgresql://postgres:p%40ss%20word@127.0.0.1:49153/mze-store?sslmode=disable",
-      DB_HOST: "127.0.0.1",
+      DB_HOST: "localhost",
       DB_PASSWORD: "p@ss word",
       DB_PORT: "49153",
       DB_USERNAME: "postgres",
