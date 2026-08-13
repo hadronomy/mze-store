@@ -1,0 +1,159 @@
+name: Image reproducibility
+
+on:
+  workflow_call:
+    inputs:
+      audit_required:
+        description: Run the image audit because a container build-chain input changed.
+        required: true
+        type: boolean
+  schedule:
+    - cron: "17 4 * * 1"
+  workflow_dispatch:
+
+concurrency:
+  group: reproducibility-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  image-reproducibility:
+    name: Image reproducibility (${{ matrix.name }}, ${{ matrix.platform }})
+    if: ${{ inputs.audit_required || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 90
+    env:
+      BUILDX_NO_DEFAULT_ATTESTATIONS: 1
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: medusa
+            platform: linux/amd64
+            architecture: amd64
+            runner: ubuntu-24.04
+          - name: medusa
+            platform: linux/arm64
+            architecture: arm64
+            runner: ubuntu-24.04-arm
+          - name: storefront
+            platform: linux/amd64
+            architecture: amd64
+            runner: ubuntu-24.04
+          - name: storefront
+            platform: linux/arm64
+            architecture: arm64
+            runner: ubuntu-24.04-arm
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
+
+      - name: Record deterministic metadata
+        run: |
+          echo "CREATED=$(git show --no-patch --format=%cI "$GITHUB_SHA")" >> "$GITHUB_ENV"
+          echo "SOURCE_DATE_EPOCH=$(git show --no-patch --format=%ct "$GITHUB_SHA")" >> "$GITHUB_ENV"
+          mkdir -p /tmp/audit-evidence
+
+      - name: Build the first image
+        env:
+          OUTPUT_PATH: /tmp/first.oci.tar
+          PLATFORM: ${{ matrix.platform }}
+          REVISION: ${{ github.sha }}
+        run: docker buildx bake --allow=fs.write=/tmp --file docker-bake.hcl "${{ matrix.name }}-audit"
+
+      - name: Build the second image
+        env:
+          OUTPUT_PATH: /tmp/second.oci.tar
+          PLATFORM: ${{ matrix.platform }}
+          REVISION: ${{ github.sha }}
+        run: docker buildx bake --allow=fs.write=/tmp --file docker-bake.hcl "${{ matrix.name }}-audit"
+
+      - name: Extract manifest evidence
+        env:
+          ARCHITECTURE: ${{ matrix.architecture }}
+        run: |
+          mkdir -p /tmp/audit-evidence/first /tmp/audit-evidence/second
+          tar --extract --file /tmp/first.oci.tar --directory /tmp/audit-evidence/first
+          tar --extract --file /tmp/second.oci.tar --directory /tmp/audit-evidence/second
+
+          for build in first second; do
+            index="/tmp/audit-evidence/${build}/index.json"
+            manifest_digest="$(jq --exit-status --raw-output \
+              '.manifests[0].digest | select(startswith("sha256:"))' "$index")"
+            cp "/tmp/audit-evidence/${build}/blobs/sha256/${manifest_digest#sha256:}" \
+              "/tmp/audit-evidence/${build}-manifest.json"
+            cp "$index" "/tmp/audit-evidence/${build}-index.json"
+          done
+
+      - name: Compare image indexes and layers
+        run: |
+          tooling/ci/compare-image-builds.sh \
+            "${{ matrix.name }}" \
+            "${{ matrix.platform }}" \
+            /tmp/audit-evidence/first-index.json \
+            /tmp/audit-evidence/first-manifest.json \
+            /tmp/audit-evidence/second-index.json \
+            /tmp/audit-evidence/second-manifest.json \
+            /tmp/audit-evidence/comparison.json
+
+      - name: Record source and tool versions
+        if: always()
+        env:
+          ARCHITECTURE: ${{ matrix.architecture }}
+          IMAGE_NAME: ${{ matrix.name }}
+          PLATFORM: ${{ matrix.platform }}
+        run: |
+          jq --null-input \
+            --arg architecture "$ARCHITECTURE" \
+            --arg buildx "$(docker buildx version)" \
+            --arg commit "$GITHUB_SHA" \
+            --arg docker "$(docker version --format '{{.Client.Version}}')" \
+            --arg image "$IMAGE_NAME" \
+            --arg platform "$PLATFORM" \
+            --arg sourceDateEpoch "$SOURCE_DATE_EPOCH" \
+            '{
+              architecture: $architecture,
+              buildx: $buildx,
+              commit: $commit,
+              docker: $docker,
+              image: $image,
+              platform: $platform,
+              sourceDateEpoch: $sourceDateEpoch
+            }' > /tmp/audit-evidence/build-metadata.json
+
+      - name: Upload reproducibility evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: reproducibility-${{ github.sha }}-${{ github.run_attempt }}-${{ matrix.name }}-${{ matrix.architecture }}
+          path: /tmp/audit-evidence/
+          if-no-files-found: error
+          retention-days: 90
+
+  reproducibility-gate:
+    name: Image reproducibility gate
+    if: ${{ always() }}
+    needs: image-reproducibility
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Require the audit or report a neutral result
+        env:
+          AUDIT_REQUIRED: ${{ inputs.audit_required || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
+          AUDIT_RESULT: ${{ needs.image-reproducibility.result }}
+        run: |
+          if [[ "$AUDIT_REQUIRED" == "true" ]]; then
+            test "$AUDIT_RESULT" = "success"
+            echo "Result: passed. The required image audit succeeded." >>"$GITHUB_STEP_SUMMARY"
+          else
+            test "$AUDIT_RESULT" = "skipped"
+            echo "Result: neutral. No container build-chain inputs changed." >>"$GITHUB_STEP_SUMMARY"
+          fi

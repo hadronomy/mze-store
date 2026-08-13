@@ -10,6 +10,10 @@ variable "CREATED" {
   default = "1970-01-01T00:00:00Z"
 }
 
+variable "SOURCE_DATE_EPOCH" {
+  default = "0"
+}
+
 variable "CACHE_SCOPE" {
   default = "local"
 }
@@ -20,6 +24,10 @@ variable "CACHE_ARCH" {
 
 variable "SOURCE_URL" {
   default = "https://github.com/hadronomy/mze-store"
+}
+
+variable "OUTPUT_PATH" {
+  default = "mze-image.oci.tar"
 }
 
 variable "PLATFORM" {
@@ -38,8 +46,15 @@ group "release" {
   targets = ["medusa-release", "storefront-release"]
 }
 
+group "audit" {
+  targets = ["medusa-audit", "storefront-audit"]
+}
+
 target "_common" {
   context = "."
+  args = {
+    SOURCE_DATE_EPOCH = SOURCE_DATE_EPOCH
+  }
   labels = {
     "org.opencontainers.image.created"  = CREATED
     "org.opencontainers.image.revision" = REVISION
@@ -96,7 +111,7 @@ target "medusa-release" {
     "type=registry,ref=${REGISTRY}/mze-store-medusa:buildcache-${CACHE_ARCH},mode=max",
     "type=gha,mode=max,scope=mze-store-medusa-main-${CACHE_ARCH}",
   ]
-  output     = ["type=image,push-by-digest=true,name-canonical=true,push=true"]
+  output     = ["type=image,push-by-digest=true,name-canonical=true,push=true,rewrite-timestamp=true"]
 }
 
 target "storefront-release" {
@@ -111,5 +126,19 @@ target "storefront-release" {
     "type=registry,ref=${REGISTRY}/mze-store-storefront:buildcache-${CACHE_ARCH},mode=max",
     "type=gha,mode=max,scope=mze-store-storefront-main-${CACHE_ARCH}",
   ]
-  output     = ["type=image,push-by-digest=true,name-canonical=true,push=true"]
+  output     = ["type=image,push-by-digest=true,name-canonical=true,push=true,rewrite-timestamp=true"]
+}
+
+target "medusa-audit" {
+  inherits  = ["medusa"]
+  platforms = [PLATFORM]
+  no-cache  = true
+  output    = ["type=oci,dest=${OUTPUT_PATH},rewrite-timestamp=true"]
+}
+
+target "storefront-audit" {
+  inherits  = ["storefront"]
+  platforms = [PLATFORM]
+  no-cache  = true
+  output    = ["type=oci,dest=${OUTPUT_PATH},rewrite-timestamp=true"]
 }

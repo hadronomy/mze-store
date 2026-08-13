@@ -4,9 +4,11 @@
 FROM oven/bun:1.3.14@sha256:e10577f0db68676a7024391c6e5cb4b879ebd17188ab750cf10024a6d700e5c4 AS bun
 
 FROM node:24@sha256:934240a162082fd8b8a2f90cd5114446443f1eba1c5378f6687167ca405e6584 AS build
+ARG SOURCE_DATE_EPOCH=0
 COPY --from=bun /usr/local/bin/bun /usr/local/bin/bun
 WORKDIR /app
-ENV SKIP_ENV_VALIDATION=1
+ENV SKIP_ENV_VALIDATION=1 \
+  SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH}
 
 # Keep workspace manifests in a stable layer so source changes reuse the install.
 COPY package.json bun.lock vite.config.ts tsconfig.json ./
@@ -25,7 +27,9 @@ RUN --mount=type=cache,id=bun-install-cache,target=/root/.bun/install/cache \
 COPY . .
 ENV NODE_ENV=production
 RUN ./node_modules/.bin/vp run --filter './packages/*' build \
-  && ./node_modules/.bin/vp run -t storefront#build
+  && ./node_modules/.bin/vp run -t storefront#build \
+  && node tooling/ci/normalize-storefront-output.mjs \
+    apps/storefront/.output "$SOURCE_DATE_EPOCH"
 
 # Bun's isolated install uses links. Resolve React before copying it alone.
 RUN mkdir -p /tmp/storefront-runtime/node_modules \

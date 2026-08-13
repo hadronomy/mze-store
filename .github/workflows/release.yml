@@ -184,7 +184,9 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Record image metadata
-        run: echo "CREATED=$(git show --no-patch --format=%cI "$GITHUB_SHA")" >> "$GITHUB_ENV"
+        run: |
+          echo "CREATED=$(git show --no-patch --format=%cI "$GITHUB_SHA")" >> "$GITHUB_ENV"
+          echo "SOURCE_DATE_EPOCH=$(git show --no-patch --format=%ct "$GITHUB_SHA")" >> "$GITHUB_ENV"
 
       - name: Build the immutable candidate
         id: bake
