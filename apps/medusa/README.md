@@ -15,7 +15,7 @@ cp .env.template .env
 bun run mze db migrate                 # from the repository root
 bun run seed
 bun run seed:probe                     # development only, see below
-bun run user:create -e you@example.com -p yourpassword
+bun run operator:create -e you@example.com -p yourpassword
 bun run dev                            # admin at http://localhost:9000/app
 ```
 
