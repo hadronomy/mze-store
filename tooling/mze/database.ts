@@ -28,7 +28,13 @@ export const run = (
     const commands = yield* ChildCommand.Service;
     yield* commands.run({
       executable: "vp",
-      arguments: ["run", "--filter", "@mze-store/db", `db:${operation}`],
+      arguments: [
+        "run",
+        "--filter",
+        "@mze-store/db",
+        `db:${operation}`,
+        ...(operation === "push" && acceptDataLoss ? ["--force"] : []),
+      ],
       cwd,
     });
   });

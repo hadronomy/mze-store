@@ -1,0 +1,60 @@
+import { expect, it } from "@effect/vitest";
+import { Effect, Ref } from "effect";
+
+import { ChildCommand } from "./child-command.ts";
+import { Database } from "./database.ts";
+
+const recordingCommands = (calls: Ref.Ref<Array<ChildCommand.Spec>>) =>
+  ChildCommand.Service.of({
+    capture: () => Effect.die("capture was not expected"),
+    run: (spec) => Ref.update(calls, (current) => [...current, spec]),
+  });
+
+it.effect("does not start a database push without the consequence flag", () =>
+  Effect.gen(function* () {
+    const calls = yield* Ref.make<Array<ChildCommand.Spec>>([]);
+    const error = yield* Database.run("/repo", "push", false).pipe(
+      Effect.provideService(ChildCommand.Service, recordingCommands(calls)),
+      Effect.flip,
+    );
+
+    expect(error).toMatchObject({
+      _tag: "DataLossConfirmationRequired",
+      exitCode: 2,
+      flag: "--accept-data-loss",
+    });
+    expect(yield* Ref.get(calls)).toEqual([]);
+  }),
+);
+
+it.effect("maps accepted data loss to a non-interactive database push", () =>
+  Effect.gen(function* () {
+    const calls = yield* Ref.make<Array<ChildCommand.Spec>>([]);
+    yield* Database.run("/repo", "push", true).pipe(
+      Effect.provideService(ChildCommand.Service, recordingCommands(calls)),
+    );
+
+    expect(yield* Ref.get(calls)).toEqual([
+      {
+        executable: "vp",
+        arguments: ["run", "--filter", "@mze-store/db", "db:push", "--force"],
+        cwd: "/repo",
+      },
+    ]);
+  }),
+);
+
+it.effect("does not force database operations that do not approve data loss", () =>
+  Effect.gen(function* () {
+    const calls = yield* Ref.make<Array<ChildCommand.Spec>>([]);
+    const commands = recordingCommands(calls);
+
+    for (const operation of ["generate", "migrate", "studio"] as const) {
+      yield* Database.run("/repo", operation, false).pipe(
+        Effect.provideService(ChildCommand.Service, commands),
+      );
+    }
+
+    expect((yield* Ref.get(calls)).every((spec) => !spec.arguments.includes("--force"))).toBe(true);
+  }),
+);
