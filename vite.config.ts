@@ -13,6 +13,9 @@ const ignorePatterns = [
   "apps/medusa/.medusa/**",
   "packages/*/dist/**",
   "tooling/oxlint/dist/**",
+  ".vite-hooks/**",
+  "test-results/**",
+  "playwright-report/**",
 ];
 
 export default defineConfig({
