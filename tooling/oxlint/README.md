@@ -44,6 +44,37 @@ Import the compiled project rule when another tool needs its value:
 import { preferTildeImportsRule } from "@mze-store/oxlint/rules";
 ```
 
+## Baseline contract
+
+`test/baseline.test.ts` runs the fixture through the real `vp lint` command.
+It records one diagnostic and one fix for each supported module reference.
+It also records the input byte count and wall time for each sample. The test
+uses local files, installed packages, and no secrets or network access.
+
+The first fix must match the complete expected file. A second fix must report
+no change. Computed imports and a locally shadowed `require` must stay unchanged.
+The filename test supplies a virtual filename and a different physical filename.
+Module resolution must use the physical filename.
+
+The `createOnce` context has this lifecycle:
+
+| Phase                              | Available context                                    |
+| ---------------------------------- | ---------------------------------------------------- |
+| Static setup                       | Decoded options and services from a static `Layer`   |
+| `before`                           | The current `FileContext`                            |
+| Effectful and synchronous visitors | The current `FileContext`                            |
+| `after`                            | The current `FileContext` until the callback returns |
+
+`FileContext` contains the rule ID, both filenames, working directory, options,
+source code, language options, settings, and report functions. It is not
+available during static setup or after `after` returns.
+
+Run the baseline with:
+
+```sh
+vp test --run tooling/oxlint/test/baseline.test.ts
+```
+
 ## Generic anti-slop rules
 
 The root Vite+ config loads the bundled plugin from `tooling/oxlint/anti-slop/index.ts`.
