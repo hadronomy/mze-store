@@ -17,6 +17,8 @@ type Job = {
     readonly uses?: string;
     readonly with?: Readonly<Record<string, boolean | number | string>>;
   }>;
+  readonly uses?: string;
+  readonly with?: Readonly<Record<string, boolean | number | string>>;
 };
 
 type Workflow = {
@@ -25,7 +27,18 @@ type Workflow = {
     readonly group?: string;
   };
   readonly jobs?: Readonly<Record<string, Job>>;
-  readonly on?: Readonly<Record<string, null | { readonly branches?: ReadonlyArray<string> }>>;
+  readonly on?: Readonly<
+    Record<
+      string,
+      | null
+      | {
+          readonly branches?: ReadonlyArray<string>;
+          readonly paths?: ReadonlyArray<string>;
+          readonly types?: ReadonlyArray<string>;
+        }
+      | ReadonlyArray<{ readonly cron: string }>
+    >
+  >;
   readonly permissions?: Permissions;
 };
 
@@ -257,4 +270,60 @@ it("enforces fixed image budgets and publishes complete scan evidence", async ()
   expect(policy).toContain("github/codeql-action/upload-sarif@");
   expect(policy).toContain("actions/upload-artifact@");
   expect(policy).toContain("${IMAGE_REPOSITORY}@${DIGEST}");
+});
+
+it("audits deterministic image output weekly and after build-chain changes", async () => {
+  const [ci, release, audit, bake, comparison, detection, medusaDockerfile, storefrontDockerfile] =
+    await Promise.all([
+      readWorkflow("ci.yml"),
+      readWorkflow("release.yml"),
+      readWorkflow("reproducibility.yml"),
+      readRepositoryFile("docker-bake.hcl"),
+      readRepositoryFile("tooling/ci/compare-image-builds.sh"),
+      readRepositoryFile("tooling/ci/detect-build-chain-changes.sh"),
+      readRepositoryFile("apps/medusa/Dockerfile"),
+      readRepositoryFile("apps/storefront/Dockerfile"),
+    ]);
+  const policy = JSON.stringify({
+    ci,
+    release,
+    audit,
+    bake,
+    comparison,
+    detection,
+    medusaDockerfile,
+    storefrontDockerfile,
+  });
+
+  expect(policy).toContain("SOURCE_DATE_EPOCH");
+  expect(medusaDockerfile.match(/ARG SOURCE_DATE_EPOCH=0/g)).toHaveLength(2);
+  expect(medusaDockerfile).toContain("update-browserslist-db@*/node_modules/.bin");
+  expect(medusaDockerfile).toContain("ln -sfn ../browserslist/cli.js");
+  expect(storefrontDockerfile.match(/ARG SOURCE_DATE_EPOCH=0/g)).toHaveLength(1);
+  expect(bake.match(/rewrite-timestamp=true/g)).toHaveLength(4);
+  expect(policy).toContain("git show --no-patch --format=%ct");
+  expect(audit.on).toHaveProperty("schedule");
+  expect(audit.on).toHaveProperty("workflow_call");
+  expect(audit.on).not.toHaveProperty("pull_request");
+  const auditCheckout = audit.jobs?.["image-reproducibility"]?.steps?.find((step) =>
+    step.uses?.startsWith("actions/checkout@"),
+  );
+  expect(auditCheckout?.with?.["persist-credentials"]).toBe(false);
+  expect(policy).toContain("docker-bake.hcl");
+  expect(policy).toContain("apps/.*/Dockerfile");
+  expect(detection).toContain("(apps|packages|tooling)/.*/tsconfig[^/]*\\.json");
+  expect(detection).toContain("(apps|packages|tooling)/.*/vite\\.config\\.[^/]+");
+  expect(policy).toContain("docker/setup-buildx-action@");
+  expect(policy).toContain("--allow=fs.write=/tmp");
+  expect(policy).toContain("mkdir -p /tmp/audit-evidence");
+  expect(policy).toContain("compare-image-builds.sh");
+  expect(policy).toContain("normalize-storefront-output.mjs");
+  expect(comparison).toContain("layers");
+  expect(policy).toContain("actions/upload-artifact@");
+  expect(JSON.stringify(audit)).toContain("github.run_attempt");
+  expect(ci.jobs?.["image-reproducibility"]?.uses).toBe("./.github/workflows/reproducibility.yml");
+  expect(ci.jobs?.["image-reproducibility"]?.needs).toBe("build-chain-changes");
+  expect(ci.jobs?.["ci-gate"]?.needs).toContain("image-reproducibility");
+  expect(audit.jobs?.["reproducibility-gate"]?.if).toBe("${{ always() }}");
+  expect(JSON.stringify(audit.jobs?.["reproducibility-gate"])).toContain("Result: neutral");
 });

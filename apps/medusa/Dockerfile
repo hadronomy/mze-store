@@ -4,8 +4,10 @@
 FROM oven/bun:1.3.14@sha256:e10577f0db68676a7024391c6e5cb4b879ebd17188ab750cf10024a6d700e5c4 AS bun
 
 FROM node:24@sha256:934240a162082fd8b8a2f90cd5114446443f1eba1c5378f6687167ca405e6584 AS build
+ARG SOURCE_DATE_EPOCH=0
 COPY --from=bun /usr/local/bin/bun /usr/local/bin/bun
 WORKDIR /app
+ENV SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH}
 
 # Keep workspace manifests in a stable layer so source changes reuse the install.
 COPY package.json bun.lock vite.config.ts tsconfig.json ./
@@ -26,8 +28,10 @@ ENV NODE_ENV=production
 RUN ./node_modules/.bin/vp run -t medusa#build
 
 FROM node:24@sha256:934240a162082fd8b8a2f90cd5114446443f1eba1c5378f6687167ca405e6584 AS production-deps
+ARG SOURCE_DATE_EPOCH=0
 COPY --from=bun /usr/local/bin/bun /usr/local/bin/bun
 WORKDIR /app
+ENV SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH}
 
 COPY package.json bun.lock vite.config.ts tsconfig.json ./
 COPY apps/medusa/package.json apps/medusa/package.json
@@ -44,6 +48,13 @@ RUN --mount=type=cache,id=bun-install-cache,target=/root/.bun/install/cache \
     --filter medusa \
     --filter '@mze-store/env' \
     --filter '@mze-store/territory'
+
+# The updater exposes its peer CLI through this nested link. Materialize it
+# after Bun's parallel install so every clean install has the same link tree.
+RUN update_db_bin="$(find /app/node_modules/.bun -type d \
+  -path '*/update-browserslist-db@*/node_modules/.bin' -print -quit)" \
+  && test -n "$update_db_bin" \
+  && ln -sfn ../browserslist/cli.js "$update_db_bin/browserslist"
 
 # The Medusa server does not invoke esbuild. Keep its optional build binary out
 # of the runtime dependency store.

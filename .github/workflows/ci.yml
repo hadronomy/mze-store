@@ -379,6 +379,41 @@ jobs:
           PREFLIGHT_RESULTS: ${{ toJSON(needs) }}
         run: jq --exit-status 'all(.[]; .result == "success")' <<<"$PREFLIGHT_RESULTS"
 
+  build-chain-changes:
+    name: Container build-chain scope
+    needs: preflight
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      audit_required: ${{ steps.scope.outputs.required }}
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Detect container build-chain changes
+        id: scope
+        env:
+          BASE_COMMIT: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
+          HEAD_COMMIT: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
+        run: >-
+          tooling/ci/detect-build-chain-changes.sh
+          "$BASE_COMMIT"
+          "$HEAD_COMMIT"
+          "$GITHUB_OUTPUT"
+          "$GITHUB_STEP_SUMMARY"
+
+  image-reproducibility:
+    name: Image reproducibility
+    needs: build-chain-changes
+    uses: ./.github/workflows/reproducibility.yml
+    with:
+      audit_required: ${{ needs.build-chain-changes.outputs.audit_required == 'true' }}
+    permissions:
+      contents: read
+
   ci-gate:
     name: CI gate
     if: ${{ always() }}
@@ -390,6 +425,7 @@ jobs:
       - workflow-policy
       - container-definitions
       - preflight
+      - image-reproducibility
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
