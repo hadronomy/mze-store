@@ -1,5 +1,5 @@
 import { expect, it } from "@effect/vitest";
-import { Deferred, Effect, Layer, Path, Ref } from "effect";
+import { ConfigProvider, Deferred, Effect, Layer, Path, Ref } from "effect";
 
 import { ChildCommand } from "./child-command.ts";
 import { Dev } from "./dev.ts";
@@ -30,6 +30,7 @@ it.effect("starts a Storefront with discovered service ports", () =>
     yield* Dev.run({ cwd: "/repo", platform: "darwin", target: "storefront" }).pipe(
       Effect.provide(commands),
       Effect.provide(Path.layer),
+      Effect.provideService(ConfigProvider.ConfigProvider, ConfigProvider.fromEnv({ env: {} })),
       Effect.ignore,
     );
     const recorded = yield* Ref.get(calls);
@@ -42,7 +43,12 @@ it.effect("starts a Storefront with discovered service ports", () =>
       arguments: ["run", "--name", "storefront.mze-store", "vp", "dev"],
       cwd: "/repo/apps/storefront",
       environment: {
-        DATABASE_URL: "postgresql://postgres:password@127.0.0.1:41001/mze-store",
+        DATABASE_URL: "postgresql://postgres:password@127.0.0.1:41001/mze-store?sslmode=disable",
+        DB_HOST: "localhost",
+        DB_PASSWORD: "password",
+        DB_PORT: "41001",
+        DB_USERNAME: "postgres",
+        POSTGRES_PASSWORD: "password",
         REDIS_URL: "redis://127.0.0.1:41002",
       },
     });

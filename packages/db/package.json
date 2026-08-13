@@ -8,6 +8,12 @@
       "node": "./dist/src/index.js",
       "default": "./src/index.ts"
     },
+    "./schema": {
+      "types": "./dist/src/schema/index.d.ts",
+      "development": "./src/schema/index.ts",
+      "node": "./dist/src/schema/index.js",
+      "default": "./src/schema/index.ts"
+    },
     "./*": {
       "types": "./dist/src/*.d.ts",
       "development": "./src/*.ts",
@@ -19,7 +25,8 @@
     "db:push": "vp run @mze-store/env#build && drizzle-kit push",
     "db:generate": "vp run @mze-store/env#build && drizzle-kit generate",
     "db:studio": "vp run @mze-store/env#build && drizzle-kit studio",
-    "db:migrate": "vp run @mze-store/env#build && drizzle-kit migrate"
+    "db:migrate": "vp run @mze-store/env#build && drizzle-kit migrate",
+    "test": "vp run build && vp test --dir test"
   },
   "dependencies": {
     "@mze-store/env": "workspace:*",

@@ -7,6 +7,7 @@ import { Doctor } from "./doctor.ts";
 import { Output } from "./output.ts";
 
 const runDoctor = (options: {
+  readonly bunFailure?: ChildCommand.Error;
   readonly interrupt?: boolean;
   readonly redisHealth: "healthy" | "starting";
   readonly route?: string;
@@ -27,23 +28,25 @@ const runDoctor = (options: {
         capture: (spec) =>
           options.interrupt && spec.executable === "bun"
             ? Effect.interrupt
-            : Effect.succeed({
-                exitCode: 0,
-                stderr: "",
-                stdout:
-                  spec.executable === "bun"
-                    ? "1.3.14\n"
-                    : spec.executable === "portless" && spec.arguments[0] === "--version"
-                      ? "portless 0.15.5\n"
-                      : spec.executable === "portless" && spec.arguments[0] === "list"
-                        ? (options.route ?? "No active routes.\n")
-                        : spec.arguments.includes("ps")
-                          ? JSON.stringify([
-                              { Health: "healthy", Service: "postgres" },
-                              { Health: options.redisHealth, Service: "redis" },
-                            ])
-                          : "ok\n",
-              }),
+            : options.bunFailure && spec.executable === "bun"
+              ? Effect.fail(options.bunFailure)
+              : Effect.succeed({
+                  exitCode: 0,
+                  stderr: "",
+                  stdout:
+                    spec.executable === "bun"
+                      ? "1.3.14\n"
+                      : spec.executable === "portless" && spec.arguments[0] === "--version"
+                        ? "portless 0.15.5\n"
+                        : spec.executable === "portless" && spec.arguments[0] === "list"
+                          ? (options.route ?? "No active routes.\n")
+                          : spec.arguments.includes("ps")
+                            ? JSON.stringify([
+                                { Health: "healthy", Service: "postgres" },
+                                { Health: options.redisHealth, Service: "redis" },
+                              ])
+                            : "ok\n",
+                }),
         run: () => Effect.void,
       });
       const error = yield* Doctor.run({
@@ -67,12 +70,13 @@ const runDoctor = (options: {
 
 it.effect("rejects services that are not healthy", () =>
   Effect.gen(function* () {
-    const { error } = yield* runDoctor({ redisHealth: "starting" });
+    const { error, written } = yield* runDoctor({ redisHealth: "starting" });
 
     expect(error._tag).toBe("DoctorFailed");
     if (error._tag === "DoctorFailed") {
       expect(error.failures).toEqual(["services"]);
     }
+    expect(written.every(({ stream }) => stream === "stdout")).toBe(true);
   }).pipe(Effect.provide(NodeServices.layer)),
 );
 
@@ -93,7 +97,32 @@ it.effect("reports the owner of the shared Medusa route", () =>
           message: expect.stringContaining("(pid 1234)"),
         }),
         event: "message",
-        stream: "stderr",
+        stream: "stdout",
+      }),
+    );
+  }).pipe(Effect.provide(NodeServices.layer)),
+);
+
+it.effect("adds a non-empty detail for a silent child-command failure", () =>
+  Effect.gen(function* () {
+    const { written } = yield* runDoctor({
+      bunFailure: new ChildCommand.CommandFailed({
+        command: "bun --version",
+        exitCode: 9,
+        stderr: "",
+        stdout: "",
+      }),
+      redisHealth: "healthy",
+    });
+
+    expect(written).toContainEqual(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          detail: "Command `bun --version` failed with exit code 9.",
+          name: "bun",
+          passed: false,
+        }),
+        stream: "stdout",
       }),
     );
   }).pipe(Effect.provide(NodeServices.layer)),

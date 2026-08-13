@@ -1,4 +1,4 @@
-import { Effect, FileSystem, Path, Schema, Stdio } from "effect";
+import { Config, Effect, FileSystem, Path, Schema, Stdio } from "effect";
 import { Prompt } from "effect/unstable/cli";
 
 import { ChildCommand } from "./child-command.ts";
@@ -51,6 +51,10 @@ export const run = (options: {
 }) =>
   Effect.gen(function* () {
     yield* requireWritableMode(options.mode);
+
+    if (yield* Config.boolean("CI").pipe(Config.withDefault(false))) {
+      return yield* new SetupRequiresInteractiveTerminal({ exitCode: 1 });
+    }
 
     const stdio = yield* Stdio.Stdio;
     if (!(yield* stdio.stdinIsTerminal)) {

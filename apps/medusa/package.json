@@ -12,7 +12,7 @@
     "seed:probe": "vp run --filter '@mze-store/env' --filter '@mze-store/territory' build && medusa exec ./src/scripts/seed-probe.ts",
     "start": "medusa start",
     "test": "vp run --filter '@mze-store/env' --filter '@mze-store/territory' build && NODE_OPTIONS=--experimental-vm-modules jest --runInBand --forceExit",
-    "user:create": "vp run --filter '@mze-store/env' --filter '@mze-store/territory' build && medusa user"
+    "operator:create": "vp run --filter '@mze-store/env' --filter '@mze-store/territory' build && medusa user"
   },
   "dependencies": {
     "@medusajs/admin-sdk": "catalog:",

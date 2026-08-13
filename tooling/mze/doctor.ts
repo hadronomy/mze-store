@@ -3,6 +3,7 @@ import { Cause, Effect, FileSystem, Path, Schema } from "effect";
 import { ChildCommand } from "./child-command.ts";
 import { Output } from "./output.ts";
 import { Portless } from "./portless.ts";
+import { ServicePortInvalid } from "./services.ts";
 
 interface Check {
   readonly detail?: string;
@@ -22,6 +23,55 @@ export class DoctorFailed extends Schema.TaggedError<DoctorFailed>()("DoctorFail
   failures: Schema.Array(Schema.String),
 }) {}
 
+const CheckFailureSchema = Schema.Union([
+  ChildCommand.CommandFailed,
+  ChildCommand.CommandExecutionFailed,
+  ChildCommand.ExecutableMissing,
+  DoctorCheckFailed,
+  Portless.PortlessUnavailable,
+  Portless.PortlessVersionMismatch,
+  ServicePortInvalid,
+]);
+type CheckFailure = typeof CheckFailureSchema.Type;
+
+function nonEmpty(value: string | undefined): string | undefined {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : undefined;
+}
+
+function failureDetail(name: string, error: CheckFailure | Error | string): string {
+  const failure = Schema.is(CheckFailureSchema)(error) ? error : undefined;
+
+  switch (failure?._tag) {
+    case "CommandFailed": {
+      const output = nonEmpty(failure.stderr) ?? nonEmpty(failure.stdout);
+      return output
+        ? `Command \`${failure.command}\` failed with exit code ${failure.exitCode}: ${output}`
+        : `Command \`${failure.command}\` failed with exit code ${failure.exitCode}.`;
+    }
+    case "CommandExecutionFailed": {
+      const description = nonEmpty(failure.description) ?? "No execution detail was available.";
+      return `Could not run \`${failure.command}\`: ${description}`;
+    }
+    case "ExecutableMissing":
+      return `Required executable not found: \`${failure.command}\`.`;
+    case "DoctorCheckFailed":
+      return nonEmpty(failure.detail) ?? `The ${name} check failed without a detail.`;
+    case "PortlessUnavailable":
+      return `Portless ${failure.detail} is unavailable. Install it with \`${failure.installCommand}\`.`;
+    case "PortlessVersionMismatch":
+      return `Portless ${failure.required} is required; found ${failure.found}. Install it with \`${failure.installCommand}\`.`;
+    case "ServicePortInvalid": {
+      const output = nonEmpty(failure.output) ?? "Docker returned no output.";
+      return `Docker returned an invalid port for ${failure.service}: ${output}`;
+    }
+    default:
+      return error instanceof Error && nonEmpty(error.message)
+        ? error.message.trim()
+        : `The ${name} check failed without a detail.`;
+  }
+}
+
 const inspect = <A, E, R>(
   name: string,
   effect: Effect.Effect<A, E, R>,
@@ -33,11 +83,10 @@ const inspect = <A, E, R>(
       }
 
       const error = Cause.squash(cause);
-      const errorDetail = Schema.is(Schema.Struct({ detail: Schema.String }))(error)
-        ? error.detail
-        : undefined;
+      const detailInput =
+        Schema.is(CheckFailureSchema)(error) || error instanceof Error ? error : String(error);
       return Effect.succeed({
-        detail: errorDetail ?? (error instanceof Error ? error.message : String(error)),
+        detail: failureDetail(name, detailInput),
         name,
         passed: false,
       });
@@ -178,7 +227,7 @@ export const run = (options: {
           passed: check.passed,
         },
         event: "message",
-        stream: check.passed ? "stdout" : "stderr",
+        stream: "stdout",
       });
     }
 

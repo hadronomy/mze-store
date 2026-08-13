@@ -8,6 +8,12 @@
       "node": "./dist/src/index.js",
       "default": "./src/index.ts"
     },
+    "./auth": {
+      "types": "./dist/auth.d.ts",
+      "development": "./auth.ts",
+      "node": "./dist/auth.js",
+      "default": "./auth.ts"
+    },
     "./*": {
       "types": "./dist/src/*.d.ts",
       "development": "./src/*.ts",
@@ -17,7 +23,7 @@
   },
   "scripts": {
     "auth:schema": "auth generate --config auth.ts --output ../db/src/schema/auth.ts --yes",
-    "test": "vp test --dir src"
+    "test": "vp run build && vp test --dir src && vp test --dir test"
   },
   "dependencies": {
     "@better-auth/drizzle-adapter": "catalog:",

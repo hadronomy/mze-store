@@ -1,20 +1,22 @@
-import { Effect, Schema } from "effect";
+import { Effect } from "effect";
 
 import { ChildCommand } from "./child-command.ts";
+import { Services } from "./services.ts";
 
-export class DataLossConfirmationRequired extends Schema.TaggedError<DataLossConfirmationRequired>()(
-  "DataLossConfirmationRequired",
-  {
-    exitCode: Schema.Number,
-    flag: Schema.String,
-    operation: Schema.String,
-  },
-) {}
-
-const run = (cwd: string, executable: string, arguments_: ReadonlyArray<string>) =>
+const run = (
+  cwd: string,
+  executable: string,
+  arguments_: ReadonlyArray<string>,
+  environment?: ChildCommand.Spec["environment"],
+) =>
   Effect.gen(function* () {
     const commands = yield* ChildCommand.Service;
-    yield* commands.run({ executable, arguments: arguments_, cwd });
+    const spec = {
+      executable,
+      arguments: arguments_,
+      cwd,
+    } satisfies ChildCommand.Spec;
+    yield* commands.run(environment === undefined ? spec : { ...spec, environment });
   });
 
 const runVp = (cwd: string, arguments_: ReadonlyArray<string>) => run(cwd, "vp", arguments_);
@@ -40,58 +42,18 @@ export const test = (cwd: string, target: "e2e" | "workspace") =>
     ? run(cwd, "playwright", ["test", "--config=e2e/playwright.config.ts"])
     : Effect.gen(function* () {
         yield* runVp(cwd, ["run", "--filter", "@mze-store/oxlint", "build"]);
-        yield* runVp(cwd, ["test"]);
-        yield* runVp(cwd, ["run", "--filter", "medusa", "test"]);
+        const environment = yield* Services.start(cwd);
+        yield* run(cwd, "vp", ["test"], environment);
+        yield* run(cwd, "vp", ["run", "--filter", "medusa", "test"], environment);
       });
 
 export const lint = (cwd: string) =>
   Effect.gen(function* () {
     yield* runVp(cwd, ["run", "--filter", "@mze-store/oxlint", "build"]);
+    yield* runVp(cwd, ["run", "--filter", "./packages/*", "build"]);
     yield* runVp(cwd, ["lint"]);
   });
 
 export const format = (cwd: string) => runVp(cwd, ["fmt"]);
-
-export const database = (
-  cwd: string,
-  operation: "generate" | "migrate" | "push" | "studio",
-  acceptDataLoss: boolean,
-) =>
-  Effect.gen(function* () {
-    if (operation === "push" && !acceptDataLoss) {
-      return yield* new DataLossConfirmationRequired({
-        exitCode: 2,
-        flag: "--accept-data-loss",
-        operation: "db push",
-      });
-    }
-
-    yield* runVp(cwd, ["run", "--filter", "@mze-store/db", `db:${operation}`]);
-  });
-
-export const authSchema = (cwd: string) =>
-  Effect.gen(function* () {
-    yield* runVp(cwd, ["run", "@mze-store/env#build"]);
-    yield* runVp(cwd, ["run", "--filter", "@mze-store/db", "build"]);
-    yield* runVp(cwd, ["run", "--filter", "@mze-store/auth", "auth:schema"]);
-    yield* runVp(cwd, ["fmt", "--write", "packages/db/src/schema/auth.ts"]);
-  });
-
-export const docker = (
-  cwd: string,
-  operation: "build" | "down" | "logs" | "up",
-  deleteVolumes: boolean,
-) => {
-  switch (operation) {
-    case "build":
-      return run(cwd, "docker", ["compose", "build"]);
-    case "down":
-      return run(cwd, "docker", ["compose", "down", ...(deleteVolumes ? ["--volumes"] : [])]);
-    case "logs":
-      return run(cwd, "docker", ["compose", "logs", "-f"]);
-    case "up":
-      return run(cwd, "docker", ["compose", "up", "-d", "--build"]);
-  }
-};
 
 export * as Tasks from "./tasks.ts";

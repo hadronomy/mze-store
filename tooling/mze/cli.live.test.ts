@@ -135,6 +135,11 @@ it.live("keeps parser failures in NDJSON mode", () =>
 it.live("renders JSON help and version output as NDJSON", () =>
   Effect.gen(function* () {
     const commands = yield* ChildCommand.Service;
+    const implicitHelp = yield* commands.capture({
+      executable: process.execPath,
+      arguments: ["tooling/mze/main.ts", "--json"],
+      cwd: process.cwd(),
+    });
     const help = yield* commands.capture({
       executable: process.execPath,
       arguments: ["tooling/mze/main.ts", "--json", "--help"],
@@ -146,13 +151,16 @@ it.live("renders JSON help and version output as NDJSON", () =>
       cwd: process.cwd(),
     });
 
-    expect(events(help.stdout)[0]).toMatchObject({
-      command: "mze",
-      data: { message: expect.stringContaining("mze <subcommand> [flags]") },
-      event: "message",
-      stream: "stdout",
-      version: 1,
-    });
+    for (const result of [implicitHelp, help]) {
+      expect(result.stderr).toBe("");
+      expect(events(result.stdout)[0]).toMatchObject({
+        command: "mze",
+        data: { message: expect.stringContaining("mze <subcommand> [flags]") },
+        event: "message",
+        stream: "stdout",
+        version: 1,
+      });
+    }
     expect(events(version.stdout)[0]).toMatchObject({
       command: "mze",
       data: { message: "mze v1.0.0" },
@@ -161,6 +169,88 @@ it.live("renders JSON help and version output as NDJSON", () =>
       version: 1,
     });
   }).pipe(provideLive),
+);
+
+it.live("keeps the canonical Bun command silent around NDJSON", () =>
+  Effect.gen(function* () {
+    const commands = yield* ChildCommand.Service;
+    const error = yield* commands
+      .capture({
+        executable: "bun",
+        arguments: ["run", "mze", "db", "push", "--json"],
+        cwd: process.cwd(),
+      })
+      .pipe(Effect.flip);
+
+    expect(error.exitCode).toBe(2);
+    if (error._tag === "CommandFailed") {
+      expect(events(error.stdout).map(({ event }) => event)).toEqual(["started"]);
+      expect(events(error.stderr).map(({ event }) => event)).toEqual(["failed"]);
+      expect(error.stderr).not.toContain("error: script");
+      expect(error.stderr).not.toContain("$ node");
+    }
+  }).pipe(provideLive),
+);
+
+it.live("writes the complete doctor report to stdout", () =>
+  Effect.scoped(
+    Effect.gen(function* () {
+      const commands = yield* ChildCommand.Service;
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const directory = yield* fs.makeTempDirectoryScoped({ prefix: "mze-doctor-stream-test-" });
+      const executables = {
+        bun: ["#!/bin/sh", "printf '0.0.0\\n'"].join("\n"),
+        docker: [
+          "#!/bin/sh",
+          'if [ "$1" = "--version" ]; then',
+          "  printf 'Docker version test\\n'",
+          "else",
+          '  printf \'%s\\n\' \'[{"Health":"healthy","Service":"postgres"},{"Health":"healthy","Service":"redis"}]\'',
+          "fi",
+        ].join("\n"),
+        portless: [
+          "#!/bin/sh",
+          'if [ "$1" = "--version" ]; then',
+          "  printf 'portless 0.15.5\\n'",
+          'elif [ "$1" = "list" ]; then',
+          "  printf 'No active routes.\\n'",
+          "else",
+          "  printf 'ok\\n'",
+          "fi",
+        ].join("\n"),
+      };
+
+      for (const [name, source] of Object.entries(executables)) {
+        const executable = path.join(directory, name);
+        yield* fs.writeFileString(executable, source);
+        yield* fs.chmod(executable, 0o755);
+      }
+
+      const error = yield* commands
+        .capture({
+          executable: process.execPath,
+          arguments: ["tooling/mze/main.ts", "doctor", "--json"],
+          cwd: process.cwd(),
+          environment: { PATH: `${directory}:${process.env.PATH ?? ""}` },
+        })
+        .pipe(Effect.flip);
+
+      expect(error.exitCode).toBe(1);
+      if (error._tag === "CommandFailed") {
+        const report = events(error.stdout);
+        expect(error.stderr).toBe("");
+        expect(report.every(({ stream }) => stream === "stdout")).toBe(true);
+        expect(report).toContainEqual(
+          expect.objectContaining({
+            command: "doctor",
+            event: "failed",
+            stream: "stdout",
+          }),
+        );
+      }
+    }),
+  ).pipe(provideLive),
 );
 
 it.live(

@@ -122,7 +122,7 @@ bun run test
 ```
 
 `bun run check` includes formatting, linting, package builds, and type checks.
-`bun run test` needs PostgreSQL and Redis.
+`bun run test` starts or reuses PostgreSQL and Redis for the current worktree.
 
 Run the placeholder browser suite:
 
