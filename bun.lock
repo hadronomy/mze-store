@@ -23,6 +23,7 @@
         "typescript": "catalog:",
         "uuid": "catalog:",
         "vite-plus": "catalog:",
+        "yaml": "2.9.0",
       },
     },
     "apps/medusa": {

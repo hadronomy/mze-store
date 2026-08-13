@@ -29,6 +29,15 @@ updates:
         patterns:
           - "*"
 
+  - package-ecosystem: docker-compose
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      compose-images:
+        patterns:
+          - "*"
+
   - package-ecosystem: docker
     directory: /apps/medusa
     schedule:
