@@ -1,13 +1,13 @@
 import { Effect, Runtime, Schema } from "effect";
 
 import { ChildCommand } from "./child-command.ts";
+import { DataLossConfirmationRequired } from "./database.ts";
 import { DevelopmentProcessExited, UnsupportedPlatform } from "./dev.ts";
 import { DoctorCheckFailed, DoctorFailed } from "./doctor.ts";
 import { Output } from "./output.ts";
 import { PortlessRouteConflict, PortlessUnavailable, PortlessVersionMismatch } from "./portless.ts";
 import { ServicesStartFailed, ServicePortInvalid } from "./services.ts";
 import { SetupRequiresInteractiveTerminal, ToolVersionMismatch } from "./setup.ts";
-import { DataLossConfirmationRequired } from "./tasks.ts";
 
 export class ReportedError extends Error {
   readonly _tag = "ReportedError";

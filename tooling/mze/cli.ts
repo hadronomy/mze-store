@@ -2,7 +2,10 @@ import { Console, Effect, Option, Path } from "effect";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
 import { ChildCommand } from "./child-command.ts";
+import { Auth } from "./auth.ts";
+import { Database } from "./database.ts";
 import { Dev } from "./dev.ts";
+import { Docker } from "./docker.ts";
 import { Doctor } from "./doctor.ts";
 import { Output } from "./output.ts";
 import { Reporter } from "./reporter.ts";
@@ -132,7 +135,7 @@ const services = Command.make("services").pipe(
 
 const databaseCommand = (operation: "generate" | "migrate" | "studio") =>
   Command.make(operation, {}, () =>
-    execute(`db ${operation}`, ({ cwd }) => Tasks.database(cwd, operation, false)),
+    execute(`db ${operation}`, ({ cwd }) => Database.run(cwd, operation, false)),
   );
 const databasePush = Command.make(
   "push",
@@ -142,7 +145,7 @@ const databasePush = Command.make(
     ),
   },
   ({ acceptDataLoss }) =>
-    execute("db push", ({ cwd }) => Tasks.database(cwd, "push", acceptDataLoss)),
+    execute("db push", ({ cwd }) => Database.run(cwd, "push", acceptDataLoss)),
 );
 const database = Command.make("db").pipe(
   Command.withSubcommands([
@@ -154,13 +157,13 @@ const database = Command.make("db").pipe(
 );
 
 const authSchema = Command.make("schema", {}, () =>
-  execute("auth schema", ({ cwd }) => Tasks.authSchema(cwd)),
+  execute("auth schema", ({ cwd }) => Auth.schema(cwd)),
 );
 const auth = Command.make("auth").pipe(Command.withSubcommands([authSchema]));
 
 const dockerSimple = (operation: "build" | "logs" | "up") =>
   Command.make(operation, {}, () =>
-    execute(`docker ${operation}`, ({ cwd }) => Tasks.docker(cwd, operation, false)),
+    execute(`docker ${operation}`, ({ cwd }) => Docker[operation](cwd)),
   );
 const dockerDown = Command.make(
   "down",
@@ -169,8 +172,7 @@ const dockerDown = Command.make(
       Flag.withDescription("Delete persistent PostgreSQL and Redis volumes."),
     ),
   },
-  ({ deleteVolumes }) =>
-    execute("docker down", ({ cwd }) => Tasks.docker(cwd, "down", deleteVolumes)),
+  ({ deleteVolumes }) => execute("docker down", ({ cwd }) => Docker.down(cwd, deleteVolumes)),
 );
 const docker = Command.make("docker").pipe(
   Command.withSubcommands([
