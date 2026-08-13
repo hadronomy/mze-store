@@ -16,6 +16,15 @@ const ignorePatterns = [
 ];
 
 export default defineConfig({
+  run: {
+    tasks: {
+      "staged-check": {
+        command: "vp check --fix",
+        dependsOn: ["@mze-store/oxlint#build"],
+        cache: false,
+      },
+    },
+  },
   resolve: {
     tsconfigPaths: true,
   },
@@ -71,6 +80,6 @@ export default defineConfig({
     sortPackageJson: true,
   },
   staged: {
-    "*.{js,ts,jsx,tsx,vue,svelte,json,jsonc,css,md}": "vp check --fix",
+    "*.{js,ts,jsx,tsx,vue,svelte,json,jsonc,css,md}": "vp run staged-check",
   },
 });
