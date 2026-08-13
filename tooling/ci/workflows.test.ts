@@ -32,6 +32,9 @@ type Workflow = {
 const readWorkflow = async (name: string): Promise<Workflow> =>
   parse(await readFile(new URL(`../../.github/workflows/${name}`, import.meta.url), "utf8"));
 
+const readRepositoryFile = (path: string): Promise<string> =>
+  readFile(new URL(`../../${path}`, import.meta.url), "utf8");
+
 const writePermissions = new Set(["attestations", "contents", "id-token", "packages"]);
 
 it("keeps pull-request and merge-group validation read-only behind ci-gate", async () => {
@@ -133,4 +136,47 @@ it("keys application caches by trusted inputs and reports their results", async 
   expect(JSON.stringify(gate)).toContain("acceptedP95Seconds");
   expect(JSON.stringify(gate)).toContain("600");
   expect(JSON.stringify(gate)).toContain("ci-gate-metrics");
+});
+
+it("pins CI inputs and validates workflow and container definitions", async () => {
+  const [ci, release, compose, medusa, storefront, dependabot] = await Promise.all([
+    readWorkflow("ci.yml"),
+    readWorkflow("release.yml"),
+    readRepositoryFile("docker-compose.yml"),
+    readRepositoryFile("apps/medusa/Dockerfile"),
+    readRepositoryFile("apps/storefront/Dockerfile"),
+    readRepositoryFile(".github/dependabot.yml"),
+  ]);
+  const workflows = JSON.stringify({ ci, release });
+
+  expect(workflows).not.toContain("ubuntu-latest");
+  expect(workflows).not.toContain("macos-latest");
+  expect(workflows).toContain("ubuntu-24.04");
+  expect(workflows).toContain("macos-15");
+  expect(workflows).toContain("actionlint");
+  expect(workflows).toContain("actionlint_1.7.7_linux_amd64.tar.gz");
+  expect(workflows).not.toContain("actionlint_1.7.7_linux_x86_64.tar.gz");
+  expect(workflows).toContain("shellcheck");
+  expect(workflows).toContain("docker buildx build --check");
+
+  expect(ci.jobs?.preflight?.needs).toEqual(["workflow-policy", "container-definitions"]);
+  expect(ci.jobs?.preflight?.if).toBe("${{ always() }}");
+  for (const job of [ci.jobs?.["workflow-policy"], ci.jobs?.["container-definitions"]]) {
+    const checkout = job?.steps?.find((step) => step.uses?.startsWith("actions/checkout@"));
+    expect(checkout?.with?.["persist-credentials"]).toBe(false);
+  }
+  for (const job of [ci.jobs?.checks, ci.jobs?.["tooling-live"], ci.jobs?.["docker-integration"]]) {
+    expect(job?.needs).toBe("preflight");
+  }
+
+  expect(compose).toMatch(/postgres:18@sha256:[a-f0-9]{64}/u);
+  expect(compose).toMatch(/redis:8-alpine@sha256:[a-f0-9]{64}/u);
+  expect(workflows).toMatch(/node:24\.18\.1-bookworm@sha256:[a-f0-9]{64}/u);
+  expect(dependabot).toContain("package-ecosystem: docker-compose");
+
+  for (const dockerfile of [medusa, storefront]) {
+    expect(dockerfile.startsWith("# syntax=docker/dockerfile:1.8\n# check=error=true\n")).toBe(
+      true,
+    );
+  }
 });

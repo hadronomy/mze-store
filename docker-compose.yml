@@ -104,7 +104,7 @@ services:
     restart: unless-stopped
 
   postgres:
-    image: postgres:18
+    image: postgres:18@sha256:a02db8cac496f15b094798a38254f14d6e00741f709360e5e00bb6668ea31636
     environment:
       POSTGRES_DB: mze-store
       POSTGRES_USER: postgres
@@ -121,7 +121,7 @@ services:
     restart: unless-stopped
 
   redis:
-    image: redis:8-alpine
+    image: redis:8-alpine@sha256:978f0e01593e65eed801f2402944efcd936d43b5027e4908a7897baf88ed6241
     # Append-only persistence, because the workflow engine keeps in-flight
     # workflow state here. Losing it on a restart is the "charged, no order"
     # failure ADR-0006 is about, so an ephemeral Redis would defeat the point of
