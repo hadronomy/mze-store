@@ -1,0 +1,10 @@
+{
+  "storefront": {
+    "compressedBytes": 90000000,
+    "uncompressedBytes": 285000000
+  },
+  "medusa": {
+    "compressedBytes": 230000000,
+    "uncompressedBytes": 900000000
+  }
+}
