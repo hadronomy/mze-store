@@ -88,8 +88,8 @@ it.live("sends SIGTERM to the child process group on interruption", () =>
         'const { spawn } = require("node:child_process")',
         'const { writeFileSync } = require("node:fs")',
         `const child = spawn(process.execPath, ["-e", "setInterval(() => {}, 1000)"], { stdio: "ignore" })`,
-        `writeFileSync(${JSON.stringify(pidFile)}, String(child.pid))`,
         `process.on("SIGTERM", () => { writeFileSync(${JSON.stringify(signalFile)}, "SIGTERM"); process.exit(0) })`,
+        `writeFileSync(${JSON.stringify(pidFile)}, String(child.pid))`,
         "setInterval(() => {}, 1000)",
       ].join(";");
       const fiber = yield* commands
