@@ -115,7 +115,7 @@ function getProject(filename: string): Project | null {
       return [];
     }
 
-    const absolutePattern = resolve(pathsBasePath, target.replace("*", marker));
+    const absolutePattern = resolve(pathsBasePath, target.replaceAll("*", marker));
     const markerIndex = absolutePattern.indexOf(marker);
 
     return markerIndex === -1

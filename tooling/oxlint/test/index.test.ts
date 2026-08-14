@@ -48,6 +48,17 @@ beforeAll(async () => {
   );
   await writeProjectFile("src/admin/widgets/view.ts", "export {};\n");
   await writeProjectFile("src/admin/utils/helper.ts", "export {};\n");
+  await writeProjectFile(
+    "src/replacement/tsconfig.json",
+    `{ "compilerOptions": { "moduleResolution": "bundler", "paths": { "~/*": ["../$&/*"] } } }`,
+  );
+  await writeProjectFile("src/replacement/view.ts", "export {};\n");
+  await writeProjectFile("src/$&/value.ts", "export {};\n");
+  await writeProjectFile(
+    "src/malformed/tsconfig.json",
+    `{ "compilerOptions": { "moduleResolution": "bundler", "paths": { "~/*": ["../*/nested/*"] } } }`,
+  );
+  await writeProjectFile("src/malformed/view.ts", "export {};\n");
 });
 
 afterAll(async () => {
@@ -98,6 +109,18 @@ test("the nearest nested tsconfig defines the alias root", () => {
   const filename = join(projectRoot, "src/admin/widgets/view.ts");
 
   expect(getPreferredSpecifier(filename, "../utils/helper")).toBe("~/utils/helper");
+});
+
+test("an alias target keeps replacement tokens as literal path text", () => {
+  const filename = join(projectRoot, "src/replacement/view.ts");
+
+  expect(getPreferredSpecifier(filename, "../$&/value")).toBe("~/value");
+});
+
+test("an alias target with multiple wildcards is rejected", () => {
+  const filename = join(projectRoot, "src/malformed/view.ts");
+
+  expect(getPreferredSpecifier(filename, "../shared/value")).toBeNull();
 });
 
 test("vp lint --fix applies the plugin once and is idempotent", { timeout: 30_000 }, async () => {
