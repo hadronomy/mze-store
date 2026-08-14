@@ -45,10 +45,14 @@ COPY packages/ui/package.json packages/ui/package.json
 COPY tooling/oxlint/package.json tooling/oxlint/package.json
 # A flat production tree avoids race-dependent links in Bun's isolated store.
 RUN --mount=type=cache,id=bun-install-cache,target=/root/.bun/install/cache \
-  bun install --frozen-lockfile --omit dev --linker=hoisted \
+  bun install --frozen-lockfile --omit dev --linker=hoisted --backend=copyfile \
     --filter medusa \
     --filter '@mze-store/env' \
     --filter '@mze-store/territory'
+
+# Cached packages can retain broader write bits from an earlier extraction.
+# Remove those bits before BuildKit records the runtime dependency layer.
+RUN find /app/node_modules -type f -exec chmod go-w '{}' +
 
 # The Medusa server does not invoke esbuild. Keep its optional build binary out
 # of the runtime dependencies.
@@ -76,4 +80,4 @@ COPY --from=build --chown=node:node /app/apps/medusa/.medusa/server ./apps/medus
 WORKDIR /app/apps/medusa/.medusa/server
 EXPOSE 9000
 USER node
-CMD ["../../node_modules/.bin/medusa", "start"]
+CMD ["/app/node_modules/.bin/medusa", "start"]

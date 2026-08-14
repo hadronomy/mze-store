@@ -42,7 +42,7 @@ case "$image_name" in
     )
 
     docker run --rm --network host "${medusa_environment[@]}" \
-      "$image_ref" ../../node_modules/.bin/medusa db:migrate
+  "$image_ref" /app/node_modules/.bin/medusa db:migrate
     docker run --detach --name "$container_name" --network host \
       "${medusa_environment[@]}" "$image_ref" >/dev/null
     wait_for_url "http://127.0.0.1:9000/health"

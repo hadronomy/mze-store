@@ -64,7 +64,7 @@ services:
   # and still reports healthy, because /health does not look at schema.
   medusa-migrate:
     build: *medusa-build
-    command: ["../../node_modules/.bin/medusa", "db:migrate"]
+    command: ["/app/node_modules/.bin/medusa", "db:migrate"]
     environment: *medusa-env
     depends_on:
       postgres:
