@@ -441,6 +441,41 @@ jobs:
           artifact-scope: read-only
           retention-days: 30
 
+  dependency-review:
+    name: Dependency review
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Review dependency changes
+        id: dependency-review
+        uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
+        with:
+          base-ref: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
+          head-ref: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
+          fail-on-severity: high
+          fail-on-scopes: runtime, development, unknown
+          license-check: true
+          vulnerability-check: true
+          comment-summary-in-pr: never
+          show-patched-versions: true
+
+      - name: Report dependency scopes and licenses
+        if: always()
+        env:
+          DEPENDENCY_CHANGES: ${{ steps.dependency-review.outputs.dependency-changes }}
+        run: |
+          printf '%s' "$DEPENDENCY_CHANGES" >"$RUNNER_TEMP/dependency-changes.json"
+          bash tooling/ci/report-dependency-review.sh \
+            "$RUNNER_TEMP/dependency-changes.json" \
+            "$GITHUB_STEP_SUMMARY"
+
   ci-gate:
     name: CI gate
     if: ${{ always() }}
@@ -454,6 +489,7 @@ jobs:
       - preflight
       - image-reproducibility
       - codeql
+      - dependency-review
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
