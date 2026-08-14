@@ -1,6 +1,7 @@
 import { defineConfig, loadEnv } from "@medusajs/framework/utils";
 import { parse } from "@mze-store/env/medusa";
 import { resolve } from "node:path";
+import { adminFavicon } from "~/admin/favicon";
 import { STRIPE_MODULE_ID } from "~/payment/stripe";
 import { withPortlessCors } from "~/portless";
 
@@ -13,6 +14,7 @@ export default defineConfig({
   admin: {
     vite: (config) => ({
       ...config,
+      plugins: [...(config.plugins ?? []), adminFavicon()],
       resolve: {
         ...config.resolve,
         alias: [

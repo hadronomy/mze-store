@@ -24,7 +24,9 @@
         "default": "./dist/email.cjs"
       }
     },
-    "./theme.css": "./dist/theme.css"
+    "./theme.css": "./dist/theme.css",
+    "./brand/icon.svg": "./brand/icon.svg",
+    "./brand/mandala.svg": "./brand/mandala.svg"
   },
   "scripts": {
     "test": "vp run build && vp test --dir test"
