@@ -1,0 +1,39 @@
+{
+  "name": "@mze-store/design-tokens",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.mts",
+        "default": "./dist/index.mjs"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    },
+    "./email": {
+      "import": {
+        "types": "./dist/email.d.mts",
+        "default": "./dist/email.mjs"
+      },
+      "require": {
+        "types": "./dist/email.d.cts",
+        "default": "./dist/email.cjs"
+      }
+    },
+    "./theme.css": "./dist/theme.css"
+  },
+  "scripts": {
+    "test": "vp run build && vp test --dir test"
+  },
+  "devDependencies": {
+    "@mze-store/config": "workspace:*",
+    "@types/culori": "^4.0.1",
+    "@types/node": "catalog:",
+    "culori": "^4.0.2",
+    "typescript": "catalog:"
+  }
+}

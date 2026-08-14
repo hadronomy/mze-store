@@ -52,7 +52,19 @@ export const run = (options: {
     const environment = yield* Services.start(options.cwd);
     yield* commands.run({
       executable: "vp",
-      arguments: ["run", "--filter", "@mze-store/env", "--filter", "@mze-store/territory", "build"],
+      // design-tokens has to be here, not only in the dependency graph: it
+      // generates theme.css, and the Storefront's stylesheet imports that file
+      // rather than the package's TypeScript.
+      arguments: [
+        "run",
+        "--filter",
+        "@mze-store/env",
+        "--filter",
+        "@mze-store/territory",
+        "--filter",
+        "@mze-store/design-tokens",
+        "build",
+      ],
       cwd: options.cwd,
     });
 
