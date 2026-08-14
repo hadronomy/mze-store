@@ -459,3 +459,38 @@ it("runs advanced CodeQL through the trust boundary and stable gate", async () =
   expect(codeqlActions.length).toBeGreaterThan(0);
   expect(codeqlActions.every((action) => /@[a-f0-9]{40}$/u.test(action))).toBe(true);
 });
+
+it("blocks vulnerable dependency additions and reports licenses", async () => {
+  const [ci, ciSource, reportSource] = await Promise.all([
+    readWorkflow("ci.yml"),
+    readRepositoryFile(".github/workflows/ci.yml"),
+    readRepositoryFile("tooling/ci/report-dependency-review.sh"),
+  ]);
+  const review = ci.jobs?.["dependency-review"];
+  const reviewPolicy = JSON.stringify(review);
+  const reportPolicy = `${reviewPolicy}${reportSource}`;
+  const checkout = review?.steps?.find((step) => step.uses?.startsWith("actions/checkout@"));
+
+  expect(review?.permissions).toEqual({ contents: "read" });
+  expect(checkout?.with?.["persist-credentials"]).toBe(false);
+  expect(reviewPolicy).toContain("actions/dependency-review-action@");
+  expect(reviewPolicy).toContain("bash tooling/ci/report-dependency-review.sh");
+  expect(reviewPolicy).toContain('"fail-on-severity":"high"');
+  expect(reviewPolicy).toContain('"fail-on-scopes":"runtime, development, unknown"');
+  expect(reviewPolicy).toContain('"license-check":true');
+  expect(reviewPolicy).not.toContain("allow-licenses");
+  expect(reviewPolicy).not.toContain("deny-licenses");
+  expect(reportPolicy).toContain("dependency-changes");
+  expect(reportPolicy).toContain("Result: neutral");
+  expect(reportPolicy).toContain("License");
+  expect(ci.jobs?.["ci-gate"]?.needs).toContain("dependency-review");
+
+  const dependencyActions = ciSource.match(/actions\/dependency-review-action@[^\s]+/gu) ?? [];
+  expect(dependencyActions.length).toBe(1);
+  expect(dependencyActions.every((action) => /@[a-f0-9]{40}$/u.test(action))).toBe(true);
+
+  const checks = JSON.stringify(ci.jobs?.checks);
+  expect(checks).toContain("bun install --frozen-lockfile");
+  expect(checks).toContain("bun run check");
+  expect(checks).toContain("bun run test");
+});
