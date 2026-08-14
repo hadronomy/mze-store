@@ -75,25 +75,35 @@ it.live("reports a missing executable with exit code 127", () =>
   }).pipe(provideLiveChildCommand),
 );
 
-it.live("sends SIGTERM to the child process group on interruption", () =>
+it.live("sends SIGTERM when output paths contain code separators and replacement tokens", () =>
   Effect.scoped(
     Effect.gen(function* () {
       const commands = yield* ChildCommand.Service;
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
       const directory = yield* fs.makeTempDirectoryScoped({ prefix: "mze-process-test-" });
-      const pidFile = path.join(directory, "grandchild.pid");
-      const signalFile = path.join(directory, "signal.txt");
+      const pidFile = path.join(directory, `grandchild-;'"$&.pid`);
+      const signalFile = path.join(directory, `signal-;'"$&.txt`);
       const script = [
         'const { spawn } = require("node:child_process")',
         'const { writeFileSync } = require("node:fs")',
+        "const pidFile = process.env.MZE_PID_FILE",
+        "const signalFile = process.env.MZE_SIGNAL_FILE",
+        'if (!pidFile || !signalFile) throw new Error("Missing child process paths")',
         `const child = spawn(process.execPath, ["-e", "setInterval(() => {}, 1000)"], { stdio: "ignore" })`,
-        `process.on("SIGTERM", () => { writeFileSync(${JSON.stringify(signalFile)}, "SIGTERM"); process.exit(0) })`,
-        `writeFileSync(${JSON.stringify(pidFile)}, String(child.pid))`,
+        'process.on("SIGTERM", () => { writeFileSync(signalFile, "SIGTERM"); process.exit(0) })',
+        "writeFileSync(pidFile, String(child.pid))",
         "setInterval(() => {}, 1000)",
       ].join(";");
       const fiber = yield* commands
-        .run({ executable: process.execPath, arguments: ["-e", script] })
+        .run({
+          executable: process.execPath,
+          arguments: ["-e", script],
+          environment: {
+            MZE_PID_FILE: pidFile,
+            MZE_SIGNAL_FILE: signalFile,
+          },
+        })
         .pipe(Effect.forkChild);
       const waitUntil = (predicate: Effect.Effect<boolean, unknown>) =>
         predicate.pipe(
