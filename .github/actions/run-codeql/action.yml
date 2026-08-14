@@ -1,0 +1,54 @@
+name: Run CodeQL
+description: Analyze one language, enforce severity policy, and preserve SARIF evidence.
+
+inputs:
+  language:
+    description: CodeQL language identifier.
+    required: true
+  upload:
+    description: CodeQL SARIF upload mode.
+    required: true
+  artifact-scope:
+    description: File-safe trust scope for the evidence artifact.
+    required: true
+  retention-days:
+    description: Evidence retention period.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Initialize CodeQL
+      uses: github/codeql-action/init@ff2f1c621b7f889edc0d3c761ac2e6a3f8cdb0dd # v4.37.7
+      with:
+        languages: ${{ inputs.language }}
+        queries: security-extended
+
+    - name: Analyze the repository
+      uses: github/codeql-action/analyze@ff2f1c621b7f889edc0d3c761ac2e6a3f8cdb0dd # v4.37.7
+      with:
+        category: /language:${{ inputs.language }}
+        output: ${{ runner.temp }}/codeql-${{ inputs.language }}
+        upload: ${{ inputs.upload }}
+        upload-database: false
+
+    - name: Enforce CodeQL severity policy
+      shell: bash
+      run: |
+        mapfile -t sarif_files < <(
+          find "${RUNNER_TEMP}/codeql-${{ inputs.language }}" -type f -name '*.sarif' -print
+        )
+        bash tooling/ci/enforce-codeql-policy.sh \
+          "${RUNNER_TEMP}/codeql-${{ inputs.language }}-policy.json" \
+          "${sarif_files[@]}"
+
+    - name: Preserve CodeQL evidence
+      if: always()
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      with:
+        name: codeql-${{ inputs.artifact-scope }}-${{ inputs.language }}-${{ github.sha }}
+        path: |
+          ${{ runner.temp }}/codeql-${{ inputs.language }}/
+          ${{ runner.temp }}/codeql-${{ inputs.language }}-policy.json
+        if-no-files-found: error
+        retention-days: ${{ inputs.retention-days }}
