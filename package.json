@@ -55,7 +55,7 @@
     "check": "node tooling/mze/main.ts check"
   },
   "devDependencies": {
-    "@axe-core/playwright": "4.12.1",
+    "@axe-core/playwright": "4.13.0",
     "@effect/platform-node": "4.0.0-beta.107",
     "@effect/vitest": "4.0.0-beta.107",
     "@mze-store/config": "workspace:*",
@@ -68,7 +68,7 @@
     "ioredis": "catalog:",
     "knip": "6.32.1",
     "oxlint": "1.78.0",
-    "rolldown": "1.1.4",
+    "rolldown": "1.2.3",
     "tsc-alias": "^1.9.1",
     "typescript": "catalog:",
     "uuid": "catalog:",
