@@ -9,6 +9,8 @@ type Job = {
   readonly if?: string;
   readonly needs?: string | ReadonlyArray<string>;
   readonly permissions?: Permissions;
+  readonly uses?: string;
+  readonly with?: Readonly<Record<string, boolean | number | string>>;
   readonly steps?: ReadonlyArray<{
     readonly env?: Readonly<Record<string, boolean | number | string>>;
     readonly if?: string;
@@ -17,8 +19,6 @@ type Job = {
     readonly uses?: string;
     readonly with?: Readonly<Record<string, boolean | number | string>>;
   }>;
-  readonly uses?: string;
-  readonly with?: Readonly<Record<string, boolean | number | string>>;
 };
 
 type Workflow = {
@@ -414,4 +414,48 @@ it("signs one verified digest before moving the main tag", async () => {
   expect(steps[promoteIndex]?.run).toContain('PROMOTED_DIGEST="$(docker buildx imagetools inspect');
   expect(steps[promoteIndex]?.run).toContain('test "$PROMOTED_DIGEST" = "$DIGEST"');
   expect(steps[promoteIndex]?.run?.trimEnd().endsWith("report_publication || true")).toBe(true);
+});
+
+it("runs advanced CodeQL through the trust boundary and stable gate", async () => {
+  const [ci, codeql, ciSource, codeqlSource, codeqlActionSource] = await Promise.all([
+    readWorkflow("ci.yml"),
+    readWorkflow("codeql.yml"),
+    readRepositoryFile(".github/workflows/ci.yml"),
+    readRepositoryFile(".github/workflows/codeql.yml"),
+    readRepositoryFile(".github/actions/run-codeql/action.yml"),
+  ]);
+  const pullRequestPolicy = JSON.stringify(ci.jobs?.codeql);
+  const trustedPolicy = `${JSON.stringify(codeql)}${codeqlActionSource}`;
+
+  expect(ci.jobs?.codeql?.permissions).toEqual({ actions: "read", contents: "read" });
+  expect(pullRequestPolicy).toContain("javascript-typescript");
+  expect(pullRequestPolicy).toContain("actions");
+  expect(pullRequestPolicy).toContain("./.github/actions/run-codeql");
+  expect(pullRequestPolicy).toContain('"upload":"never"');
+  expect(ci.jobs?.["ci-gate"]?.needs).toContain("codeql");
+
+  expect(codeql.on).not.toHaveProperty("workflow_call");
+  expect(codeql.on).not.toHaveProperty("pull_request");
+  expect(codeql.on).toMatchObject({ push: { branches: ["main"] } });
+  expect(codeql.on).toHaveProperty("schedule");
+  expect(trustedPolicy).toContain("javascript-typescript");
+  expect(trustedPolicy).toContain("actions");
+  expect(trustedPolicy).toContain("security-extended");
+  expect(ciSource).toContain("upload: never");
+  expect(codeqlSource).toContain("upload: always");
+  expect(trustedPolicy).toContain("bash tooling/ci/enforce-codeql-policy.sh");
+  expect(codeql.jobs?.["analyze-trusted"]?.permissions).toEqual({
+    actions: "read",
+    contents: "read",
+    "security-events": "write",
+  });
+
+  for (const job of [ci.jobs?.codeql, ...Object.values(codeql.jobs ?? {})]) {
+    const checkout = job.steps?.find((step) => step.uses?.startsWith("actions/checkout@"));
+    expect(checkout?.with?.["persist-credentials"]).toBe(false);
+  }
+
+  const codeqlActions = codeqlActionSource.match(/github\/codeql-action\/[\w-]+@[^\s]+/gu) ?? [];
+  expect(codeqlActions.length).toBeGreaterThan(0);
+  expect(codeqlActions.every((action) => /@[a-f0-9]{40}$/u.test(action))).toBe(true);
 });
