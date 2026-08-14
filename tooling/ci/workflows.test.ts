@@ -190,6 +190,7 @@ it("pins CI inputs and validates workflow and container definitions", async () =
 
   expect(compose).toMatch(/postgres:18@sha256:[a-f0-9]{64}/u);
   expect(compose).toMatch(/redis:8-alpine@sha256:[a-f0-9]{64}/u);
+  expect(compose).toContain('command: ["/app/node_modules/.bin/medusa", "db:migrate"]');
   expect(workflows).toMatch(/node:24\.18\.1-bookworm@sha256:[a-f0-9]{64}/u);
   expect(dependabot).toContain("package-ecosystem: docker-compose");
 
@@ -240,7 +241,12 @@ it("builds and smokes exact platform digests on native runners", async () => {
   expect(buildPolicy).toContain("ubuntu-24.04-arm");
   expect(buildPolicy).toContain("linux/arm64");
   expect(buildPolicy).toContain("push-by-digest=true");
+  expect(bake).toContain('tags       = ["${REGISTRY}/mze-store-medusa"]');
+  expect(bake).toContain('tags       = ["${REGISTRY}/mze-store-storefront"]');
+  expect(bake).not.toContain('tags       = ["${REGISTRY}/mze-store-medusa:${REVISION}"]');
+  expect(bake).not.toContain('tags       = ["${REGISTRY}/mze-store-storefront:${REVISION}"]');
   expect(buildPolicy).toContain("docker image inspect");
+  expect(buildPolicy).toContain("/app/node_modules/.bin/medusa db:migrate");
   expect(buildPolicy).toContain("/health");
   expect(buildPolicy).toContain("/app");
   expect(buildPolicy).toContain("imagetools create");
@@ -297,8 +303,12 @@ it("audits deterministic image output weekly and after build-chain changes", asy
 
   expect(policy).toContain("SOURCE_DATE_EPOCH");
   expect(medusaDockerfile.match(/ARG SOURCE_DATE_EPOCH=0/g)).toHaveLength(2);
-  expect(medusaDockerfile).toContain("update-browserslist-db@*/node_modules/.bin");
-  expect(medusaDockerfile).toContain("ln -sfn ../browserslist/cli.js");
+  expect(medusaDockerfile).toContain("--linker=hoisted");
+  expect(medusaDockerfile).toContain("--backend=copyfile");
+  expect(medusaDockerfile).toContain("-exec chmod go-w '{}' +");
+  expect(medusaDockerfile).not.toContain("/app/node_modules/.bun");
+  expect(medusaDockerfile).not.toContain("/app/apps/medusa/node_modules");
+  expect(medusaDockerfile).toContain('CMD ["/app/node_modules/.bin/medusa", "start"]');
   expect(storefrontDockerfile.match(/ARG SOURCE_DATE_EPOCH=0/g)).toHaveLength(1);
   expect(bake.match(/rewrite-timestamp=true/g)).toHaveLength(4);
   expect(policy).toContain("git show --no-patch --format=%ct");

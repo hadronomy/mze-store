@@ -43,24 +43,23 @@ COPY packages/env/package.json packages/env/package.json
 COPY packages/territory/package.json packages/territory/package.json
 COPY packages/ui/package.json packages/ui/package.json
 COPY tooling/oxlint/package.json tooling/oxlint/package.json
+# A flat production tree avoids race-dependent links in Bun's isolated store.
 RUN --mount=type=cache,id=bun-install-cache,target=/root/.bun/install/cache \
-  bun install --frozen-lockfile --omit dev \
+  bun install --frozen-lockfile --omit dev --linker=hoisted --backend=copyfile \
     --filter medusa \
     --filter '@mze-store/env' \
     --filter '@mze-store/territory'
 
-# The updater exposes its peer CLI through this nested link. Materialize it
-# after Bun's parallel install so every clean install has the same link tree.
-RUN update_db_bin="$(find /app/node_modules/.bun -type d \
-  -path '*/update-browserslist-db@*/node_modules/.bin' -print -quit)" \
-  && test -n "$update_db_bin" \
-  && ln -sfn ../browserslist/cli.js "$update_db_bin/browserslist"
+# Cached packages can retain broader write bits from an earlier extraction.
+# Remove those bits before BuildKit records the runtime dependency layer.
+RUN find /app/node_modules -type f -exec chmod go-w '{}' +
 
 # The Medusa server does not invoke esbuild. Keep its optional build binary out
-# of the runtime dependency store.
-RUN find /app/node_modules/.bun -maxdepth 1 -type d \
-  \( -name 'esbuild@*' -o -name '@esbuild+*@*' \) \
-  -prune -exec rm -rf '{}' +
+# of the runtime dependencies.
+RUN rm -rf \
+  /app/node_modules/.bin/esbuild \
+  /app/node_modules/@esbuild \
+  /app/node_modules/esbuild
 
 FROM node:24-bookworm-slim@sha256:3638d9a6fe4030bd716be989438248074489337ba3275657f93595428be4fc03 AS runtime
 ENV NODE_ENV=production \
@@ -70,18 +69,15 @@ WORKDIR /app
 RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx
 
 COPY --from=production-deps --chown=node:node /app/node_modules ./node_modules
-COPY --from=production-deps --chown=node:node /app/apps/medusa/node_modules ./apps/medusa/node_modules
 COPY --from=build --chown=node:node /app/package.json ./package.json
 COPY --from=build --chown=node:node /app/apps/medusa/package.json ./apps/medusa/package.json
 COPY --from=build --chown=node:node /app/packages/env/package.json ./packages/env/package.json
-COPY --from=production-deps --chown=node:node /app/packages/env/node_modules ./packages/env/node_modules
 COPY --from=build --chown=node:node /app/packages/env/dist ./packages/env/dist
 COPY --from=build --chown=node:node /app/packages/territory/package.json ./packages/territory/package.json
-COPY --from=production-deps --chown=node:node /app/packages/territory/node_modules ./packages/territory/node_modules
 COPY --from=build --chown=node:node /app/packages/territory/dist ./packages/territory/dist
 COPY --from=build --chown=node:node /app/apps/medusa/.medusa/server ./apps/medusa/.medusa/server
 
 WORKDIR /app/apps/medusa/.medusa/server
 EXPOSE 9000
 USER node
-CMD ["../../node_modules/.bin/medusa", "start"]
+CMD ["/app/node_modules/.bin/medusa", "start"]
