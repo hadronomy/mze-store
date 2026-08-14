@@ -1,0 +1,43 @@
+<!--
+  README banner. Transparent by design: it reads on GitHub's light and dark
+  themes alike, so no <picture> swap is needed.
+
+  The mark is brand/icon.svg density-mapped to a ' .o8' ramp, and the wordmark
+  is FIGlet's `roman` font — the same vocabulary of dots and eights, so the two
+  read as one drawing. Every colour is a step between --mze-leaf and its tints,
+  kept to mid tones because a transparent ground can be white or near-black.
+
+  xml:space="preserve" is load-bearing: without it the spacing collapses and
+  the art shears apart. Fonts are a system stack, because GitHub serves this
+  through camo where no external font ever loads.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="460" viewBox="0 0 800 460" role="img" aria-label="mze store — organic shop center, la laguna, tenerife">
+  <defs>
+    <clipPath id="mze-banner"><rect width="800" height="460"/></clipPath>
+  </defs>
+  <g clip-path="url(#mze-banner)">
+    <text xml:space="preserve" text-anchor="middle" font-family="'SF Mono','Fira Code','Fira Mono','Roboto Mono','Menlo','Monaco','Consolas',monospace" font-size="13.5">
+      <tspan x="400" y="32"><tspan fill="#7FBC8C">               .o.              </tspan></tspan>
+      <tspan x="400" y="50"><tspan fill="#7AB887">             .oooo.             </tspan></tspan>
+      <tspan x="400" y="68"><tspan fill="#76B482">             oooooo.            </tspan></tspan>
+      <tspan x="400" y="86"><tspan fill="#71AF7C">             oooooo.            </tspan></tspan>
+      <tspan x="400" y="104"><tspan fill="#6CAB77">   ....o...  .ooooo  ...o....   </tspan></tspan>
+      <tspan x="400" y="122"><tspan fill="#67A772">   ooooooooo...oo...ooooooooo   </tspan></tspan>
+      <tspan x="400" y="140"><tspan fill="#62A26D">    .ooooooooo.   ooooooooo.    </tspan></tspan>
+      <tspan x="400" y="158"><tspan fill="#5E9E68">       ........  ........       </tspan></tspan>
+      <tspan x="400" y="176"><tspan fill="#599A63">          ..ooo..ooo..          </tspan></tspan>
+      <tspan x="400" y="194"><tspan fill="#54965E">        .oooooo. oooooo.        </tspan></tspan>
+      <tspan x="400" y="212"><tspan fill="#509258">       .ooooooo  .oooooo.       </tspan></tspan>
+      <tspan x="400" y="230"><tspan fill="#4B8D53">       .ooooo.    .oooooo       </tspan></tspan>
+      <tspan x="400" y="248"><tspan fill="#46894E">       .o...         ....       </tspan></tspan>
+      <tspan x="400" y="284"><tspan fill="#4E9257">                                                       .                               </tspan></tspan>
+      <tspan x="400" y="302"><tspan fill="#4A8D53">                                                     .o8                               </tspan></tspan>
+      <tspan x="400" y="320"><tspan fill="#46884E">ooo. .oo.  .oo.     oooooooo  .ooooo.      .oooo.o .o888oo  .ooooo.  oooo d8b  .ooooo. </tspan></tspan>
+      <tspan x="400" y="338"><tspan fill="#42844A">`888P"Y88bP"Y88b   d'""7d8P  d88' `88b    d88(  "8   888   d88' `88b `888""8P d88' `88b</tspan></tspan>
+      <tspan x="400" y="356"><tspan fill="#3D7F46"> 888   888   888     .d8P'   888ooo888    `"Y88b.    888   888   888  888     888ooo888</tspan></tspan>
+      <tspan x="400" y="374"><tspan fill="#397A41"> 888   888   888   .d8P'  .P 888    .o    o.  )88b   888 . 888   888  888     888    .o</tspan></tspan>
+      <tspan x="400" y="392"><tspan fill="#35753D">o888o o888o o888o d8888888P  `Y8bod8P'    8""888P'   "888" `Y8bod8P' d888b    `Y8bod8P'</tspan></tspan>
+      <tspan x="400" y="428"><tspan fill="#9AA39B">────────────────────────────────────────────────────────────</tspan><tspan fill="#46894E">  ❧  </tspan><tspan fill="#8A8880">organic shop center · la laguna, tenerife</tspan><tspan fill="#46894E">  ❧  </tspan><tspan fill="#9AA39B">────────────────────────────────────────────────────────────</tspan></tspan>
+    </text>
+  </g>
+</svg>
