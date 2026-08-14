@@ -24,7 +24,7 @@ const runVerification = async (provenance: JsonValue, sbom: JsonValue): Promise<
     writeFile(provenancePath, JSON.stringify(provenance)),
     writeFile(sbomPath, JSON.stringify(sbom)),
   ]);
-  await execFileAsync(verificationScript, [provenancePath, sbomPath]);
+  await execFileAsync("bash", [verificationScript, provenancePath, sbomPath]);
 };
 
 it("accepts maximal BuildKit provenance and an SPDX SBOM without sensitive values", async () => {

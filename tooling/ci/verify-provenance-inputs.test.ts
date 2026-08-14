@@ -32,7 +32,7 @@ const runVerification = async (plan: BakePlan): Promise<void> => {
   const directory = await mkdtemp(`${tmpdir()}/mze-provenance-inputs-`);
   const planPath = `${directory}/bake-plan.json`;
   await writeFile(planPath, JSON.stringify(plan));
-  await execFileAsync(verificationScript, [planPath, "medusa-release"]);
+  await execFileAsync("bash", [verificationScript, planPath, "medusa-release"]);
 };
 
 const safePlan: BakePlan = {

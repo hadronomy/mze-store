@@ -195,7 +195,7 @@ jobs:
             "$TARGET" \
             --print \
             > "/tmp/release-evidence/provenance-inputs-${{ matrix.architecture }}.json"
-          tooling/ci/verify-provenance-inputs.sh \
+          bash tooling/ci/verify-provenance-inputs.sh \
             "/tmp/release-evidence/provenance-inputs-${{ matrix.architecture }}.json" \
             "$TARGET"
 
@@ -345,7 +345,7 @@ jobs:
             "${IMAGE_REPOSITORY}@${DIGEST}" \
             --format '{{ json .SBOM }}' \
             > /tmp/release-evidence/sbom.json
-          tooling/ci/verify-build-evidence.sh \
+          bash tooling/ci/verify-build-evidence.sh \
             /tmp/release-evidence/provenance.json \
             /tmp/release-evidence/sbom.json
 

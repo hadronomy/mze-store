@@ -366,6 +366,8 @@ it("attests and verifies the exact trusted image index", async () => {
   expect(inputCheckIndex).toBeLessThan(loginIndex);
   expect(inputCheckIndex).toBeLessThan(buildIndex);
   expect(provenanceInputCheck).toContain("SOURCE_DATE_EPOCH");
+  expect(releasePolicy).toContain("bash tooling/ci/verify-provenance-inputs.sh");
+  expect(releasePolicy).toContain("bash tooling/ci/verify-build-evidence.sh");
   expect(releasePolicy).toContain(".Provenance");
   expect(releasePolicy).toContain(".SBOM");
   expect(releasePolicy).toContain("actions/attest-build-provenance@");
