@@ -15,7 +15,7 @@ mze-store/
 │   ├── medusa-sdk/            server half (holds token) + client half (calls server fns)
 │   ├── auth/                  better-auth — source of record for Accounts
 │   ├── db/                    Drizzle — better-auth tables only, `auth` schema
-│   ├── email-tokens/          pure-TS design tokens, shared across both apps
+│   ├── design-tokens/         pure-TS design tokens; CSS generated from them
 │   ├── territory/             Province identity data and input schemas
 │   ├── ui/                    shadcn primitives
 │   ├── env/                   validated environment
@@ -112,9 +112,11 @@ checkout ──► Order ──payment capture──► Sync Record ──► Od
   touches                                retryable,      (series, hash chain,
   Odoo)                                  visible          AEAT / Veri*Factu)
                                                               │
-   Shopper ◄── PDF ◄── Typst render ◄── invoice payload ◄─────┘
+   Shopper ◄── PDF ◄── Takumi render ◄── invoice payload ◄────┘
               (per request, never stored)
 ```
+
+The renderer reads the same design tokens as the Storefront, so the document a Shopper keeps and the shop they bought it in cannot drift apart. See ADR-0023.
 
 Three rules hold this together:
 
@@ -122,7 +124,7 @@ Three rules hold this together:
 2. **Odoo owns every number; Medusa owns only pixels.** The renderer's sole input is Odoo's invoice payload — it has no access to Medusa's Order data, structurally, so it cannot drift from what was declared to AEAT.
 3. **Nothing rendered is ever stored.** Corrections propagate with no invalidation logic, and the erasure purge has no rendered artifacts to chase.
 
-See ADR-0017 for the issue/deliver split and ADR-0018 for rendering.
+See ADR-0017 for the issue/deliver split, ADR-0023 for the renderer, and ADR-0018 for why rendering works this way.
 
 Veri\*Factu becomes mandatory in 2027 (January for corporations, July otherwise). Compliance is a vendor dependency on Odoo's `l10n_es_edi_verifactu`, not something this codebase implements.
 

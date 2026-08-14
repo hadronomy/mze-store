@@ -2,6 +2,8 @@
 
 An online storefront for a physical shop selling from the Canary Islands into Spain and the wider EU. Commerce runs on Medusa; the shop floor runs on Odoo.
 
+The shop resells other manufacturers' goods and makes none of its own. That fact shapes more of the vocabulary than it looks: "brand" means two different things here, and the shop does not own its own product photography.
+
 Three separate systems in this project each ship a table called `user`, meaning three different things. The vocabulary below exists mostly to stop that ambiguity from leaking into conversation and code.
 
 ## Language
@@ -121,3 +123,27 @@ _Avoid_: buffer, quota, available stock
 
 **Reservation**:
 A hold placed on Online Allocation while a Cart progresses toward becoming an Order.
+
+### Brand and presentation
+
+Four words that all sound like "how it looks" and mean four separate things.
+
+**Supplier Brand**:
+A manufacturer whose goods the shop resells — Khadi, Organic India, Dr. Hauschka. A Shopper filters by it, so it is a facet, not decoration. Never shortened to "brand" on its own: that word alone means the shop's own identity.
+_Avoid_: brand, vendor, maker, marca
+
+**Surface**:
+One of the three places the shop's brand appears: the Storefront, email, or the Invoice. A Surface is a destination for design, never a colour or a background. The Operator admin is not one.
+_Avoid_: platform, channel, target, medium
+
+**Product Ground**:
+The single imposed background behind every product image, with one aspect and one padding. It exists because Supplier Brands ship photography the shop did not shoot and cannot control. Called a ground, not a surface, because Surface is taken.
+_Avoid_: product surface, tile, backdrop, thumbnail background
+
+**Botanical**:
+The line drawing of one plant, at the stroke weight of the logo's mark. The shop's own artwork, one per essential oil. Not photography, and not an icon.
+_Avoid_: illustration, icon, graphic, artwork
+
+**Signature Artifact**:
+The one custom focal object that could not be pasted into another shop. Decided before layout, not after. For MZE it is the Botanical set.
+_Avoid_: hero image, key visual, brand asset

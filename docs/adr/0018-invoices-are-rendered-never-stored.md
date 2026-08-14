@@ -1,5 +1,11 @@
 # Invoices are rendered on demand from Odoo's payload, never stored
 
+> **The renderer choice is superseded by ADR-0023.** Takumi replaced Typst once
+> it shipped a CommonJS entry point, which removed the module-format problem
+> this record solves. Everything else here still holds: the renderer takes only
+> Odoo's payload, and nothing rendered is ever stored. Read the Typst reasoning
+> below as the record of why a subprocess looked necessary.
+
 Medusa renders the PDF the Shopper sees, with Typst, from Odoo's invoice payload, on every request. Nothing is cached, nothing is persisted.
 
 Odoo issues the Invoice (ADR-0017) but its own QWeb templates never reach a customer. The delivered document is Medusa's render — same content, better typography.
