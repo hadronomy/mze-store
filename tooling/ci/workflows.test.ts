@@ -494,3 +494,46 @@ it("blocks vulnerable dependency additions and reports licenses", async () => {
   expect(checks).toContain("bun run check");
   expect(checks).toContain("bun run test");
 });
+
+it("publishes weekly Scorecard evidence with isolated OIDC permission", async () => {
+  const [scorecard, scorecardSource, reportSource] = await Promise.all([
+    readWorkflow("scorecard.yml"),
+    readRepositoryFile(".github/workflows/scorecard.yml"),
+    readRepositoryFile("tooling/ci/report-scorecard.sh"),
+  ]);
+  const policy = `${JSON.stringify(scorecard)}${reportSource}`;
+
+  expect(scorecard.on).toHaveProperty("schedule");
+  expect(scorecard.on).toHaveProperty("workflow_dispatch");
+  expect(scorecard.on).not.toHaveProperty("push");
+  expect(scorecard.on).not.toHaveProperty("pull_request");
+  expect(scorecard.permissions).toEqual({ contents: "read" });
+  expect(scorecard.jobs?.["publish-results"]?.permissions).toEqual({
+    contents: "read",
+    "id-token": "write",
+    "security-events": "write",
+  });
+  expect(scorecard.jobs?.["report-evidence"]?.permissions).toEqual({ contents: "read" });
+
+  expect(policy).toContain("ossf/scorecard-action@");
+  expect(policy).toContain('"results_format":"sarif"');
+  expect(policy).toContain('"publish_results":true');
+  expect(policy).toContain("github/codeql-action/upload-sarif@");
+  expect(policy).toContain("if-no-files-found");
+  expect(policy).toContain("bash tooling/ci/report-scorecard.sh");
+  expect(policy).toContain("security/code-scanning");
+  expect(policy).toContain("?query=tool%3AScorecard");
+  expect(scorecard.jobs?.["report-evidence"]?.if).toBe("${{ always() }}");
+  expect(scorecard.jobs?.["report-evidence"]?.needs).toBe("publish-results");
+
+  const scorecardActions = scorecardSource.match(/ossf\/scorecard-action@[^\s]+/gu) ?? [];
+  expect(scorecardActions.length).toBe(1);
+  expect(scorecardActions.every((action) => /@[a-f0-9]{40}$/u.test(action))).toBe(true);
+
+  const jobsWithOidc = Object.entries(scorecard.jobs ?? {})
+    .filter(([, job]) => job.permissions?.["id-token"] === "write")
+    .map(([name]) => name);
+  expect(jobsWithOidc).toEqual(["publish-results"]);
+  expect(policy).not.toContain('"packages":"write"');
+  expect(policy).not.toContain('"contents":"write"');
+});
