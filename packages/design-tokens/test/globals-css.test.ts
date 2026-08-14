@@ -79,3 +79,23 @@ describe("globals.css stays a mapping, not a palette", () => {
     expect(globals).not.toMatch(/^\.dark\s*\{/m);
   });
 });
+
+describe("the generated stylesheet", () => {
+  const themePath = join(dirname(fileURLToPath(import.meta.url)), "..", "dist", "theme.css");
+
+  it("declares every brand primitive", () => {
+    const theme = readFileSync(themePath, "utf8");
+    for (const name of Object.keys(color)) {
+      const kebab = name.replaceAll(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`);
+      expect(theme).toContain(`--mze-${kebab}:`);
+    }
+  });
+
+  // A source map embeds the token modules verbatim. It is a development aid and
+  // must never reach a production bundle.
+  it("references a source map only outside production", () => {
+    const theme = readFileSync(themePath, "utf8");
+    const referenced = theme.includes("sourceMappingURL");
+    expect(referenced).toBe(process.env.NODE_ENV !== "production");
+  });
+});
