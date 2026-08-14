@@ -352,6 +352,7 @@ it("attests and verifies the exact trusted image index", async () => {
   const imageIndexCheckout = release.jobs?.["image-index"]?.steps?.find((step) =>
     step.uses?.startsWith("actions/checkout@"),
   );
+  const imageIndexPermissions = release.jobs?.["image-index"]?.permissions;
   const inputCheckIndex = imageBuildSteps.findIndex(
     (step) => step.name === "Validate maximal provenance inputs",
   );
@@ -362,6 +363,7 @@ it("attests and verifies the exact trusted image index", async () => {
 
   expect(bake).toContain('attest     = ["type=provenance,mode=max", "type=sbom"]');
   expect(imageIndexCheckout?.with?.["persist-credentials"]).toBe(false);
+  expect(imageIndexPermissions?.actions).toBe("read");
   expect(inputCheckIndex).toBeGreaterThanOrEqual(0);
   expect(inputCheckIndex).toBeLessThan(loginIndex);
   expect(inputCheckIndex).toBeLessThan(buildIndex);
@@ -378,4 +380,38 @@ it("attests and verifies the exact trusted image index", async () => {
   expect(releasePolicy).toContain("attestations");
   expect(pullRequestPolicy).not.toContain("attest-build-provenance");
   expect(pullRequestPolicy).not.toContain('"id-token":"write"');
+});
+
+it("signs one verified digest before moving the main tag", async () => {
+  const [ci, release] = await Promise.all([readWorkflow("ci.yml"), readWorkflow("release.yml")]);
+  const trusted = JSON.stringify(release);
+  const untrusted = JSON.stringify(ci);
+
+  expect(trusted).toContain("sigstore/cosign-installer@");
+  expect(trusted).toContain("cosign sign");
+  expect(trusted).toContain("cosign verify");
+  expect(trusted).toContain(
+    "https://github.com/hadronomy/mze-store/.github/workflows/release.yml@refs/heads/main",
+  );
+  expect(trusted).toContain("https://token.actions.githubusercontent.com");
+  expect(trusted).toContain("certificate-github-workflow-repository");
+  expect(trusted).toContain("${IMAGE_REPOSITORY}@${DIGEST}");
+  expect(trusted).toContain("Promote the signed digest to main");
+  expect(trusted).toContain("${IMAGE_REPOSITORY}:main");
+  expect(trusted).toContain("Publication target: 900 seconds");
+  expect(untrusted).not.toContain("cosign sign");
+
+  const steps = release.jobs?.["image-index"]?.steps ?? [];
+  const signIndex = steps.findIndex((step) => step.name === "Sign the exact image index");
+  const verifyIndex = steps.findIndex((step) => step.name === "Verify the image signature");
+  const evidenceIndex = steps.findIndex((step) => step.name === "Upload release evidence");
+  const promoteIndex = steps.findIndex((step) => step.name === "Promote the signed digest to main");
+  expect(signIndex).toBeGreaterThan(-1);
+  expect(verifyIndex).toBeGreaterThan(signIndex);
+  expect(evidenceIndex).toBeGreaterThan(verifyIndex);
+  expect(promoteIndex).toBeGreaterThan(evidenceIndex);
+  expect(promoteIndex).toBe(steps.length - 1);
+  expect(steps[promoteIndex]?.run).toContain('PROMOTED_DIGEST="$(docker buildx imagetools inspect');
+  expect(steps[promoteIndex]?.run).toContain('test "$PROMOTED_DIGEST" = "$DIGEST"');
+  expect(steps[promoteIndex]?.run?.trimEnd().endsWith("report_publication || true")).toBe(true);
 });
