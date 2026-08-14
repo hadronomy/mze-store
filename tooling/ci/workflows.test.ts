@@ -301,8 +301,9 @@ it("audits deterministic image output weekly and after build-chain changes", asy
 
   expect(policy).toContain("SOURCE_DATE_EPOCH");
   expect(medusaDockerfile.match(/ARG SOURCE_DATE_EPOCH=0/g)).toHaveLength(2);
-  expect(medusaDockerfile).toContain("update-browserslist-db@*/node_modules/.bin");
-  expect(medusaDockerfile).toContain("ln -sfn ../browserslist/cli.js");
+  expect(medusaDockerfile).toContain("--linker=hoisted");
+  expect(medusaDockerfile).not.toContain("/app/node_modules/.bun");
+  expect(medusaDockerfile).not.toContain("/app/apps/medusa/node_modules");
   expect(storefrontDockerfile.match(/ARG SOURCE_DATE_EPOCH=0/g)).toHaveLength(1);
   expect(bake.match(/rewrite-timestamp=true/g)).toHaveLength(4);
   expect(policy).toContain("git show --no-patch --format=%ct");
