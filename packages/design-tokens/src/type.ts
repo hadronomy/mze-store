@@ -44,14 +44,19 @@ export type FontFile = Readonly<{
 }>;
 
 /**
- * Every self-hosted file, in one list.
+ * Every self-hosted file the Invoice renderer has to register.
  *
- * Two consumers read it and must not drift: the Storefront's `@font-face`
- * rules, and the Invoice renderer's font registration. A family added here
- * reaches both; a family added anywhere else is missing from the PDF.
+ * The Storefront does *not* read this list — it imports Fontsource's own
+ * stylesheets, which carry `@font-face` rules subset by `unicode-range` across
+ * seven ranges per family. Generating those from here would be strictly worse.
+ * So the two Surfaces load the same files by two different routes, and
+ * `test/font-sources.test.ts` holds them to the same set: a family named in
+ * `fontStack.web` must appear here, and every package listed here must be one
+ * the Storefront actually imports.
  *
- * Only the Latin subset is listed. Spanish, German, French, and Italian all
- * sit inside Latin-1, which the shop's five languages never leave.
+ * Only the Latin subset is listed, because the renderer embeds and subsets the
+ * file itself. Spanish, German, French, and Italian all sit inside Latin-1,
+ * which the shop's five languages never leave.
  *
  * Spectral is static, so its two cuts are two files. That is still less than
  * the variable pair would cost, and the design uses exactly one weight.
