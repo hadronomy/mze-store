@@ -337,3 +337,45 @@ it("audits deterministic image output weekly and after build-chain changes", asy
   expect(audit.jobs?.["reproducibility-gate"]?.if).toBe("${{ always() }}");
   expect(JSON.stringify(audit.jobs?.["reproducibility-gate"])).toContain("Result: neutral");
 });
+
+it("attests and verifies the exact trusted image index", async () => {
+  const [ci, release, bake, evidenceCheck, provenanceInputCheck] = await Promise.all([
+    readWorkflow("ci.yml"),
+    readWorkflow("release.yml"),
+    readRepositoryFile("docker-bake.hcl"),
+    readRepositoryFile("tooling/ci/verify-build-evidence.sh"),
+    readRepositoryFile("tooling/ci/verify-provenance-inputs.sh"),
+  ]);
+  const releasePolicy = `${JSON.stringify(release)}${bake}${evidenceCheck}${provenanceInputCheck}`;
+  const pullRequestPolicy = JSON.stringify(ci);
+  const imageBuildSteps = release.jobs?.["image-build"]?.steps ?? [];
+  const imageIndexCheckout = release.jobs?.["image-index"]?.steps?.find((step) =>
+    step.uses?.startsWith("actions/checkout@"),
+  );
+  const inputCheckIndex = imageBuildSteps.findIndex(
+    (step) => step.name === "Validate maximal provenance inputs",
+  );
+  const loginIndex = imageBuildSteps.findIndex((step) => step.name === "Log in to GHCR");
+  const buildIndex = imageBuildSteps.findIndex(
+    (step) => step.name === "Build the immutable candidate",
+  );
+
+  expect(bake).toContain('attest     = ["type=provenance,mode=max", "type=sbom"]');
+  expect(imageIndexCheckout?.with?.["persist-credentials"]).toBe(false);
+  expect(inputCheckIndex).toBeGreaterThanOrEqual(0);
+  expect(inputCheckIndex).toBeLessThan(loginIndex);
+  expect(inputCheckIndex).toBeLessThan(buildIndex);
+  expect(provenanceInputCheck).toContain("SOURCE_DATE_EPOCH");
+  expect(releasePolicy).toContain("bash tooling/ci/verify-provenance-inputs.sh");
+  expect(releasePolicy).toContain("bash tooling/ci/verify-build-evidence.sh");
+  expect(releasePolicy).toContain(".Provenance");
+  expect(releasePolicy).toContain(".SBOM");
+  expect(releasePolicy).toContain("actions/attest-build-provenance@");
+  expect(releasePolicy).toContain("gh attestation verify");
+  expect(releasePolicy).toContain("--repo");
+  expect(releasePolicy).toContain("GITHUB_REPOSITORY");
+  expect(releasePolicy).toContain("id-token");
+  expect(releasePolicy).toContain("attestations");
+  expect(pullRequestPolicy).not.toContain("attest-build-provenance");
+  expect(pullRequestPolicy).not.toContain('"id-token":"write"');
+});
