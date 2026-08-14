@@ -1,0 +1,58 @@
+<!--
+  README banner. Transparent by design: it reads on GitHub's light and dark
+  themes alike, so no <picture> swap is needed.
+
+  Every line is anchored at an explicit x with the default start anchor, and
+  carries no trailing whitespace. That combination is what keeps the art
+  aligned. text-anchor="middle" centres each line on its *measured* advance
+  width, and trailing spaces are not reliably counted, so lines padded to a
+  common length each land at a different offset — up to 125px apart here, which
+  reads as the whole block shearing left. Sharing one x per block removes the
+  measurement from the layout entirely.
+
+  x is computed from a 0.6em advance, so a face with different metrics shifts a
+  block a few pixels off centre. It cannot shear it.
+
+  The mark is brand/icon.svg density-mapped onto a ' .o8' ramp; the wordmark is
+  FIGlet's `roman`, which builds letters from the same dots and eights.
+
+  Colours are neon greens held to the band that survives a transparent ground.
+  Anything lighter than #00C658 falls under 2:1 on white, so the brightest steps
+  appear only on the decoration. The wave glyphs are U+007E, U+2248, U+223C and
+  U+224B — present in the common monospace faces, unlike U+301C and U+2234.
+
+  The decoration starts at a negative x so it overflows both edges and is cut by
+  the clipPath, reaching the border without depending on character metrics.
+  xml:space="preserve" holds the spacing. Fonts are a system stack because
+  GitHub serves this through camo, where no external font ever loads.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="460" viewBox="0 0 800 460" role="img" aria-label="mze store — organic shop center, la laguna, tenerife">
+  <defs>
+    <clipPath id="mze-banner"><rect width="800" height="460"/></clipPath>
+  </defs>
+  <g clip-path="url(#mze-banner)">
+    <text xml:space="preserve" font-family="'SF Mono','Fira Code','Fira Mono','Roboto Mono','Menlo','Monaco','Consolas',monospace" font-size="13.5">
+      <tspan x="270.4" y="32"><tspan fill="#00D988">               .o.</tspan></tspan>
+      <tspan x="270.4" y="50"><tspan fill="#00D988">             .oooo.</tspan></tspan>
+      <tspan x="270.4" y="68"><tspan fill="#00C658">             oooooo.</tspan></tspan>
+      <tspan x="270.4" y="86"><tspan fill="#05B041">             oooooo.</tspan></tspan>
+      <tspan x="270.4" y="104"><tspan fill="#05B041">   ....o...  .ooooo  ...o....</tspan></tspan>
+      <tspan x="270.4" y="122"><tspan fill="#05B041">   ooooooooo...oo...ooooooooo</tspan></tspan>
+      <tspan x="270.4" y="140"><tspan fill="#1BA33F">    .ooooooooo.   ooooooooo.</tspan></tspan>
+      <tspan x="270.4" y="158"><tspan fill="#27993C">       ........  ........</tspan></tspan>
+      <tspan x="270.4" y="176"><tspan fill="#27993C">          ..ooo..ooo..</tspan></tspan>
+      <tspan x="270.4" y="194"><tspan fill="#27993C">        .oooooo. oooooo.</tspan></tspan>
+      <tspan x="270.4" y="212"><tspan fill="#2E8E3C">       .ooooooo  .oooooo.</tspan></tspan>
+      <tspan x="270.4" y="230"><tspan fill="#31863D">       .ooooo.    .oooooo</tspan></tspan>
+      <tspan x="270.4" y="248"><tspan fill="#31863D">       .o...         ....</tspan></tspan>
+      <tspan x="43.6" y="284"><tspan fill="#00D988">                                                       .</tspan></tspan>
+      <tspan x="43.6" y="302"><tspan fill="#00C658">                                                     .o8</tspan></tspan>
+      <tspan x="43.6" y="320"><tspan fill="#05B041">ooo. .oo.  .oo.     oooooooo  .ooooo.      .oooo.o .o888oo  .ooooo.  oooo d8b  .ooooo.</tspan></tspan>
+      <tspan x="43.6" y="338"><tspan fill="#1BA33F">`888P"Y88bP"Y88b   d'""7d8P  d88' `88b    d88(  "8   888   d88' `88b `888""8P d88' `88b</tspan></tspan>
+      <tspan x="43.6" y="356"><tspan fill="#27993C"> 888   888   888     .d8P'   888ooo888    `"Y88b.    888   888   888  888     888ooo888</tspan></tspan>
+      <tspan x="43.6" y="374"><tspan fill="#2E8E3C"> 888   888   888   .d8P'  .P 888    .o    o.  )88b   888 . 888   888  888     888    .o</tspan></tspan>
+      <tspan x="43.6" y="392"><tspan fill="#31863D">o888o o888o o888o d8888888P  `Y8bod8P'    8""888P'   "888" `Y8bod8P' d888b    `Y8bod8P'</tspan></tspan>
+      <tspan x="-81.9" y="428"><tspan fill="#3FEAB7">~</tspan><tspan fill="#00D988">≈</tspan><tspan fill="#00C658">∼</tspan><tspan fill="#05B041">≋</tspan><tspan fill="#3FEAB7">~</tspan><tspan fill="#00D988">≈</tspan><tspan fill="#00C658">∼</tspan><tspan fill="#05B041">≋</tspan><tspan fill="#3FEAB7">~</tspan><tspan fill="#00D988">≈</tspan><tspan fill="#00C658">∼</tspan><tspan fill="#05B041">≋</tspan><tspan fill="#3FEAB7">~</tspan><tspan fill="#00D988">≈</tspan><tspan fill="#00C658">∼</tspan><tspan fill="#05B041">≋</tspan><tspan fill="#3FEAB7">~</tspan><tspan fill="#00D988">≈</tspan><tspan fill="#00C658">∼</tspan><tspan fill="#05B041">≋</tspan><tspan fill="#3FEAB7">~</tspan><tspan fill="#00D988">≈</tspan><tspan fill="#00C658">∼</tspan><tspan fill="#05B041">≋</tspan><tspan fill="#3FEAB7">~</tspan><tspan fill="#00D988">≈</tspan><tspan fill="#00C658">∼</tspan><tspan fill="#05B041">≋</tspan><tspan fill="#3FEAB7">~</tspan><tspan fill="#00D988">≈</tspan><tspan fill="#00C658">∼</tspan><tspan fill="#05B041">≋</tspan><tspan fill="#3FEAB7">~</tspan><tspan fill="#00D988">≈</tspan><tspan fill="#00C658">  ❀  </tspan><tspan fill="#8A8880">organic shop center · la laguna, tenerife</tspan><tspan fill="#00C658">  ❀  </tspan><tspan fill="#00C658">∼</tspan><tspan fill="#05B041">≋</tspan><tspan fill="#3FEAB7">~</tspan><tspan fill="#00D988">≈</tspan><tspan fill="#00C658">∼</tspan><tspan fill="#05B041">≋</tspan><tspan fill="#3FEAB7">~</tspan><tspan fill="#00D988">≈</tspan><tspan fill="#00C658">∼</tspan><tspan fill="#05B041">≋</tspan><tspan fill="#3FEAB7">~</tspan><tspan fill="#00D988">≈</tspan><tspan fill="#00C658">∼</tspan><tspan fill="#05B041">≋</tspan><tspan fill="#3FEAB7">~</tspan><tspan fill="#00D988">≈</tspan><tspan fill="#00C658">∼</tspan><tspan fill="#05B041">≋</tspan><tspan fill="#3FEAB7">~</tspan><tspan fill="#00D988">≈</tspan><tspan fill="#00C658">∼</tspan><tspan fill="#05B041">≋</tspan><tspan fill="#3FEAB7">~</tspan><tspan fill="#00D988">≈</tspan><tspan fill="#00C658">∼</tspan><tspan fill="#05B041">≋</tspan><tspan fill="#3FEAB7">~</tspan><tspan fill="#00D988">≈</tspan><tspan fill="#00C658">∼</tspan><tspan fill="#05B041">≋</tspan><tspan fill="#3FEAB7">~</tspan><tspan fill="#00D988">≈</tspan><tspan fill="#00C658">∼</tspan><tspan fill="#05B041">≋</tspan></tspan>
+    </text>
+  </g>
+</svg>

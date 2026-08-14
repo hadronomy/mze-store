@@ -1,5 +1,5 @@
 <div align="center">
-  <h1>MZE Store</h1>
+  <img src="packages/design-tokens/brand/banner.svg" alt="mze store — organic shop center, la laguna, tenerife" width="800">
   <p></p>
   <a href="https://github.com/hadronomy/mze-store/stargazers">
     <picture>

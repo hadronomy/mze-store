@@ -22,11 +22,17 @@ Nothing Medusa-specific. Fully reversible.
 
 Exit criterion: an Operator can sign in, create a Variant, and see correct tax for both a peninsular and a Canarian address.
 
-## Design gate
+## Design gate · cleared
 
-**Blocks phase 3.** Product, signature artifact, type voice, and palette decided before the first storefront component exists — once component structure exists it acquires inertia, and design applied afterward becomes a reskin.
+Product, Signature Artifact, type voice, and palette were decided before the first storefront component existed. See ADR-0024.
 
-Still outstanding: the actual product. Not the category — the noun. It drives the signature artifact and the catalog seed, and placeholder products are themselves a tell.
+The product is the essential oil — the largest real cluster in the catalogue, and the one whose plants give the Signature Artifact something to draw. The Signature Artifact is the Botanical set: the logo's own line language extended to one drawing per plant. Type is Spectral Light over Inter, with Geist Mono confined to product data. The palette is warm paper and two greens, light-only.
+
+The decision that shaped the rest: MZE is a multi-brand retailer, so the chrome steps back and the Signature Artifact is placed rather than sprayed.
+
+All three families are self-hosted from Fontsource under open licences. Sentient was the first choice and was dropped: Fontshare's licence forbids self-hosting, and the Invoice renderer needs the file rather than a CDN link. Check both permissions before choosing any future face.
+
+Still outstanding: the ~25 Botanical drawings, on the critical path for the catalog seed.
 
 ## 3 — Storefront core · ~2d
 
@@ -83,7 +89,7 @@ Moved out of "Later". Odoo is now on the launch path: you cannot sell without in
 - `SyncRecord` model, workflow, and admin queue — push Order to Odoo on payment capture, durable and retryable, failures visible
 - Odoo web numbering series, kept gapless independently of shop and POS
 - Invoice payload endpoint: Medusa reads Odoo's issued figures
-- Typst templates and a render-per-request endpoint (ADR-0018); the renderer sees the payload only, never an Order
+- Takumi node-tree templates and a render-per-request endpoint (ADR-0023); the renderer sees the payload only, never an Order, and reads the same design tokens as the Storefront
 - Delivery: invoice email, account-area view, re-download
 
 Degradable before this ships — Operators issue manually in Odoo and nothing delivers automatically. Fine at low volume, not for long.

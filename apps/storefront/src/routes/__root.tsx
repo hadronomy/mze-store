@@ -31,11 +31,38 @@ export const Route = createRootRouteWithContext<RouterAppContext>()({
       {
         title: "MZE Store",
       },
+      {
+        name: "theme-color",
+        content: "#FBFAF7",
+      },
     ],
+    // Order matters: where several icons are equally appropriate the browser
+    // takes the last one, so the SVG follows the .ico and wins wherever it is
+    // understood. `rel="shortcut icon"` is obsolete and deliberately absent.
     links: [
       {
         rel: "stylesheet",
         href: appCss,
+      },
+      {
+        rel: "icon",
+        href: "/favicon.ico",
+        sizes: "32x32",
+      },
+      {
+        rel: "icon",
+        href: "/icon.svg",
+        type: "image/svg+xml",
+      },
+      // iOS ignores `sizes` and rounds the corners itself, so one square
+      // opaque file is the whole requirement.
+      {
+        rel: "apple-touch-icon",
+        href: "/apple-touch-icon.png",
+      },
+      {
+        rel: "manifest",
+        href: "/manifest.webmanifest",
       },
     ],
   }),
@@ -45,7 +72,9 @@ export const Route = createRootRouteWithContext<RouterAppContext>()({
 
 function RootDocument() {
   return (
-    <html lang="en" className="dark">
+    // The store is light-only (ADR-0024). Setting `dark` here fired every
+    // `dark:` utility the primitives ship against a light palette.
+    <html lang="es">
       <head>
         <HeadContent />
       </head>

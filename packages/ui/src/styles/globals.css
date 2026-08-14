@@ -1,130 +1,199 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
+@import "@mze-store/design-tokens/theme.css";
+/* All three subset by unicode-range, so a Shopper downloads the Latin cut
+   alone. Spectral is static: only weight 300 and its italic are imported,
+   because the display face is never set below --mze-text-2xl. */
+@import "@fontsource/spectral/300.css";
+@import "@fontsource/spectral/300-italic.css";
+@import "@fontsource-variable/inter/index.css";
+@import "@fontsource-variable/geist-mono/index.css";
 @source "../../../apps/**/*.{ts,tsx}";
 @source "../**/*.{ts,tsx}";
 
+/* The store is light-only (ADR-0024), and nothing ever sets this class — which
+   is the point. Component primitives still ship `dark:` utilities, and without
+   this line Tailwind falls back to its default variant, `prefers-color-scheme:
+   dark`. Those utilities would then fire against a light-only palette for any
+   Shopper whose system is in dark mode. Pinning the variant to a class that is
+   never applied keeps them inert. Delete it only after the last `dark:` utility
+   is gone from packages/ui/src/components. */
 @custom-variant dark (&:is(.dark *));
 
+/* Layer two: the component library's contract, mapped onto the brand layer.
+   The brand primitives above are generated; this mapping is a design
+   judgement and is written by hand. See ADR-0024. */
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.58 0.22 27);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.809 0.105 251.813);
-  --chart-2: oklch(0.623 0.214 259.815);
-  --chart-3: oklch(0.546 0.245 262.881);
-  --chart-4: oklch(0.488 0.243 264.376);
-  --chart-5: oklch(0.424 0.199 265.638);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
-}
+  --background: var(--mze-paper);
+  --foreground: var(--mze-ink);
+  --card: var(--mze-paper-raised);
+  --card-foreground: var(--mze-ink);
+  --popover: var(--mze-paper);
+  --popover-foreground: var(--mze-ink);
 
-.dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.87 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.371 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.809 0.105 251.813);
-  --chart-2: oklch(0.623 0.214 259.815);
-  --chart-3: oklch(0.546 0.245 262.881);
-  --chart-4: oklch(0.488 0.243 264.376);
-  --chart-5: oklch(0.424 0.199 265.638);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  /* Primary actions are ink, not leaf. The green is a brand anchor, not a
+     button fill — spent everywhere it stops meaning anything. */
+  --primary: var(--mze-ink);
+  --primary-foreground: var(--mze-paper);
+  --secondary: var(--mze-paper-raised);
+  --secondary-foreground: var(--mze-ink);
+  --muted: var(--mze-paper-raised);
+  --muted-foreground: var(--mze-ink-muted);
+
+  /* Where the green earns its place: selected facets, in-stock state. */
+  --accent: var(--mze-leaf-wash);
+  --accent-foreground: var(--mze-leaf-deep);
+
+  --destructive: var(--mze-signal);
+  --destructive-foreground: var(--mze-paper);
+  --border: var(--mze-line);
+  --input: var(--mze-line);
+  /* Non-text, so leaf's 4.07:1 clears the 3:1 the ring has to meet. */
+  --ring: var(--mze-leaf);
+
+  --radius: var(--mze-radius);
+
+  /* The rest of shadcn's canonical contract. Unused today, defined anyway so
+     any registry component drops in without editing this file — and mapped to
+     the brand, so nothing arrives wearing stock colours. */
+  --chart-1: var(--mze-leaf);
+  --chart-2: oklch(0.62 0.09 110);
+  --chart-3: oklch(0.68 0.1 75);
+  --chart-4: oklch(0.55 0.08 195);
+  --chart-5: oklch(0.45 0.07 30);
+
+  --sidebar: var(--mze-paper-raised);
+  --sidebar-foreground: var(--mze-ink);
+  --sidebar-primary: var(--mze-ink);
+  --sidebar-primary-foreground: var(--mze-paper);
+  --sidebar-accent: var(--mze-leaf-wash);
+  --sidebar-accent-foreground: var(--mze-leaf-deep);
+  --sidebar-border: var(--mze-line);
+  --sidebar-ring: var(--mze-leaf);
 }
 
 @theme inline {
-  --font-sans: "Inter Variable", sans-serif;
-  --color-sidebar-ring: var(--sidebar-ring);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar: var(--sidebar);
-  --color-chart-5: var(--chart-5);
-  --color-chart-4: var(--chart-4);
-  --color-chart-3: var(--chart-3);
-  --color-chart-2: var(--chart-2);
-  --color-chart-1: var(--chart-1);
-  --color-ring: var(--ring);
-  --color-input: var(--input);
-  --color-border: var(--border);
-  --color-destructive: var(--destructive);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-accent: var(--accent);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-muted: var(--muted);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-secondary: var(--secondary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-primary: var(--primary);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-popover: var(--popover);
-  --color-card-foreground: var(--card-foreground);
-  --color-card: var(--card);
-  --color-foreground: var(--foreground);
+  --font-sans: var(--mze-font-body);
+  --font-serif: var(--mze-font-display);
+  --font-mono: var(--mze-font-mono);
+
+  --text-xs: var(--mze-text-xs);
+  --text-xs--line-height: var(--mze-leading-xs);
+  --text-sm: var(--mze-text-sm);
+  --text-sm--line-height: var(--mze-leading-sm);
+  --text-base: var(--mze-text-base);
+  --text-base--line-height: var(--mze-leading-base);
+  --text-lg: var(--mze-text-lg);
+  --text-lg--line-height: var(--mze-leading-lg);
+  --text-xl: var(--mze-text-xl);
+  --text-xl--line-height: var(--mze-leading-xl);
+  --text-2xl: var(--mze-text-2xl);
+  --text-2xl--line-height: var(--mze-leading-2xl);
+  --text-3xl: var(--mze-text-3xl);
+  --text-3xl--line-height: var(--mze-leading-3xl);
+
   --color-background: var(--background);
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  /* The brand layer, promoted so it generates utilities of its own:
+     bg-leaf, text-ink, bg-product-ground. These name the brand, where the
+     block above names component roles. Both are needed — `product-ground`
+     has no equivalent in shadcn's vocabulary. */
+  --color-paper: var(--mze-paper);
+  --color-paper-raised: var(--mze-paper-raised);
+  --color-product-ground: var(--mze-product-ground);
+  --color-line: var(--mze-line);
+  --color-ink: var(--mze-ink);
+  --color-ink-muted: var(--mze-ink-muted);
+  --color-leaf: var(--mze-leaf);
+  --color-leaf-deep: var(--mze-leaf-deep);
+  --color-leaf-wash: var(--mze-leaf-wash);
+  --color-signal: var(--mze-signal);
+
+  /* Upstream's multiplicative derivation, matched exactly. A registry
+     component written against `rounded-lg` must land on the base radius its
+     author meant, not two pixels off it. */
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
-  --radius-2xl: calc(var(--radius) + 8px);
-  --radius-3xl: calc(var(--radius) + 12px);
-  --radius-4xl: calc(var(--radius) + 16px);
+  --radius-xl: calc(var(--radius) * 1.4);
+
+  --ease-standard: var(--mze-ease-standard);
+  --ease-exit: var(--mze-ease-exit);
 }
 
 @layer base {
   * {
     @apply border-border outline-ring/50;
   }
+
+  /* Bespoke corner geometry, applied once instead of per component.
+     `corner-shape` has no effect where the radius resolves to 0, and browsers
+     without it fall back to a plain rounded corner, so this is safe globally.
+     A class beats `*` on specificity, which is what keeps circles circular —
+     a superellipse at full radius is not a circle. */
+  *,
+  ::before,
+  ::after {
+    corner-shape: var(--mze-corner-shape);
+  }
+  .rounded-full {
+    corner-shape: round;
+  }
   body {
     @apply font-sans bg-background text-foreground;
   }
   html {
     @apply font-sans;
+  }
+
+  /* Every product image gets the same ground, aspect, and padding, whatever
+     the supplier shipped. This is what makes forty brands read as one shop. */
+  [data-slot="product-image"] {
+    aspect-ratio: var(--mze-product-aspect);
+    padding: var(--mze-product-padding);
+    background-color: var(--mze-product-ground);
+    object-fit: contain;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
   }
 }

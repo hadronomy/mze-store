@@ -195,7 +195,7 @@ it("pins CI inputs and validates workflow and container definitions", async () =
   expect(dependabot).toContain("package-ecosystem: docker-compose");
 
   for (const dockerfile of [medusa, storefront]) {
-    expect(dockerfile.startsWith("# syntax=docker/dockerfile:1.8\n# check=error=true\n")).toBe(
+    expect(dockerfile.startsWith("# syntax=docker/dockerfile:1.20\n# check=error=true\n")).toBe(
       true,
     );
   }

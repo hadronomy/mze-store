@@ -1,4 +1,4 @@
-# syntax=docker/dockerfile:1.8
+# syntax=docker/dockerfile:1.20
 # check=error=true
 
 FROM oven/bun:1.3.14@sha256:e10577f0db68676a7024391c6e5cb4b879ebd17188ab750cf10024a6d700e5c4 AS bun
@@ -11,15 +11,9 @@ ENV SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH}
 
 # Keep workspace manifests in a stable layer so source changes reuse the install.
 COPY package.json bun.lock vite.config.ts tsconfig.json ./
-COPY apps/medusa/package.json apps/medusa/package.json
-COPY apps/storefront/package.json apps/storefront/package.json
-COPY packages/auth/package.json packages/auth/package.json
-COPY packages/config/package.json packages/config/package.json
-COPY packages/db/package.json packages/db/package.json
-COPY packages/env/package.json packages/env/package.json
-COPY packages/territory/package.json packages/territory/package.json
-COPY packages/ui/package.json packages/ui/package.json
-COPY tooling/oxlint/package.json tooling/oxlint/package.json
+# Mirrors the workspace globs in the root package.json. --parents keeps each
+# manifest at its own path, so adding a package needs no change here.
+COPY --parents apps/*/package.json packages/*/package.json tooling/oxlint/package.json ./
 RUN --mount=type=cache,id=bun-install-cache,target=/root/.bun/install/cache \
   bun install --frozen-lockfile
 
@@ -34,15 +28,9 @@ WORKDIR /app
 ENV SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH}
 
 COPY package.json bun.lock vite.config.ts tsconfig.json ./
-COPY apps/medusa/package.json apps/medusa/package.json
-COPY apps/storefront/package.json apps/storefront/package.json
-COPY packages/auth/package.json packages/auth/package.json
-COPY packages/config/package.json packages/config/package.json
-COPY packages/db/package.json packages/db/package.json
-COPY packages/env/package.json packages/env/package.json
-COPY packages/territory/package.json packages/territory/package.json
-COPY packages/ui/package.json packages/ui/package.json
-COPY tooling/oxlint/package.json tooling/oxlint/package.json
+# Mirrors the workspace globs in the root package.json. --parents keeps each
+# manifest at its own path, so adding a package needs no change here.
+COPY --parents apps/*/package.json packages/*/package.json tooling/oxlint/package.json ./
 # A flat production tree avoids race-dependent links in Bun's isolated store.
 RUN --mount=type=cache,id=bun-install-cache,target=/root/.bun/install/cache \
   bun install --frozen-lockfile --omit dev --linker=hoisted --backend=copyfile \

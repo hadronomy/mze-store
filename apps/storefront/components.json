@@ -20,5 +20,10 @@
   },
   "menuColor": "default",
   "menuAccent": "subtle",
+  "radius": "default",
+  "theme": "neutral",
+  "font": "inter",
+  "fontHeading": "inherit",
+  "chartColor": "neutral",
   "registries": {}
 }
