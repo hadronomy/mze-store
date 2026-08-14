@@ -176,17 +176,43 @@ jobs:
       - name: Set up Buildx
         uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
 
+      - name: Record image metadata
+        run: |
+          echo "CREATED=$(git show --no-patch --format=%cI "$GITHUB_SHA")" >> "$GITHUB_ENV"
+          echo "SOURCE_DATE_EPOCH=$(git show --no-patch --format=%ct "$GITHUB_SHA")" >> "$GITHUB_ENV"
+
+      - name: Validate maximal provenance inputs
+        env:
+          CACHE_ARCH: ${{ matrix.architecture }}
+          PLATFORM: ${{ matrix.platform }}
+          REGISTRY: ghcr.io/${{ github.repository_owner }}
+          REVISION: ${{ github.sha }}
+          TARGET: ${{ matrix.name }}-release
+        run: |
+          mkdir -p /tmp/release-evidence
+          docker buildx bake \
+            --file docker-bake.hcl \
+            "$TARGET" \
+            --print \
+            > "/tmp/release-evidence/provenance-inputs-${{ matrix.architecture }}.json"
+          tooling/ci/verify-provenance-inputs.sh \
+            "/tmp/release-evidence/provenance-inputs-${{ matrix.architecture }}.json" \
+            "$TARGET"
+
+      - name: Preserve verified provenance inputs
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: provenance-inputs-${{ matrix.name }}-${{ matrix.architecture }}
+          path: /tmp/release-evidence/provenance-inputs-${{ matrix.architecture }}.json
+          if-no-files-found: error
+          retention-days: 90
+
       - name: Log in to GHCR
         uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Record image metadata
-        run: |
-          echo "CREATED=$(git show --no-patch --format=%cI "$GITHUB_SHA")" >> "$GITHUB_ENV"
-          echo "SOURCE_DATE_EPOCH=$(git show --no-patch --format=%ct "$GITHUB_SHA")" >> "$GITHUB_ENV"
 
       - name: Build the immutable candidate
         id: bake
@@ -244,7 +270,9 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:
+      attestations: write
       contents: read
+      id-token: write
       packages: write
     strategy:
       fail-fast: false
@@ -255,6 +283,11 @@ jobs:
     env:
       IMAGE_REPOSITORY: ghcr.io/${{ github.repository_owner }}/mze-store-${{ matrix.name }}
     steps:
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
       - name: Set up Buildx
         uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
 
@@ -270,6 +303,13 @@ jobs:
         with:
           pattern: digests-${{ matrix.name }}-*
           path: /tmp/digests
+          merge-multiple: true
+
+      - name: Download verified provenance inputs
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: provenance-inputs-${{ matrix.name }}-*
+          path: /tmp/release-evidence/provenance-inputs
           merge-multiple: true
 
       - name: Create the multi-platform candidate
@@ -291,3 +331,55 @@ jobs:
             --format '{{json .Manifest.Digest}}' | tr -d '"')"
           [[ "$DIGEST" =~ ^sha256:[a-f0-9]{64}$ ]]
           echo "digest=$DIGEST" >> "$GITHUB_OUTPUT"
+
+      - name: Verify BuildKit evidence
+        env:
+          DIGEST: ${{ steps.index.outputs.digest }}
+        run: |
+          mkdir -p /tmp/release-evidence
+          docker buildx imagetools inspect \
+            "${IMAGE_REPOSITORY}@${DIGEST}" \
+            --format '{{ json .Provenance }}' \
+            > /tmp/release-evidence/provenance.json
+          docker buildx imagetools inspect \
+            "${IMAGE_REPOSITORY}@${DIGEST}" \
+            --format '{{ json .SBOM }}' \
+            > /tmp/release-evidence/sbom.json
+          tooling/ci/verify-build-evidence.sh \
+            /tmp/release-evidence/provenance.json \
+            /tmp/release-evidence/sbom.json
+
+      - name: Attest the exact image index
+        id: attestation
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-name: ${{ env.IMAGE_REPOSITORY }}
+          subject-digest: ${{ steps.index.outputs.digest }}
+          push-to-registry: true
+
+      - name: Verify the repository attestation
+        env:
+          BUNDLE_PATH: ${{ steps.attestation.outputs.bundle-path }}
+          DIGEST: ${{ steps.index.outputs.digest }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh attestation verify \
+            "oci://${IMAGE_REPOSITORY}@${DIGEST}" \
+            --bundle "$BUNDLE_PATH" \
+            --repo "$GITHUB_REPOSITORY" \
+            --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/release.yml" \
+            --source-digest "$GITHUB_SHA" \
+            --source-ref refs/heads/main \
+            --deny-self-hosted-runners \
+            --format json \
+            > /tmp/release-evidence/github-attestation.json
+
+      - name: Upload release evidence
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-evidence-${{ matrix.name }}-${{ github.sha }}
+          path: |
+            /tmp/release-evidence/
+            ${{ steps.attestation.outputs.bundle-path }}
+          if-no-files-found: error
+          retention-days: 90

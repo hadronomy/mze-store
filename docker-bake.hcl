@@ -112,6 +112,7 @@ target "medusa-release" {
     "type=gha,mode=max,scope=mze-store-medusa-main-${CACHE_ARCH}",
   ]
   output     = ["type=image,push-by-digest=true,name-canonical=true,push=true,rewrite-timestamp=true"]
+  attest     = ["type=provenance,mode=max", "type=sbom"]
 }
 
 target "storefront-release" {
@@ -127,6 +128,7 @@ target "storefront-release" {
     "type=gha,mode=max,scope=mze-store-storefront-main-${CACHE_ARCH}",
   ]
   output     = ["type=image,push-by-digest=true,name-canonical=true,push=true,rewrite-timestamp=true"]
+  attest     = ["type=provenance,mode=max", "type=sbom"]
 }
 
 target "medusa-audit" {
