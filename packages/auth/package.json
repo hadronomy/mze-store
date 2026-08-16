@@ -34,7 +34,7 @@
     "@mze-store/config": "workspace:*",
     "auth": "catalog:",
     "typescript": "catalog:",
-    "zod": "catalog:",
-    "varlock": "1.16.1"
+    "varlock": "1.16.1",
+    "zod": "catalog:"
   }
 }

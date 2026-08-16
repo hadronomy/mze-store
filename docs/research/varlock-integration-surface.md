@@ -19,11 +19,11 @@ nothing, this document says so.
 
 **Two of the three objections were overstated. None of them falls completely.**
 
-| Objection | Verdict |
-| --------- | ------- |
-| 1. No library API validates an explicit source object | **CONFIRMED** for the source object. **PARTLY OVERTURNED** for the failure report |
-| 2. Fourteen permanent wrappers, and unwrapped processes fail silently | **PARTLY OVERTURNED** — the honest count is ten committed sites, and the silent failure is Medusa-specific and removable |
-| 3. The sources are silent on this stack | **PARTLY OVERTURNED** — TanStack Start, Docker, and mise each have a full page. `vite-plus`, bun workspaces, and drizzle-kit stay silent |
+| Objection                                                             | Verdict                                                                                                                                  |
+| --------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| 1. No library API validates an explicit source object                 | **CONFIRMED** for the source object. **PARTLY OVERTURNED** for the failure report                                                        |
+| 2. Fourteen permanent wrappers, and unwrapped processes fail silently | **PARTLY OVERTURNED** — the honest count is ten committed sites, and the silent failure is Medusa-specific and removable                 |
+| 3. The sources are silent on this stack                               | **PARTLY OVERTURNED** — TanStack Start, Docker, and mise each have a full page. `vite-plus`, bun workspaces, and drizzle-kit stay silent |
 
 The recommendation in `varlock-evaluation.md` still stands, and it now stands on
 one leg instead of three. Decisions 2 and 10 remain true conflicts. Decision 12
@@ -53,8 +53,8 @@ The page documents five things, not the three the prior research listed.
 2. **`varlock/env`.** One import, one object:
 
    ```js
-   import 'varlock/auto-load';
-   import { ENV } from 'varlock/env';
+   import "varlock/auto-load";
+   import { ENV } from "varlock/env";
 
    const FROM_VARLOCK_ENV = ENV.MY_CONFIG_ITEM; // recommended
    const FROM_PROCESS_ENV = process.env.MY_CONFIG_ITEM; // still works
@@ -116,8 +116,8 @@ Source:
 from memory. `FileBasedDataSource` takes an `overrideContents` string, and
 `EnvGraph.setVirtualImports(basePath, files)` substitutes a
 `Record<string, string>` for the filesystem when resolving `@import()`. So an
-in-process caller can supply schema *text* without touching disk. It still
-cannot supply the *values* as an object and get typed output back. The gap
+in-process caller can supply schema _text_ without touching disk. It still
+cannot supply the _values_ as an object and get typed output back. The gap
 decisions 2 and 10 describe is the values gap, and it is intact.
 
 ### What `varlock/auto-load` does at import time
@@ -167,7 +167,7 @@ consuming `varlock load --format json-full` from a subprocess.
 hook.
 
 ```js
-import * as Sentry from '@sentry/node';
+import * as Sentry from "@sentry/node";
 
 globalThis._varlockOnLoadError = (err, env) => {
   Sentry.init({ dsn: env.SENTRY_DSN });
@@ -275,13 +275,13 @@ preload = ["varlock/auto-load"]
 ```
 
 > If you do this, you will no longer have to use `bun run varlock run --
-> yourscript` or use `import 'varlock/auto-load'` in your code!
+yourscript` or use `import 'varlock/auto-load'` in your code!
 
 It comes with a documented caution: do not use preload with a framework
 integration, because those integrations watch `.env` files for live reload.
 
 **It buys this repository almost nothing.** `bunfig.toml preload` applies to the
-bun *runtime*. This repository pins bun as the package manager and runs node as
+bun _runtime_. This repository pins bun as the package manager and runs node as
 the runtime — `mise.toml` pins `node = "24.18.1"`, the root scripts call
 `node tooling/mze/main.ts`, and `medusa`, `drizzle-kit`, and `jest` are all node
 processes. Node's equivalent (`NODE_OPTIONS="--import varlock/auto-load"`) is
@@ -294,11 +294,11 @@ Source: [Bun integration](https://varlock.dev/integrations/bun/).
 The Docker page is the most complete of the pages named, and it leads with a
 decision table rather than a recipe.
 
-| Approach | When | Varlock in the production image? |
-| -------- | ---- | -------------------------------- |
-| CI-only validation | Runtime env comes from the platform | No. Run `varlock load` in CI only |
-| Runtime injection | Containers that resolve secrets at boot through plugins | Yes. `varlock run` as the entrypoint |
-| Build-time | SSR apps where a framework integration injects into build output | Only in a builder stage, never the final image |
+| Approach           | When                                                             | Varlock in the production image?               |
+| ------------------ | ---------------------------------------------------------------- | ---------------------------------------------- |
+| CI-only validation | Runtime env comes from the platform                              | No. Run `varlock load` in CI only              |
+| Runtime injection  | Containers that resolve secrets at boot through plugins          | Yes. `varlock run` as the entrypoint           |
+| Build-time         | SSR apps where a framework integration injects into build output | Only in a builder stage, never the final image |
 
 **Secrets in a multi-stage build.** The page names the anti-pattern directly:
 anything written during `RUN` persists in image history, so
@@ -343,19 +343,19 @@ this repository controls.
 run` around the `mze` process, or one `varlock load --format json` call inside
 it, covers everything it spawns.
 
-| Entry point | Prior verdict | Now | Reasoning |
-| ----------- | ------------- | --- | --------- |
-| `medusa build` (build, check-types) | Wrapper | Covered by `mze build`; explicit in the Dockerfile builder | `vp run -t medusa#build` is spawned by the mze CLI locally and by `RUN` in the image |
-| `medusa develop` (dev:raw) | Wrapper | Covered by `mze dev` | Already spawned by the mze CLI under Portless |
-| `medusa start` | Wrapper or ENTRYPOINT | Docker `ENTRYPOINT`, or platform-injected env | The Docker page's CI-only role removes the CLI from the image entirely |
-| `medusa db:migrate`, `db:rollback` | Wrapper ×2 | **Wrapper ×2** | Run directly by developers and by operators |
-| `medusa exec` seed, seed:probe | Wrapper ×2 | **Wrapper ×2** | Run directly |
-| `medusa user` (operator:create) | Wrapper | **Wrapper ×1** | Run directly |
-| `jest` integration tests | Wrapper | Covered by `mze test` | Spawned by the mze CLI |
-| `drizzle-kit` push, generate, studio, migrate | Wrapper ×4 | **Wrapper ×4** | Run directly, and drizzle-kit loads its own dotenv today |
-| `playwright` | Wrapper | Covered by `mze test e2e` | Spawned by the mze CLI |
-| `mze` CLI | Wrapper | **One site** — a root script prefix or one call inside the CLI | The single lever this repository has |
-| storefront `vp dev`, `vp build`, `vp preview` | Free | Free | Vite plugin, unchanged |
+| Entry point                                   | Prior verdict         | Now                                                            | Reasoning                                                                            |
+| --------------------------------------------- | --------------------- | -------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| `medusa build` (build, check-types)           | Wrapper               | Covered by `mze build`; explicit in the Dockerfile builder     | `vp run -t medusa#build` is spawned by the mze CLI locally and by `RUN` in the image |
+| `medusa develop` (dev:raw)                    | Wrapper               | Covered by `mze dev`                                           | Already spawned by the mze CLI under Portless                                        |
+| `medusa start`                                | Wrapper or ENTRYPOINT | Docker `ENTRYPOINT`, or platform-injected env                  | The Docker page's CI-only role removes the CLI from the image entirely               |
+| `medusa db:migrate`, `db:rollback`            | Wrapper ×2            | **Wrapper ×2**                                                 | Run directly by developers and by operators                                          |
+| `medusa exec` seed, seed:probe                | Wrapper ×2            | **Wrapper ×2**                                                 | Run directly                                                                         |
+| `medusa user` (operator:create)               | Wrapper               | **Wrapper ×1**                                                 | Run directly                                                                         |
+| `jest` integration tests                      | Wrapper               | Covered by `mze test`                                          | Spawned by the mze CLI                                                               |
+| `drizzle-kit` push, generate, studio, migrate | Wrapper ×4            | **Wrapper ×4**                                                 | Run directly, and drizzle-kit loads its own dotenv today                             |
+| `playwright`                                  | Wrapper               | Covered by `mze test e2e`                                      | Spawned by the mze CLI                                                               |
+| `mze` CLI                                     | Wrapper               | **One site** — a root script prefix or one call inside the CLI | The single lever this repository has                                                 |
+| storefront `vp dev`, `vp build`, `vp preview` | Free                  | Free                                                           | Vite plugin, unchanged                                                               |
 
 **Honest count: ten committed wrapper sites.** Nine package scripts
 (`apps/medusa` ×5, `packages/db` ×4) plus one site for the `mze` CLI. Add one
@@ -572,29 +572,29 @@ environment flag and the CI-detection variables.
 
 ## Every integration page
 
-| Page | Covers | Applies here? |
-| ---- | ------ | ------------- |
-| [overview](https://varlock.dev/integrations/overview/) | Index; points monorepos at the Monorepos guide first | Yes, as a map |
-| [javascript](https://varlock.dev/integrations/javascript/) | `auto-load`, `ENV`, `varlock run`, load-error hook, blob reuse | Yes — the core page for `mze`, drizzle-kit, jest |
-| [bun](https://varlock.dev/integrations/bun/) | `env = false`, optional `preload` | Partly — package manager only, runtime is node |
-| [vite](https://varlock.dev/integrations/vite/) | Plugin, `ssrInjectMode`, `loadPath`, prefixes, sensitivity | Yes — storefront |
-| [tanstack-start](https://varlock.dev/integrations/tanstack-start/) | Routes to the Vite plugin; dynamic+public recipe | Yes — storefront |
-| [docker](https://varlock.dev/integrations/docker/) | Three roles, GHCR image, multi-stage, `flatten`, entrypoint | Yes — both Dockerfiles |
-| [mise](https://varlock.dev/integrations/mise/) | Install the CLI, tasks, `enter` hook; argues against shell injection | Yes — root `mise.toml` |
-| [direnv](https://varlock.dev/integrations/direnv/) | `eval "$(varlock load --format shell)"` in `.envrc`, `watch_file` | Alternative to mise shell injection; same objections |
-| [github-action](https://varlock.dev/integrations/github-action/) | Validate `.env.schema` in workflows, export as env or JSON | Yes — `release.yml` |
-| [cloudflare](https://varlock.dev/integrations/cloudflare/) | Workers plugin, `varlock-wrangler` | No — self-hosted containers |
-| [nextjs](https://varlock.dev/integrations/nextjs/) | `@next/env` replacement, monorepo overrides | No |
-| [astro](https://varlock.dev/integrations/astro/) | Astro integration on the Vite plugin | No |
-| [sveltekit](https://varlock.dev/integrations/sveltekit/) | Vite plugin, or Cloudflare adapter | No |
-| [expo](https://varlock.dev/integrations/expo/) | Babel plugin, Metro config wrapper | No |
-| [python](https://varlock.dev/integrations/python/) | `varlock run` plus a generated typed module | No |
-| [rust](https://varlock.dev/integrations/rust/) | Generated serde module | No |
-| [go](https://varlock.dev/integrations/go/) | Generated package | No |
-| [java](https://varlock.dev/integrations/java/) | Generated typed class | No |
-| [php](https://varlock.dev/integrations/php/) | Generated typed class | No |
-| [csharp](https://varlock.dev/integrations/csharp/) | Generated typed class | No |
-| [other-languages](https://varlock.dev/integrations/other-languages/) | Generated-module overview for any runtime | No |
+| Page                                                                 | Covers                                                               | Applies here?                                        |
+| -------------------------------------------------------------------- | -------------------------------------------------------------------- | ---------------------------------------------------- |
+| [overview](https://varlock.dev/integrations/overview/)               | Index; points monorepos at the Monorepos guide first                 | Yes, as a map                                        |
+| [javascript](https://varlock.dev/integrations/javascript/)           | `auto-load`, `ENV`, `varlock run`, load-error hook, blob reuse       | Yes — the core page for `mze`, drizzle-kit, jest     |
+| [bun](https://varlock.dev/integrations/bun/)                         | `env = false`, optional `preload`                                    | Partly — package manager only, runtime is node       |
+| [vite](https://varlock.dev/integrations/vite/)                       | Plugin, `ssrInjectMode`, `loadPath`, prefixes, sensitivity           | Yes — storefront                                     |
+| [tanstack-start](https://varlock.dev/integrations/tanstack-start/)   | Routes to the Vite plugin; dynamic+public recipe                     | Yes — storefront                                     |
+| [docker](https://varlock.dev/integrations/docker/)                   | Three roles, GHCR image, multi-stage, `flatten`, entrypoint          | Yes — both Dockerfiles                               |
+| [mise](https://varlock.dev/integrations/mise/)                       | Install the CLI, tasks, `enter` hook; argues against shell injection | Yes — root `mise.toml`                               |
+| [direnv](https://varlock.dev/integrations/direnv/)                   | `eval "$(varlock load --format shell)"` in `.envrc`, `watch_file`    | Alternative to mise shell injection; same objections |
+| [github-action](https://varlock.dev/integrations/github-action/)     | Validate `.env.schema` in workflows, export as env or JSON           | Yes — `release.yml`                                  |
+| [cloudflare](https://varlock.dev/integrations/cloudflare/)           | Workers plugin, `varlock-wrangler`                                   | No — self-hosted containers                          |
+| [nextjs](https://varlock.dev/integrations/nextjs/)                   | `@next/env` replacement, monorepo overrides                          | No                                                   |
+| [astro](https://varlock.dev/integrations/astro/)                     | Astro integration on the Vite plugin                                 | No                                                   |
+| [sveltekit](https://varlock.dev/integrations/sveltekit/)             | Vite plugin, or Cloudflare adapter                                   | No                                                   |
+| [expo](https://varlock.dev/integrations/expo/)                       | Babel plugin, Metro config wrapper                                   | No                                                   |
+| [python](https://varlock.dev/integrations/python/)                   | `varlock run` plus a generated typed module                          | No                                                   |
+| [rust](https://varlock.dev/integrations/rust/)                       | Generated serde module                                               | No                                                   |
+| [go](https://varlock.dev/integrations/go/)                           | Generated package                                                    | No                                                   |
+| [java](https://varlock.dev/integrations/java/)                       | Generated typed class                                                | No                                                   |
+| [php](https://varlock.dev/integrations/php/)                         | Generated typed class                                                | No                                                   |
+| [csharp](https://varlock.dev/integrations/csharp/)                   | Generated typed class                                                | No                                                   |
+| [other-languages](https://varlock.dev/integrations/other-languages/) | Generated-module overview for any runtime                            | No                                                   |
 
 Twenty-one pages. Seven apply to this repository.
 
@@ -645,7 +645,7 @@ pass contradicts:
    The correct statement is narrower: the hook extends the report and cannot
    replace it, because auto-load writes varlock's stderr first.
 3. **"What you can build is a wrapper that parses `varlock load --format
-   json-full` and reprints it — which means running resolution twice, or
+json-full` and reprints it — which means running resolution twice, or
    wrapping the wrapper."** Wrong since 1.16.0. Blob reuse skips the second
    resolution when the directory matches, and the hook path costs no second
    resolution at all.
@@ -791,7 +791,7 @@ export default defineConfig({
   projectConfig: {
     databaseUrl: process.env.DATABASE_URL!,
     redisUrl: process.env.REDIS_URL!,
-    http: { storeCors: process.env.STORE_CORS!, /* ... */ },
+    http: { storeCors: process.env.STORE_CORS! /* ... */ },
   },
 });
 ```

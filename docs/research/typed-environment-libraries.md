@@ -62,14 +62,14 @@ secret management, not typed access.
 
 ## Comparison
 
-| Candidate                                | 1 Compose | 2 Explicit source | 3 Honest skip | 4 ESM+CJS | 5 Template | 6 Client split | 7 Standard Schema |
-| ---------------------------------------- | --------- | ----------------- | ------------- | --------- | ---------- | -------------- | ----------------- |
-| `@t3-oss/env-core` 0.13.11               | Partial   | Yes               | No            | No        | No         | Yes            | Yes               |
-| `envin` 1.2.0                            | Yes       | Yes               | Partial       | No        | No         | Yes            | Yes               |
-| `znv` 0.5.0                              | No        | Yes               | No            | Yes       | No         | No             | No                |
-| `varlock` 1.16.1                         | Yes       | No                | Partial       | Other     | Yes        | Yes            | No                |
-| `@julr/vite-plugin-validate-env` 2.2.2   | No        | No                | No            | No        | No         | Partial        | Yes               |
-| plain zod v4 + helper                    | Yes       | Yes               | Yes           | Yes       | Build it   | Build it       | Yes               |
+| Candidate                              | 1 Compose | 2 Explicit source | 3 Honest skip | 4 ESM+CJS | 5 Template | 6 Client split | 7 Standard Schema |
+| -------------------------------------- | --------- | ----------------- | ------------- | --------- | ---------- | -------------- | ----------------- |
+| `@t3-oss/env-core` 0.13.11             | Partial   | Yes               | No            | No        | No         | Yes            | Yes               |
+| `envin` 1.2.0                          | Yes       | Yes               | Partial       | No        | No         | Yes            | Yes               |
+| `znv` 0.5.0                            | No        | Yes               | No            | Yes       | No         | No             | No                |
+| `varlock` 1.16.1                       | Yes       | No                | Partial       | Other     | Yes        | Yes            | No                |
+| `@julr/vite-plugin-validate-env` 2.2.2 | No        | No                | No            | No        | No         | Partial        | Yes               |
+| plain zod v4 + helper                  | Yes       | Yes               | Yes           | Yes       | Build it   | Build it       | Yes               |
 
 "Other" for varlock requirement 4 means the question does not apply in the same
 form. Varlock injects resolved values into `process.env` before the target
@@ -231,7 +231,8 @@ types rather than depending on `@standard-schema/spec`, which keeps the runtime
 dependency count at zero:
 
 ```ts
-const parsed = finalSchema?.["~standard"].validate(runtimeEnv) ??
+const parsed =
+  finalSchema?.["~standard"].validate(runtimeEnv) ??
   parseWithDictionary(finalSchemaShape, runtimeEnv);
 ```
 
@@ -290,9 +291,7 @@ environment:
 export const sharedPreset = {
   id: "acme-shared",
   shared: {
-    NODE_ENV: z
-      .enum(["development", "production", "test"])
-      .default("development"),
+    NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
   },
 } as const;
 ```
@@ -374,9 +373,7 @@ configuration.
 `@envin/cli` registers exactly one command:
 
 ```ts
-program
-  .command("dev")
-  .description("Starts the live preview of your environment variables")
+program.command("dev").description("Starts the live preview of your environment variables");
 ```
 
 Source: [`packages/cli/src/cli/index.ts`](https://github.com/turbostarter/envin/blob/main/packages/cli/src/cli/index.ts).
@@ -540,7 +537,7 @@ Varlock loads at import time on purpose. The `varlock/auto-load` entrypoint
 reads a resolved object:
 
 ```js
-import { ENV } from 'varlock/env';
+import { ENV } from "varlock/env";
 const FROM_VARLOCK_ENV = ENV.MY_CONFIG_ITEM;
 ```
 
@@ -643,10 +640,10 @@ of one consumer.
 The plugin reads Vite's own environment loading and validates the result:
 
 ```ts
-const { normalizePath, loadEnv } = await import('vite')
-const env = loadEnv(config.mode, envDir, config.envPrefix)
-const options = await loadOptions(rootDir, inlineOptions)
-const variables = await validateAndLog(ui, env, options)
+const { normalizePath, loadEnv } = await import("vite");
+const env = loadEnv(config.mode, envDir, config.envPrefix);
+const options = await loadOptions(rootDir, inlineOptions);
+const variables = await validateAndLog(ui, env, options);
 ```
 
 It then inlines validated values through Vite's `define`:
@@ -654,7 +651,7 @@ It then inlines validated values through Vite's `define`:
 ```ts
 const define = Object.fromEntries(
   env.map(({ key, value }) => [`import.meta.env.${key}`, JSON.stringify(value)]),
-)
+);
 ```
 
 Source: [`src/index.ts`](https://github.com/Julien-R44/vite-plugin-validate-env/blob/main/src/index.ts).
@@ -764,7 +761,7 @@ argument for keeping composition in zod rather than in a library's `extends`.
 
 ### Requirement 5 — a `.env` template generator
 
-Only varlock covers this, and it does so by making the committed schema *be* the
+Only varlock covers this, and it does so by making the committed schema _be_ the
 template. The zod path has to write the generator.
 
 zod v4 supplies the two pieces:

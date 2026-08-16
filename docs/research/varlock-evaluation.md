@@ -47,20 +47,20 @@ There is a credible narrow use that costs almost nothing. See
 
 ## Fit against the twelve decisions
 
-| # | Decision | Verdict |
-| - | -------- | ------- |
-| 1 | Env package owns declaration and generates `.env.template` | Conflicts — varlock replaces templates, it does not generate them |
-| 2 | Factories taking an explicit source object | Conflicts — no such API exists |
-| 3 | Cheap seam for a future browser contract | Fits — better than the current plan |
-| 4 | Portless overlay as an explicit named overlay | Fits with work — the rewrite is declarative, the "explicit overlay" shape is lost |
-| 5 | One skip mechanism, honestly typed, defaults still apply | Fits — and solves the problem the zod plan has to build |
-| 6 | `development` export condition plus dual ESM+CJS `dist` | Fits with work — question changes shape; ts-node is the risk |
-| 7 | Fragments composed into consumer contracts | Fits — `@import(..., pick=[...])` is the right primitive |
-| 8 | Fragments live centrally in `packages/env` | Fits with work — supported, but against the documented recommendation |
-| 9 | Producer side shares one URL definition with the contract | Fits — clearly better than the current duplication |
-| 10 | `loadSource({ cwd })` returns a plain object | Conflicts — no library API |
-| 11 | Templates generated, CI fails on diff; `.env.test` hand-written | Conflicts on the first half, fits on the second |
-| 12 | Custom failure report grouped by fragment | Conflicts — varlock owns the report and it is not extensible |
+| #   | Decision                                                        | Verdict                                                                           |
+| --- | --------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| 1   | Env package owns declaration and generates `.env.template`      | Conflicts — varlock replaces templates, it does not generate them                 |
+| 2   | Factories taking an explicit source object                      | Conflicts — no such API exists                                                    |
+| 3   | Cheap seam for a future browser contract                        | Fits — better than the current plan                                               |
+| 4   | Portless overlay as an explicit named overlay                   | Fits with work — the rewrite is declarative, the "explicit overlay" shape is lost |
+| 5   | One skip mechanism, honestly typed, defaults still apply        | Fits — and solves the problem the zod plan has to build                           |
+| 6   | `development` export condition plus dual ESM+CJS `dist`         | Fits with work — question changes shape; ts-node is the risk                      |
+| 7   | Fragments composed into consumer contracts                      | Fits — `@import(..., pick=[...])` is the right primitive                          |
+| 8   | Fragments live centrally in `packages/env`                      | Fits with work — supported, but against the documented recommendation             |
+| 9   | Producer side shares one URL definition with the contract       | Fits — clearly better than the current duplication                                |
+| 10  | `loadSource({ cwd })` returns a plain object                    | Conflicts — no library API                                                        |
+| 11  | Templates generated, CI fails on diff; `.env.test` hand-written | Conflicts on the first half, fits on the second                                   |
+| 12  | Custom failure report grouped by fragment                       | Conflicts — varlock owns the report and it is not extensible                      |
 
 Four conflicts, three of which (2, 10, 12) are load-bearing design choices this
 repository made on purpose.
@@ -99,25 +99,25 @@ starts with `@`.
 Full list from
 [item decorators reference](https://varlock.dev/reference/item-decorators/):
 
-| Decorator | Value | Purpose |
-| --------- | ----- | ------- |
-| `@required` | boolean | Fail validation when the value is `undefined` or empty |
-| `@optional` | boolean | `@required=false` |
-| `@sensitive` | boolean or object | Redact in output; drive client integrations. Object form takes `enabled` and `preventLeaks` |
-| `@public` | boolean | `@sensitive=false` |
-| `@internal` | boolean | Resolve it, but never inject it into the app or child processes |
-| `@dynamic` | boolean | Resolve at runtime instead of inlining at build time |
-| `@static` | boolean | `@dynamic=false` |
-| `@type` | data type | Coercion, validation, and generated type |
-| `@example` | string | Sample value, without setting a placeholder |
-| `@docs()` | url, or description + url | Documentation link, callable more than once |
-| `@tag()` | one or more tags | Selector for `--filter` and for `filter=` on generators |
-| `@icon` | string | Iconify id, carried into generated types |
-| `@deprecated` | boolean or string | Emits a `@deprecated` JSDoc tag |
-| `@auditIgnore` | boolean | Suppress "unused in schema" warnings from `varlock audit` |
-| `@placeholder` | string | Value an untrusted child process sees under the credential proxy |
-| `@proxy` | function or value | Credential-proxy routing |
-| `@docsUrl` | string | Deprecated; use `@docs()` |
+| Decorator      | Value                     | Purpose                                                                                     |
+| -------------- | ------------------------- | ------------------------------------------------------------------------------------------- |
+| `@required`    | boolean                   | Fail validation when the value is `undefined` or empty                                      |
+| `@optional`    | boolean                   | `@required=false`                                                                           |
+| `@sensitive`   | boolean or object         | Redact in output; drive client integrations. Object form takes `enabled` and `preventLeaks` |
+| `@public`      | boolean                   | `@sensitive=false`                                                                          |
+| `@internal`    | boolean                   | Resolve it, but never inject it into the app or child processes                             |
+| `@dynamic`     | boolean                   | Resolve at runtime instead of inlining at build time                                        |
+| `@static`      | boolean                   | `@dynamic=false`                                                                            |
+| `@type`        | data type                 | Coercion, validation, and generated type                                                    |
+| `@example`     | string                    | Sample value, without setting a placeholder                                                 |
+| `@docs()`      | url, or description + url | Documentation link, callable more than once                                                 |
+| `@tag()`       | one or more tags          | Selector for `--filter` and for `filter=` on generators                                     |
+| `@icon`        | string                    | Iconify id, carried into generated types                                                    |
+| `@deprecated`  | boolean or string         | Emits a `@deprecated` JSDoc tag                                                             |
+| `@auditIgnore` | boolean                   | Suppress "unused in schema" warnings from `varlock audit`                                   |
+| `@placeholder` | string                    | Value an untrusted child process sees under the credential proxy                            |
+| `@proxy`       | function or value         | Credential-proxy routing                                                                    |
+| `@docsUrl`     | string                    | Deprecated; use `@docs()`                                                                   |
 
 ### Root decorators
 
@@ -140,11 +140,11 @@ more.
 
 The three zod expressions the question asks about all translate directly:
 
-| zod v4 | `@env-spec` |
-| ------ | ----------- |
+| zod v4                         | `@env-spec`                    |
+| ------------------------------ | ------------------------------ |
 | `z.string().startsWith("sk_")` | `@type=string(startsWith=sk_)` |
-| `z.string().min(32)` | `@type=string(minLength=32)` |
-| `z.url()` | `@type=url` |
+| `z.string().min(32)`           | `@type=string(minLength=32)`   |
+| `z.url()`                      | `@type=url`                    |
 
 `string` also takes `maxLength`, `isLength`, `endsWith`, `matches` (a
 `/pattern/flags` literal or a quoted pattern), `toUpperCase`, `toLowerCase`, and
@@ -188,15 +188,21 @@ export type CoercedEnvSchema = {
   STORE_CORS: string;
 };
 
-declare module 'varlock/env' {
+declare module "varlock/env" {
   export interface TypedEnvSchema extends Readonly<_CoercedEnvSchema_d2829c01> {}
-  export interface PublicTypedEnvSchema extends Readonly<Pick<_CoercedEnvSchema_d2829c01,
-    'APP_ENV' | 'BETTER_AUTH_SECRET' | 'CORS_ORIGIN' | 'PORTLESS_URL' | 'STORE_CORS'>> {}
+  export interface PublicTypedEnvSchema extends Readonly<
+    Pick<
+      _CoercedEnvSchema_d2829c01,
+      "APP_ENV" | "BETTER_AUTH_SECRET" | "CORS_ORIGIN" | "PORTLESS_URL" | "STORE_CORS"
+    >
+  > {}
 }
 
 declare global {
   interface ImportMetaEnv extends _EnvSchemaAsStrings_d2829c01 {}
-  namespace NodeJS { interface ProcessEnv extends _EnvSchemaAsStrings_d2829c01 {} }
+  namespace NodeJS {
+    interface ProcessEnv extends _EnvSchemaAsStrings_d2829c01 {}
+  }
 }
 ```
 
@@ -358,14 +364,14 @@ values:
 
 ```ts
 export async function loadEnvGraph(opts?: {
-  basePath?: string,
-  entryFilePaths?: string | Array<string>,
+  basePath?: string;
+  entryFilePaths?: string | Array<string>;
   /** Explicit process.env override values used for config item override precedence */
-  overrideValues?: Record<string, string | undefined>,
+  overrideValues?: Record<string, string | undefined>;
   /** Explicit process.env values used by builtin var detection */
-  processEnvOverride?: Record<string, string | undefined>,
+  processEnvOverride?: Record<string, string | undefined>;
   // ...
-})
+});
 ```
 
 Source:
@@ -576,7 +582,7 @@ documented as deterministic regardless of the active environment. So the honest
 typing comes from `@required=forEnv(...)`, not from `--filter`. Use the first
 for the contract and the second as a build-stage optimisation.
 
-For containers, the Docker guide is unusually direct about *not* shipping the
+For containers, the Docker guide is unusually direct about _not_ shipping the
 CLI: use it for CI validation only when the platform injects env vars, use
 `varlock run` as `ENTRYPOINT` only when the container must resolve secrets at
 boot. It also documents `varlock flatten`, which collapses the `@import` graph
@@ -594,20 +600,20 @@ is directionally right, and the count is worth having.
 
 Commands in this repository that read validated environment values today:
 
-| Where | Command | Needs `varlock run`? |
-| ----- | ------- | -------------------- |
-| `apps/medusa` | `medusa build` (build, check-types) | Yes |
-| `apps/medusa` | `medusa develop` (dev:raw) | Yes — inside `portless run` |
-| `apps/medusa` | `medusa start` | Yes, or `ENTRYPOINT` |
-| `apps/medusa` | `medusa db:migrate`, `db:rollback` | Yes |
-| `apps/medusa` | `medusa exec` seed, seed:probe | Yes |
-| `apps/medusa` | `medusa user` (operator:create) | Yes |
-| `apps/medusa` | `jest` integration tests | Yes |
-| `apps/storefront` | `vp dev`, `vp build`, `vp preview` | No — Vite plugin |
-| `packages/db` | `drizzle-kit` push, generate, studio, migrate | Yes, four commands |
-| `packages/env` | `vp test` | Not applicable — the package goes away |
-| root | `mze` Effect CLI | Yes for the subcommands that read env |
-| root | `playwright` | Yes |
+| Where             | Command                                       | Needs `varlock run`?                   |
+| ----------------- | --------------------------------------------- | -------------------------------------- |
+| `apps/medusa`     | `medusa build` (build, check-types)           | Yes                                    |
+| `apps/medusa`     | `medusa develop` (dev:raw)                    | Yes — inside `portless run`            |
+| `apps/medusa`     | `medusa start`                                | Yes, or `ENTRYPOINT`                   |
+| `apps/medusa`     | `medusa db:migrate`, `db:rollback`            | Yes                                    |
+| `apps/medusa`     | `medusa exec` seed, seed:probe                | Yes                                    |
+| `apps/medusa`     | `medusa user` (operator:create)               | Yes                                    |
+| `apps/medusa`     | `jest` integration tests                      | Yes                                    |
+| `apps/storefront` | `vp dev`, `vp build`, `vp preview`            | No — Vite plugin                       |
+| `packages/db`     | `drizzle-kit` push, generate, studio, migrate | Yes, four commands                     |
+| `packages/env`    | `vp test`                                     | Not applicable — the package goes away |
+| root              | `mze` Effect CLI                              | Yes for the subcommands that read env  |
+| root              | `playwright`                                  | Yes                                    |
 
 That is roughly **fourteen entry points**, of which the storefront's three come
 free through the plugin.
@@ -745,7 +751,7 @@ on a weekly release cadence has surface area that has not settled.
 ## The twelve decisions, one at a time
 
 **1. The env package owns declaration and generates `.env.template`. Conflicts.**
-Varlock inverts this. The committed `.env.schema` *is* the template — it carries
+Varlock inverts this. The committed `.env.schema` _is_ the template — it carries
 the keys, the comments, the defaults, and `@example` values. `varlock init`
 converts `.env.example` into `.env.schema`, and the installation guide instructs
 you to delete the `.env.example` afterwards. There is no command that emits a
@@ -787,7 +793,7 @@ varlock.
 
 **7. Fragments composed into contracts. Fits.** `@import()` with `pick` and
 `omit` is a better composition primitive than `extends` in either t3-env or
-envin, because it composes *declarations* and validates once.
+envin, because it composes _declarations_ and validates once.
 
 **8. Fragments live centrally in `packages/env`. Fits with work.** Supported and
 demonstrated, but the Monorepos guide recommends the opposite layout.
@@ -883,7 +889,7 @@ export default defineConfig({
   projectConfig: {
     databaseUrl: process.env.DATABASE_URL!,
     redisUrl: process.env.REDIS_URL!,
-    http: { storeCors: process.env.STORE_CORS!, /* ... */ },
+    http: { storeCors: process.env.STORE_CORS! /* ... */ },
   },
   // ...
 });
@@ -981,16 +987,16 @@ it.
 credible — and there are two shapes of it.**
 
 **Shape A: plugin-generated zod.** Code generation runs through a registry that
-plugins can extend, and the documented example is *literally* a zod generator:
+plugins can extend, and the documented example is _literally_ a zod generator:
 
 ```ts title="my-plugin.ts"
-import { plugin, type CodeGeneratorDef } from 'varlock/plugin-lib';
+import { plugin, type CodeGeneratorDef } from "varlock/plugin-lib";
 
 const generateZodSchema: CodeGeneratorDef = {
-  decoratorName: 'generateZodSchema',
+  decoratorName: "generateZodSchema",
   generate: ({ fields, outputPath }) => {
     const lines = fields.map((f) => `  ${f.key}: z.string(),`);
-    return `import { z } from 'zod';\n\nexport const envSchema = z.object({\n${lines.join('\n')}\n});\n`;
+    return `import { z } from 'zod';\n\nexport const envSchema = z.object({\n${lines.join("\n")}\n});\n`;
   },
 };
 
@@ -1108,7 +1114,7 @@ correction than the problem calls for.
 
 - When secrets move out of `.env` files into 1Password, AWS, or Vault. That is
   varlock's actual subject and nothing else on the list competes.
-- When the Storefront gains browser-visible variables *and* a leak becomes a
+- When the Storefront gains browser-visible variables _and_ a leak becomes a
   real risk. `varlock scan` plus `@sensitive` is stronger than a prefix
   convention.
 - When the schema fragment count outgrows what `schemas.ts` reads well, and

@@ -15,12 +15,12 @@ Versions under test: `varlock@1.16.1`, `@varlock/vite-integration@1.4.0`,
 
 ## Verdict
 
-| # | Proof | Requirement | Result |
-|---|-------|-------------|--------|
-| 1 | bun workspaces | hard | **PASS** |
-| 2 | vite-plus | hard | **PASS** |
-| 3 | drizzle-kit | hard | **PASS** |
-| 4 | in-process validation, public exports only | soft | **FAIL** |
+| #   | Proof                                      | Requirement | Result   |
+| --- | ------------------------------------------ | ----------- | -------- |
+| 1   | bun workspaces                             | hard        | **PASS** |
+| 2   | vite-plus                                  | hard        | **PASS** |
+| 3   | drizzle-kit                                | hard        | **PASS** |
+| 4   | in-process validation, public exports only | soft        | **FAIL** |
 
 All three hard proofs pass. **Adopt varlock.** Proof 4 fails, and its cost is
 recorded below.
@@ -86,10 +86,10 @@ reads the public one through `ENV` from `varlock/env`.
 
 `vp build` succeeded. Searching the output:
 
-| Marker | `.output/public` (client) | `.output/server` |
-|--------|---------------------------|------------------|
-| public | 1 file — `assets/routes-2rAqTlia.js` | — |
-| secret | **0 files** | **0 files** |
+| Marker | `.output/public` (client)            | `.output/server` |
+| ------ | ------------------------------------ | ---------------- |
+| public | 1 file — `assets/routes-2rAqTlia.js` | —                |
+| secret | **0 files**                          | **0 files**      |
 
 The public value is inlined into the client bundle. The secret reaches neither
 bundle; it resolves at run time.
@@ -225,11 +225,11 @@ build for that path.
 
 Measured, in order:
 
-| Case | Result |
-|------|--------|
-| `require("varlock/env")` from `.cjs`, node 24.18.1 | works, 16 keys |
-| same, inside `varlock run` | works |
-| **ts-node 10.9.2, `module=commonjs`, importing the generated `env.ts`** | **works** |
+| Case                                                                    | Result         |
+| ----------------------------------------------------------------------- | -------------- |
+| `require("varlock/env")` from `.cjs`, node 24.18.1                      | works, 16 keys |
+| same, inside `varlock run`                                              | works          |
+| **ts-node 10.9.2, `module=commonjs`, importing the generated `env.ts`** | **works**      |
 
 ```
 [probe] ts-node read ENV.DATABASE_URL = postgresql://postgres:password@localhost:5432/mze-store?sslmode=disable

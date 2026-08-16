@@ -1,8 +1,17 @@
 import { defineConfig } from "@medusajs/framework/utils";
 import { resolve } from "node:path";
+import { ENV as RESOLVED } from "varlock/init-server";
 import { adminFavicon } from "~/admin/favicon";
 import { STRIPE_MODULE_ID } from "~/payment/stripe";
-import { ENV } from "./env";
+import type { CoercedEnvSchema } from "./env";
+
+// The value comes from `varlock/init-server`, which is CommonJS, and the type
+// comes from the generated module, which is not. Jest refuses to `require()`
+// any package marked `"type": "module"`, so importing the generated module for
+// its value would break every integration test — node 24 bridges that with
+// `require(esm)` and jest's own module system does not. `import type` erases,
+// so this file never loads the ESM half. See ADR-0012.
+const ENV = RESOLVED as Readonly<CoercedEnvSchema>;
 
 const redisUrl = ENV.REDIS_URL;
 
