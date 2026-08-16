@@ -2,17 +2,17 @@
   "name": "medusa",
   "private": true,
   "scripts": {
-    "build": "SKIP_ENV_VALIDATION=1 medusa build && tsc-alias -p tsconfig.json",
-    "check-types": "SKIP_ENV_VALIDATION=1 medusa build",
-    "db:migrate": "vp run --filter '@mze-store/env' --filter '@mze-store/territory' build && medusa db:migrate",
-    "db:rollback": "vp run --filter '@mze-store/env' --filter '@mze-store/territory' build && medusa db:rollback",
-    "dev": "vp run --filter '@mze-store/env' --filter '@mze-store/territory' build && vp run dev:raw",
-    "dev:raw": "medusa develop",
-    "seed": "vp run --filter '@mze-store/env' --filter '@mze-store/territory' build && medusa exec ./src/scripts/seed.ts",
-    "seed:probe": "vp run --filter '@mze-store/env' --filter '@mze-store/territory' build && medusa exec ./src/scripts/seed-probe.ts",
-    "start": "medusa start",
-    "test": "vp run --filter '@mze-store/env' --filter '@mze-store/territory' build && NODE_OPTIONS=--experimental-vm-modules jest --runInBand --forceExit",
-    "operator:create": "vp run --filter '@mze-store/env' --filter '@mze-store/territory' build && medusa user"
+    "build": "APP_ENV=build varlock run -- medusa build && tsc-alias -p tsconfig.json",
+    "check-types": "APP_ENV=build varlock run -- medusa build",
+    "db:migrate": "vp run --filter '@mze-store/territory' build && varlock run -- medusa db:migrate",
+    "db:rollback": "vp run --filter '@mze-store/territory' build && varlock run -- medusa db:rollback",
+    "dev": "vp run --filter '@mze-store/territory' build && vp run dev:raw",
+    "dev:raw": "varlock run -- medusa develop",
+    "seed": "vp run --filter '@mze-store/territory' build && varlock run -- medusa exec ./src/scripts/seed.ts",
+    "seed:probe": "vp run --filter '@mze-store/territory' build && varlock run -- medusa exec ./src/scripts/seed-probe.ts",
+    "start": "varlock run -- medusa start",
+    "test": "vp run --filter '@mze-store/territory' build && NODE_OPTIONS=--experimental-vm-modules APP_ENV=test varlock run -- jest --runInBand --forceExit",
+    "operator:create": "vp run --filter '@mze-store/territory' build && varlock run -- medusa user"
   },
   "dependencies": {
     "@medusajs/admin-sdk": "catalog:",
@@ -24,7 +24,6 @@
     "@medusajs/medusa": "catalog:",
     "@medusajs/ui": "4.2.0",
     "@mze-store/design-tokens": "workspace:*",
-    "@mze-store/env": "workspace:*",
     "@mze-store/territory": "workspace:*",
     "fast-json-stable-stringify": "^2.1.0"
   },
@@ -47,7 +46,8 @@
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "ts-node": "catalog:",
-    "typescript": "catalog:"
+    "typescript": "catalog:",
+    "varlock": "1.16.1"
   },
   "engines": {
     "node": ">=24"

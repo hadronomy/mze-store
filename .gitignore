@@ -10,6 +10,10 @@ build
 
 # Generated files
 apps/storefront/src/routeTree.gen.ts
+apps/medusa/env.ts
+apps/storefront/env.ts
+packages/auth/env.ts
+packages/db/env.ts
 .vite-hooks/
 
 # Agent worktrees

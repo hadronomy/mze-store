@@ -9,12 +9,32 @@
     "packages/db/drizzle.config.ts",
     "apps/storefront/src/routeTree.gen.ts"
   ],
-  "ignoreDependencies": ["@axe-core/playwright", "rolldown", "uuid"],
-  "ignoreBinaries": ["auth", "drizzle-kit", "jest", "medusa", "portless", "tsc", "tsc-alias", "vp"],
+  "ignoreDependencies": [
+    "@axe-core/playwright",
+    "rolldown",
+    "uuid"
+  ],
+  "ignoreBinaries": [
+    "auth",
+    "drizzle-kit",
+    "jest",
+    "medusa",
+    "portless",
+    "tsc",
+    "tsc-alias",
+    "vp"
+  ],
   "workspaces": {
     ".": {
-      "entry": ["vite.config.ts", "tooling/mze/**/*.ts", "e2e/**/*.ts"],
-      "project": ["tooling/mze/**/*.ts", "e2e/**/*.ts"]
+      "entry": [
+        "vite.config.ts",
+        "tooling/mze/**/*.ts",
+        "e2e/**/*.ts"
+      ],
+      "project": [
+        "tooling/mze/**/*.ts",
+        "e2e/**/*.ts"
+      ]
     },
     "apps/medusa": {
       "entry": [
@@ -23,7 +43,11 @@
         "src/**/*.ts",
         "integration-tests/**/*.{js,ts}"
       ],
-      "project": ["*.{js,ts}", "src/**/*.ts", "integration-tests/**/*.{js,ts}"],
+      "project": [
+        "*.{js,ts}",
+        "src/**/*.ts",
+        "integration-tests/**/*.{js,ts}"
+      ],
       "ignoreDependencies": [
         "@medusajs/admin-sdk",
         "@medusajs/admin-shared",
@@ -34,13 +58,25 @@
       ]
     },
     "apps/storefront": {
-      "entry": ["vite.config.ts", "nitro.config.ts", "src/**/*.{ts,tsx}"],
-      "project": ["*.{ts,tsx}", "src/**/*.{ts,tsx}"]
+      "entry": [
+        "vite.config.ts",
+        "nitro.config.ts",
+        "src/**/*.{ts,tsx}"
+      ],
+      "project": [
+        "*.{ts,tsx}",
+        "src/**/*.{ts,tsx}"
+      ]
     },
     "packages/auth": {
-      "entry": ["auth.ts", "src/**/*.ts"],
-      "project": ["*.ts", "src/**/*.ts"],
-      "ignoreDependencies": ["@mze-store/env", "dotenv"]
+      "entry": [
+        "auth.ts",
+        "src/**/*.ts"
+      ],
+      "project": [
+        "*.ts",
+        "src/**/*.ts"
+      ]
     },
     "packages/config": {
       "entry": [],
@@ -48,21 +84,35 @@
     },
     "packages/db": {
       "drizzle": false,
-      "entry": ["src/**/*.ts"],
-      "project": ["*.ts", "src/**/*.ts"],
-      "ignoreDependencies": ["@mze-store/env", "dotenv"]
-    },
-    "packages/env": {
-      "entry": ["vite.config.ts", "src/**/*.ts", "test/**/*.ts"],
-      "project": ["*.ts", "src/**/*.ts", "test/**/*.ts"]
+      "entry": [
+        "src/**/*.ts"
+      ],
+      "project": [
+        "*.ts",
+        "src/**/*.ts"
+      ]
     },
     "packages/ui": {
-      "entry": ["postcss.config.mjs", "src/**/*.{ts,tsx}"],
-      "project": ["*.mjs", "src/**/*.{ts,tsx}"]
+      "entry": [
+        "postcss.config.mjs",
+        "src/**/*.{ts,tsx}"
+      ],
+      "project": [
+        "*.mjs",
+        "src/**/*.{ts,tsx}"
+      ]
     },
     "tooling/oxlint": {
-      "entry": ["vite.config.ts", "src/**/*.ts", "test/**/*.ts"],
-      "project": ["*.{json,ts}", "src/**/*.ts", "test/**/*.ts"]
+      "entry": [
+        "vite.config.ts",
+        "src/**/*.ts",
+        "test/**/*.ts"
+      ],
+      "project": [
+        "*.{json,ts}",
+        "src/**/*.ts",
+        "test/**/*.ts"
+      ]
     }
   }
 }

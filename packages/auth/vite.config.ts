@@ -6,9 +6,8 @@ export default defineConfig({
     tasks: {
       build: packageBuildTask("tsc -b && tsc-alias -p tsconfig.json --resolve-full-paths", [
         "packages/db",
-        "packages/env",
       ]),
-      "check-types": packageTypecheckTask(["packages/db", "packages/env"]),
+      "check-types": packageTypecheckTask(["packages/db"]),
     },
   },
 });

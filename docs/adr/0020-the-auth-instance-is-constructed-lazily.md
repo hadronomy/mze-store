@@ -1,6 +1,6 @@
 # The auth instance is constructed lazily, not injected
 
-`createAuth` is a pure function. It takes its database and its configuration as parameters and reads nothing from the environment. `getAuth`, in a separate entry, memoises one instance and is the only module that reads `@mze-store/env`. Consumers import `@mze-store/auth/instance`. Tests import `@mze-store/auth`.
+`createAuth` is a pure function. It takes its database and its configuration as parameters and reads nothing from the environment. `getAuth`, in a separate entry, memoises one instance and is the only module that reads `ENV`. Consumers import `@mze-store/auth/instance`. Tests import `@mze-store/auth`.
 
 Before this, `packages/auth` and `packages/db` each exported a factory and an eager singleton built from it. The factories had no callers. Importing `@mze-store/auth` — even for a type — opened a Postgres pool and validated the whole server environment, so nothing that touched an Account could be tested without a live database.
 
@@ -20,7 +20,7 @@ The cost is narrow and real: two auth configurations cannot be alive in one proc
 
 - **The entry is split so the pure half stays pure.** `getAuth` cannot live beside `createAuth`, because a module-scope `import { env }` validates on import and would put the failure back where it was. `packages/db` loses its env import for the same reason — `createDb` takes a URL — since `packages/auth` imports it and would otherwise inherit the validation transitively.
 
-- **The accessor keeps the storefront Docker build safe.** The build uses `SKIP_ENV_VALIDATION=1`, so server environment values can be undefined while it evaluates modules. The `/instance` entry validates the environment when validation is enabled, but it does not call `createDb` or `createAuth` until the first `getAuth()` call. The build can therefore evaluate the server bundle without constructing an invalid production instance.
+- **The accessor keeps the storefront Docker build safe.** The build runs at `APP_ENV=build`, where `.env.build` supplies placeholders and validation stays on (ADR-0026). Reading `ENV` at module scope would resolve those placeholders into a live instance. The `/instance` entry does not call `createDb` or `createAuth` until the first `getAuth()` call, so the build evaluates the server bundle without constructing an instance from build-time values.
 
 - **The Better Auth CLI has a separate eager entry.** `packages/auth/auth.ts` exports a static `auth` value because the CLI must analyze one. This entry uses fixed build-time values and an unreachable loopback database URL. It reads no production environment and does not connect during schema generation.
 

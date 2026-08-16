@@ -1,2 +1,6 @@
+# Varlock owns every .env file. Bun's own loader would read the same files
+# with different precedence, so two resolvers would disagree.
+env = false
+
 [run]
 silent = true

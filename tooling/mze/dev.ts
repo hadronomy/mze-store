@@ -58,8 +58,6 @@ export const run = (options: {
       arguments: [
         "run",
         "--filter",
-        "@mze-store/env",
-        "--filter",
         "@mze-store/territory",
         "--filter",
         "@mze-store/design-tokens",

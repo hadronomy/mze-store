@@ -4,10 +4,8 @@ import { packageBuildTask, packageTypecheckTask } from "../../tooling/vite/packa
 export default defineConfig({
   run: {
     tasks: {
-      build: packageBuildTask("tsc -b && tsc-alias -p tsconfig.json --resolve-full-paths", [
-        "packages/env",
-      ]),
-      "check-types": packageTypecheckTask(["packages/env"]),
+      build: packageBuildTask("tsc -b && tsc-alias -p tsconfig.json --resolve-full-paths"),
+      "check-types": packageTypecheckTask([]),
     },
   },
 });

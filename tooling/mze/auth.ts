@@ -6,7 +6,6 @@ export const schema = (cwd: string) =>
   Effect.gen(function* () {
     const commands = yield* ChildCommand.Service;
 
-    yield* commands.run({ executable: "vp", arguments: ["run", "@mze-store/env#build"], cwd });
     yield* commands.run({
       executable: "vp",
       arguments: ["run", "--filter", "@mze-store/db", "build"],

@@ -3,10 +3,10 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "vp build",
+    "build": "APP_ENV=build vp build",
     "check-types": "tsc --noEmit",
     "serve": "vp preview",
-    "dev": "vp run @mze-store/env#build && vp run dev:raw",
+    "dev": "vp run dev:raw",
     "dev:raw": "vp dev"
   },
   "dependencies": {
@@ -33,6 +33,7 @@
     "@tanstack/react-router-devtools": "catalog:",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
+    "@varlock/vite-integration": "1.4.0",
     "@vitejs/plugin-react": "^6.0.3",
     "typescript": "catalog:",
     "vite": "^8.1.3"

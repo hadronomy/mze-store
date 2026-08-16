@@ -35,7 +35,6 @@ COPY --parents apps/*/package.json packages/*/package.json tooling/oxlint/packag
 RUN --mount=type=cache,id=bun-install-cache,target=/root/.bun/install/cache \
   bun install --frozen-lockfile --omit dev --linker=hoisted --backend=copyfile \
     --filter medusa \
-    --filter '@mze-store/env' \
     --filter '@mze-store/territory'
 
 # Cached packages can retain broader write bits from an earlier extraction.
