@@ -51,4 +51,6 @@ COPY --from=build --chown=node:node /app/apps/storefront/.env-flat/ ./apps/store
 WORKDIR /app/apps/storefront
 EXPOSE 3001
 USER node
-CMD ["node", "/app/node_modules/varlock/bin/cli.js", "run", "--", "node", ".output/server/index.mjs"]
+# ENTRYPOINT, not CMD, so a custom `command:` still resolves the contract.
+ENTRYPOINT ["node", "/app/node_modules/varlock/bin/cli.js", "run", "--"]
+CMD ["node", ".output/server/index.mjs"]

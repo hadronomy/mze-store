@@ -73,4 +73,7 @@ COPY --from=build --chown=node:node /app/apps/medusa/.env-flat/ ./apps/medusa/.m
 WORKDIR /app/apps/medusa/.medusa/server
 EXPOSE 9000
 USER node
-CMD ["/app/node_modules/.bin/varlock", "run", "--", "/app/node_modules/.bin/medusa", "start"]
+# ENTRYPOINT, not CMD. A custom `command:` replaces CMD, and a Medusa started
+# outside varlock evaluates medusa-config.ts with no ENV and exits.
+ENTRYPOINT ["/app/node_modules/.bin/varlock", "run", "--"]
+CMD ["/app/node_modules/.bin/medusa", "start"]

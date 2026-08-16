@@ -6,11 +6,20 @@ x-medusa-build: &medusa-build
   dockerfile: apps/medusa/Dockerfile
 
 x-medusa-env: &medusa-env
-  # sslmode=disable because Medusa turns SSL on by default for any host that
-  # isn't localhost, and the compose Postgres does not speak it. The symptom is
-  # not a refusal: `medusa db:migrate` hangs, then blames the URL.
-  DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD:-password}@postgres:5432/mze-store?sslmode=disable
-  REDIS_URL: redis://redis:6379
+  # The root .env.schema composes DATABASE_URL and REDIS_URL from these. Giving
+  # the parts keeps one definition of the connection string; a URL written here
+  # would be a second.
+  #
+  # The composed URL carries sslmode=disable because Medusa turns SSL on by
+  # default for any host that isn't localhost, and the compose Postgres does not
+  # speak it. The symptom is not a refusal: `medusa db:migrate` hangs, then
+  # blames the URL.
+  DB_HOST: postgres
+  DB_PORT: "5432"
+  DB_USERNAME: postgres
+  DB_PASSWORD: ${POSTGRES_PASSWORD:-password}
+  REDIS_HOST: redis
+  REDIS_PORT: "6379"
   # The defaults suit the local stack. A storefront on another origin must
   # export these, or Medusa rejects its requests, sign-in included.
   STORE_CORS: ${STORE_CORS:-http://localhost:3001}
@@ -40,7 +49,12 @@ services:
       BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:-local-development-auth-secret-32-characters}
       BETTER_AUTH_URL: ${BETTER_AUTH_URL:-http://localhost:3001}
       CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3001}
-      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD:-password}@postgres:5432/mze-store
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_USERNAME: postgres
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-password}
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
     depends_on:
       postgres:
         condition: service_healthy

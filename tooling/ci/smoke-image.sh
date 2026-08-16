@@ -31,8 +31,12 @@ test "$(docker image inspect --format '{{.Config.User}}' "$image_ref")" = "node"
 case "$image_name" in
   medusa)
     medusa_environment=(
-      --env "DATABASE_URL=postgresql://postgres:password@127.0.0.1:5432/mze-store?sslmode=disable"
-      --env "REDIS_URL=redis://127.0.0.1:6379"
+      --env "DB_HOST=127.0.0.1"
+      --env "DB_PORT=5432"
+      --env "DB_USERNAME=postgres"
+      --env "DB_PASSWORD=password"
+      --env "REDIS_HOST=127.0.0.1"
+      --env "REDIS_PORT=6379"
       --env "STORE_CORS=http://127.0.0.1:3001"
       --env "ADMIN_CORS=http://127.0.0.1:9000"
       --env "AUTH_CORS=http://127.0.0.1:3001,http://127.0.0.1:9000"
@@ -53,7 +57,12 @@ case "$image_name" in
       --env "BETTER_AUTH_SECRET=ci-storefront-auth-secret-32-characters" \
       --env "BETTER_AUTH_URL=http://127.0.0.1:3001" \
       --env "CORS_ORIGIN=http://127.0.0.1:3001" \
-      --env "DATABASE_URL=postgresql://postgres:password@127.0.0.1:5432/mze-store" \
+      --env "DB_HOST=127.0.0.1" \
+      --env "DB_PORT=5432" \
+      --env "DB_USERNAME=postgres" \
+      --env "DB_PASSWORD=password" \
+      --env "REDIS_HOST=127.0.0.1" \
+      --env "REDIS_PORT=6379" \
       "$image_ref" >/dev/null
     wait_for_url "http://127.0.0.1:3001/"
     ;;
