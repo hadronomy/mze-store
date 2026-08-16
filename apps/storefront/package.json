@@ -25,6 +25,7 @@
     "react": "catalog:",
     "react-dom": "catalog:",
     "sonner": "catalog:",
+    "varlock": "1.16.1",
     "zod": "catalog:"
   },
   "devDependencies": {

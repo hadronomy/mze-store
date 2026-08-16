@@ -21,6 +21,11 @@ COPY . .
 ENV NODE_ENV=production
 RUN ./node_modules/.bin/vp run -t medusa#build
 
+# The runtime stage carries the app alone, so the schema's @import(../../)
+# would point outside it. `flatten` copies everything reachable into one
+# directory and rewrites the paths. It resolves no values.
+RUN cd apps/medusa && ../../node_modules/.bin/varlock flatten
+
 FROM node:24@sha256:934240a162082fd8b8a2f90cd5114446443f1eba1c5378f6687167ca405e6584 AS production-deps
 ARG SOURCE_DATE_EPOCH=0
 COPY --from=bun /usr/local/bin/bun /usr/local/bin/bun
@@ -58,13 +63,12 @@ RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx
 COPY --from=production-deps --chown=node:node /app/node_modules ./node_modules
 COPY --from=build --chown=node:node /app/package.json ./package.json
 COPY --from=build --chown=node:node /app/apps/medusa/package.json ./apps/medusa/package.json
-COPY --from=build --chown=node:node /app/packages/env/package.json ./packages/env/package.json
-COPY --from=build --chown=node:node /app/packages/env/dist ./packages/env/dist
 COPY --from=build --chown=node:node /app/packages/territory/package.json ./packages/territory/package.json
 COPY --from=build --chown=node:node /app/packages/territory/dist ./packages/territory/dist
 COPY --from=build --chown=node:node /app/apps/medusa/.medusa/server ./apps/medusa/.medusa/server
+COPY --from=build --chown=node:node /app/apps/medusa/.env-flat/ ./apps/medusa/.medusa/server/
 
 WORKDIR /app/apps/medusa/.medusa/server
 EXPOSE 9000
 USER node
-CMD ["/app/node_modules/.bin/medusa", "start"]
+CMD ["/app/node_modules/.bin/varlock", "run", "--", "/app/node_modules/.bin/medusa", "start"]

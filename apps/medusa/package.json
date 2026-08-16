@@ -25,7 +25,8 @@
     "@medusajs/ui": "4.2.0",
     "@mze-store/design-tokens": "workspace:*",
     "@mze-store/territory": "workspace:*",
-    "fast-json-stable-stringify": "^2.1.0"
+    "fast-json-stable-stringify": "^2.1.0",
+    "varlock": "1.16.1"
   },
   "devDependencies": {
     "@medusajs/test-utils": "catalog:",
@@ -46,8 +47,7 @@
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "ts-node": "catalog:",
-    "typescript": "catalog:",
-    "varlock": "1.16.1"
+    "typescript": "catalog:"
   },
   "engines": {
     "node": ">=24"

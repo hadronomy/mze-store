@@ -71,6 +71,23 @@ jobs:
       - name: Add workspace binaries to PATH
         run: echo "$GITHUB_WORKSPACE/node_modules/.bin" >> "$GITHUB_PATH"
 
+      # Every contract has to resolve. `varlock load` exits 1 on an invalid one,
+      # so a schema that references a missing item or types a value wrongly fails
+      # here rather than when a container starts. The values are placeholders —
+      # this checks the contract, never a real environment.
+      - name: Validate the environment contracts
+        env:
+          APP_ENV: build
+          DB_PORT: "5432"
+          DB_PASSWORD: ci-placeholder
+          REDIS_PORT: "6379"
+        run: |
+          for directory in . apps/medusa apps/storefront packages/auth packages/db; do
+            echo "::group::$directory/.env.schema"
+            (cd "$directory" && varlock load --agent)
+            echo "::endgroup::"
+          done
+
       - name: Run repository checks
         id: repository-checks
         run: |

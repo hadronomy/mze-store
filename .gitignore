@@ -14,6 +14,7 @@ apps/medusa/env.ts
 apps/storefront/env.ts
 packages/auth/env.ts
 packages/db/env.ts
+.env-flat/
 .vite-hooks/
 
 # Agent worktrees
