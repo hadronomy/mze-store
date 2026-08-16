@@ -1,14 +1,19 @@
-import { defineConfig, loadEnv } from "@medusajs/framework/utils";
-import { parse } from "@mze-store/env/medusa";
+import { defineConfig } from "@medusajs/framework/utils";
 import { resolve } from "node:path";
+import { ENV as RESOLVED } from "varlock/init-server";
 import { adminFavicon } from "~/admin/favicon";
 import { STRIPE_MODULE_ID } from "~/payment/stripe";
-import { withPortlessCors } from "~/portless";
+import type { CoercedEnvSchema } from "./env";
 
-loadEnv(process.env.NODE_ENV || "development", process.cwd());
+// The value comes from `varlock/init-server`, which is CommonJS, and the type
+// comes from the generated module, which is not. Jest refuses to `require()`
+// any package marked `"type": "module"`, so importing the generated module for
+// its value would break every integration test — node 24 bridges that with
+// `require(esm)` and jest's own module system does not. `import type` erases,
+// so this file never loads the ESM half. See ADR-0012.
+const ENV = RESOLVED as Readonly<CoercedEnvSchema>;
 
-const env = parse(withPortlessCors(process.env));
-const redisUrl = env.REDIS_URL;
+const redisUrl = ENV.REDIS_URL;
 
 export default defineConfig({
   admin: {
@@ -30,14 +35,14 @@ export default defineConfig({
     }),
   },
   projectConfig: {
-    databaseUrl: env.DATABASE_URL,
+    databaseUrl: ENV.DATABASE_URL,
     redisUrl,
     http: {
-      storeCors: env.STORE_CORS,
-      adminCors: env.ADMIN_CORS,
-      authCors: env.AUTH_CORS,
-      jwtSecret: env.JWT_SECRET,
-      cookieSecret: env.COOKIE_SECRET,
+      storeCors: ENV.STORE_CORS,
+      adminCors: ENV.ADMIN_CORS,
+      authCors: ENV.AUTH_CORS,
+      jwtSecret: ENV.JWT_SECRET,
+      cookieSecret: ENV.COOKIE_SECRET,
     },
   },
   // Keep these modules unconditional. The environment parser requires Redis
@@ -52,7 +57,7 @@ export default defineConfig({
           {
             resolve: "@medusajs/medusa/payment-stripe",
             id: STRIPE_MODULE_ID,
-            options: { apiKey: env.STRIPE_API_KEY },
+            options: { apiKey: ENV.STRIPE_API_KEY },
           },
         ],
       },

@@ -147,3 +147,29 @@ _Avoid_: illustration, icon, graphic, artwork
 **Signature Artifact**:
 The one custom focal object that could not be pasted into another shop. Decided before layout, not after. For MZE it is the Botanical set.
 _Avoid_: hero image, key visual, brand asset
+
+### Configuration
+
+Three systems in this repository use "environment" for three different things, which is why this section exists.
+
+**Schema**:
+A committed `.env.schema` file. It declares each variable once, with its type, whether it is required, and whether it is sensitive. It is the contract, the documentation, and the template at the same time — the repository ships no `.env.example` or `.env.template`.
+_Avoid_: env file, template, example, config
+
+**Fragment**:
+The root Schema, holding the values more than one consumer needs — the PostgreSQL parts, the composed connection strings, Redis. Consumers pull it in with `@import(../../)`. It starts no process of its own.
+_Avoid_: base config, shared env, common
+
+**Contract**:
+A consumer's own Schema, beside the code that reads it. There is one for each directory that starts a process. A Contract imports the Fragment and adds what only it needs.
+_Avoid_: app config, local env
+
+**Stage**:
+Which set of values is in play — `development`, `test`, `build`, or `production`. Held in `APP_ENV`, which is the only switch this repository owns. `NODE_ENV` is not a Stage: node, Vite and Medusa each define that name for themselves.
+_Avoid_: environment (ambiguous — see below), mode, NODE_ENV
+
+**Discovered Value**:
+A value `mze` learns at run time from Compose and injects into the processes it starts, such as the PostgreSQL port for this worktree. Declared in the Fragment as required with no default, so a missing injection stops the process instead of reaching a different database.
+_Avoid_: runtime env, injected config, dynamic value
+
+**Environment** is deliberately not defined here, because three owners already use it and none of them will yield: `tooling/mze` exports an `Environment` interface meaning a record of Discovered Values, varlock means the `APP_ENV` Stage, and Effect means its own service context. Say which one, or use the terms above.

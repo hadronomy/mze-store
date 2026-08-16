@@ -39,8 +39,7 @@
     },
     "packages/auth": {
       "entry": ["auth.ts", "src/**/*.ts"],
-      "project": ["*.ts", "src/**/*.ts"],
-      "ignoreDependencies": ["@mze-store/env", "dotenv"]
+      "project": ["*.ts", "src/**/*.ts"]
     },
     "packages/config": {
       "entry": [],
@@ -49,12 +48,7 @@
     "packages/db": {
       "drizzle": false,
       "entry": ["src/**/*.ts"],
-      "project": ["*.ts", "src/**/*.ts"],
-      "ignoreDependencies": ["@mze-store/env", "dotenv"]
-    },
-    "packages/env": {
-      "entry": ["vite.config.ts", "src/**/*.ts", "test/**/*.ts"],
-      "project": ["*.ts", "src/**/*.ts", "test/**/*.ts"]
+      "project": ["*.ts", "src/**/*.ts"]
     },
     "packages/ui": {
       "entry": ["postcss.config.mjs", "src/**/*.{ts,tsx}"],

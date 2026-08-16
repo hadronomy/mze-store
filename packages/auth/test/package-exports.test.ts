@@ -9,9 +9,7 @@ const environment = {
   BETTER_AUTH_URL: "http://localhost:3001",
   CORS_ORIGIN: "http://localhost:3001",
   DATABASE_URL: "postgresql://postgres:password@localhost:5432/mze-store",
-  DOTENV_CONFIG_QUIET: "true",
   NODE_ENV: "test",
-  SKIP_ENV_VALIDATION: undefined,
 };
 
 function runNode(source: string) {

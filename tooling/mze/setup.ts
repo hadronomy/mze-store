@@ -1,5 +1,4 @@
-import { Config, Effect, FileSystem, Path, Schema, Stdio } from "effect";
-import { Prompt } from "effect/unstable/cli";
+import { Config, Effect, Schema, Stdio } from "effect";
 
 import { ChildCommand } from "./child-command.ts";
 import { Output } from "./output.ts";
@@ -62,33 +61,13 @@ export const run = (options: {
     }
 
     const commands = yield* ChildCommand.Service;
-    const fs = yield* FileSystem.FileSystem;
-    const output = yield* Output.Service;
-    const path = yield* Path.Path;
 
     yield* verifyTools(options.nodeVersion);
 
-    for (const app of ["storefront", "medusa"] as const) {
-      const destination = path.join(options.cwd, "apps", app, ".env");
-      if (yield* fs.exists(destination)) {
-        continue;
-      }
-
-      const source = path.join(options.cwd, "apps", app, ".env.template");
-      const confirmed = yield* Prompt.run(
-        Prompt.confirm({ message: `Create apps/${app}/.env from its template?` }),
-      );
-      if (confirmed) {
-        yield* fs.copy(source, destination, { overwrite: false });
-        yield* output.write({
-          command: "setup",
-          data: { message: `Created apps/${app}/.env.` },
-          event: "message",
-          stream: "stdout",
-        });
-      }
-    }
-
+    // No `.env` files to seed. Each `.env.schema` is committed and carries its
+    // own development defaults, so a clean checkout runs without one. The only
+    // value with no workable default is STRIPE_API_KEY, and varlock names it,
+    // and the file to put it in, the first time something needs it.
     yield* commands.run({ executable: "vp", arguments: ["config"], cwd: options.cwd });
   });
 

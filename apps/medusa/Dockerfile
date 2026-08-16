@@ -18,8 +18,14 @@ RUN --mount=type=cache,id=bun-install-cache,target=/root/.bun/install/cache \
   bun install --frozen-lockfile
 
 COPY . .
-ENV NODE_ENV=production
+ENV NODE_ENV=production \
+  VARLOCK_TELEMETRY_DISABLED=1
 RUN ./node_modules/.bin/vp run -t medusa#build
+
+# The runtime stage carries the app alone, so the schema's @import(../../)
+# would point outside it. `flatten` copies everything reachable into one
+# directory and rewrites the paths. It resolves no values.
+RUN cd apps/medusa && ../../node_modules/.bin/varlock flatten
 
 FROM node:24@sha256:934240a162082fd8b8a2f90cd5114446443f1eba1c5378f6687167ca405e6584 AS production-deps
 ARG SOURCE_DATE_EPOCH=0
@@ -35,7 +41,6 @@ COPY --parents apps/*/package.json packages/*/package.json tooling/oxlint/packag
 RUN --mount=type=cache,id=bun-install-cache,target=/root/.bun/install/cache \
   bun install --frozen-lockfile --omit dev --linker=hoisted --backend=copyfile \
     --filter medusa \
-    --filter '@mze-store/env' \
     --filter '@mze-store/territory'
 
 # Cached packages can retain broader write bits from an earlier extraction.
@@ -52,20 +57,23 @@ RUN rm -rf \
 FROM node:24-bookworm-slim@sha256:3638d9a6fe4030bd716be989438248074489337ba3275657f93595428be4fc03 AS runtime
 ENV NODE_ENV=production \
   HOST=0.0.0.0 \
-  PORT=9000
+  PORT=9000 \
+  VARLOCK_TELEMETRY_DISABLED=1
 WORKDIR /app
 RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx
 
 COPY --from=production-deps --chown=node:node /app/node_modules ./node_modules
 COPY --from=build --chown=node:node /app/package.json ./package.json
 COPY --from=build --chown=node:node /app/apps/medusa/package.json ./apps/medusa/package.json
-COPY --from=build --chown=node:node /app/packages/env/package.json ./packages/env/package.json
-COPY --from=build --chown=node:node /app/packages/env/dist ./packages/env/dist
 COPY --from=build --chown=node:node /app/packages/territory/package.json ./packages/territory/package.json
 COPY --from=build --chown=node:node /app/packages/territory/dist ./packages/territory/dist
 COPY --from=build --chown=node:node /app/apps/medusa/.medusa/server ./apps/medusa/.medusa/server
+COPY --from=build --chown=node:node /app/apps/medusa/.env-flat/ ./apps/medusa/.medusa/server/
 
 WORKDIR /app/apps/medusa/.medusa/server
 EXPOSE 9000
 USER node
+# ENTRYPOINT, not CMD. A custom `command:` replaces CMD, and a Medusa started
+# outside varlock evaluates medusa-config.ts with no ENV and exits.
+ENTRYPOINT ["/app/node_modules/.bin/varlock", "run", "--"]
 CMD ["/app/node_modules/.bin/medusa", "start"]

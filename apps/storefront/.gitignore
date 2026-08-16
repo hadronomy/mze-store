@@ -30,8 +30,11 @@
 
 # Environment & local files
 .env*
-!.env.example
-!.env.template
+# The committed contract. The schema declares shape and `.env.build` holds
+# placeholders for a build that reaches no database. Local value files stay
+# ignored by the rule above.
+!.env.schema
+!.env.build
 .DS_Store
 *.pem
 *.local

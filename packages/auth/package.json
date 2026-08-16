@@ -28,13 +28,13 @@
   "dependencies": {
     "@better-auth/drizzle-adapter": "catalog:",
     "@mze-store/db": "workspace:*",
-    "@mze-store/env": "workspace:*",
     "better-auth": "catalog:"
   },
   "devDependencies": {
     "@mze-store/config": "workspace:*",
     "auth": "catalog:",
     "typescript": "catalog:",
+    "varlock": "1.16.1",
     "zod": "catalog:"
   }
 }

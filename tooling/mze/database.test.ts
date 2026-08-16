@@ -47,13 +47,12 @@ it.effect("maps accepted data loss to a non-interactive database push", () =>
       arguments: ["run", "--filter", "@mze-store/db", "db:push", "--force"],
       cwd: "/repo",
       environment: {
-        DATABASE_URL: "postgresql://postgres:password@127.0.0.1:49153/mze-store?sslmode=disable",
         DB_HOST: "localhost",
         DB_PASSWORD: "password",
         DB_PORT: "49153",
         DB_USERNAME: "postgres",
         POSTGRES_PASSWORD: "password",
-        REDIS_URL: "redis://127.0.0.1:49154",
+        REDIS_PORT: "49154",
       },
     });
   }),
