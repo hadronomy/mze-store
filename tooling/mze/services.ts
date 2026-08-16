@@ -2,14 +2,22 @@ import { Config, Effect, Redacted, Schema } from "effect";
 
 import { ChildCommand } from "./child-command.ts";
 
+/**
+ * The values Compose assigns this worktree, injected into every child process.
+ *
+ * These are parts, never connection strings. The root `.env.schema` composes
+ * `DATABASE_URL` and `REDIS_URL` from them, so the shape of a connection string
+ * is written in one place. Each key here matches an item that schema declares
+ * `@required` with no default — rename one side only and the child stops rather
+ * than falling back to a stale default port.
+ */
 export interface Environment {
-  readonly DATABASE_URL: string;
   readonly DB_HOST: string;
   readonly DB_PASSWORD: string;
   readonly DB_PORT: string;
   readonly DB_USERNAME: string;
   readonly POSTGRES_PASSWORD: string;
-  readonly REDIS_URL: string;
+  readonly REDIS_PORT: string;
 }
 
 export interface Ports {
@@ -93,18 +101,19 @@ export const start = (cwd: string) =>
       );
 
     const discovered = yield* ports(cwd);
-    const encodedPassword = encodeURIComponent(password);
 
     return {
-      DATABASE_URL: `postgresql://postgres:${encodedPassword}@127.0.0.1:${discovered.postgres}/mze-store?sslmode=disable`,
       // Medusa test-utils enables TLS unless its generated URL contains this
       // literal. The worktree PostgreSQL service does not provide TLS.
       DB_HOST: "localhost",
+      // Passed raw. The schema rejects any character that would need
+      // percent-encoding, so a password that cannot go into a URL fails at the
+      // contract rather than composing into a malformed one.
       DB_PASSWORD: password,
       DB_PORT: String(discovered.postgres),
       DB_USERNAME: "postgres",
       POSTGRES_PASSWORD: password,
-      REDIS_URL: `redis://127.0.0.1:${discovered.redis}`,
+      REDIS_PORT: String(discovered.redis),
     } satisfies Environment;
   });
 

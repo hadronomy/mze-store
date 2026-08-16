@@ -43,13 +43,12 @@ it.effect("starts a Storefront with discovered service ports", () =>
       arguments: ["run", "--name", "storefront.mze-store", "vp", "dev"],
       cwd: "/repo/apps/storefront",
       environment: {
-        DATABASE_URL: "postgresql://postgres:password@127.0.0.1:41001/mze-store?sslmode=disable",
         DB_HOST: "localhost",
         DB_PASSWORD: "password",
         DB_PORT: "41001",
         DB_USERNAME: "postgres",
         POSTGRES_PASSWORD: "password",
-        REDIS_URL: "redis://127.0.0.1:41002",
+        REDIS_PORT: "41002",
       },
     });
     expect(recorded.some((spec) => spec.arguments.includes("medusa.mze-store"))).toBe(false);

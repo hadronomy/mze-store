@@ -28,7 +28,7 @@ it.effect("starts healthy services and returns their discovered environment", ()
       Effect.provide(commandLayer),
       Effect.provideService(
         ConfigProvider.ConfigProvider,
-        ConfigProvider.fromEnv({ env: { POSTGRES_PASSWORD: "p@ss word" } }),
+        ConfigProvider.fromEnv({ env: { POSTGRES_PASSWORD: "worktree-password" } }),
       ),
     );
     const recorded = yield* Ref.get(calls);
@@ -37,16 +37,17 @@ it.effect("starts healthy services and returns their discovered environment", ()
       executable: "docker",
       arguments: ["compose", "up", "-d", "--wait", "--wait-timeout", "60", "postgres", "redis"],
       cwd: "/repo",
-      environment: { POSTGRES_PASSWORD: "p@ss word" },
+      environment: { POSTGRES_PASSWORD: "worktree-password" },
     });
+    // Parts only. The root .env.schema composes the connection strings, so a
+    // URL appearing here would mean the shape is written in two places again.
     expect(environment).toEqual({
-      DATABASE_URL: "postgresql://postgres:p%40ss%20word@127.0.0.1:49153/mze-store?sslmode=disable",
       DB_HOST: "localhost",
-      DB_PASSWORD: "p@ss word",
+      DB_PASSWORD: "worktree-password",
       DB_PORT: "49153",
       DB_USERNAME: "postgres",
-      POSTGRES_PASSWORD: "p@ss word",
-      REDIS_URL: "redis://127.0.0.1:49154",
+      POSTGRES_PASSWORD: "worktree-password",
+      REDIS_PORT: "49154",
     });
   }),
 );
