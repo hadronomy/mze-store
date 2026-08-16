@@ -13,6 +13,9 @@ permissions:
 
 env:
   STRIPE_API_KEY: sk_test_ci
+  # Runners do not read mise.toml, so the repository-wide opt-out is repeated
+  # here. See the [env] block in mise.toml.
+  VARLOCK_TELEMETRY_DISABLED: "1"
 
 jobs:
   checks:

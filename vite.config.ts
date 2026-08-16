@@ -26,6 +26,17 @@ export default defineConfig({
         dependsOn: ["@mze-store/oxlint#build"],
         cache: false,
       },
+      // Resolves each application's sensitive values — including whatever a
+      // developer put in their own .env.local — then fails the commit if any of
+      // them appear in a staged file.
+      //
+      // Both flags are load-bearing. `--staged` reports paths from the git root,
+      // so this runs there. The root schema declares no resolvable secret, so
+      // `--path` supplies the application schemas as entry points instead.
+      "staged-scan": {
+        command: "varlock scan --staged --path apps/medusa/ --path apps/storefront/",
+        cache: false,
+      },
     },
   },
   resolve: {
@@ -84,5 +95,8 @@ export default defineConfig({
   },
   staged: {
     "*.{js,ts,jsx,tsx,vue,svelte,json,jsonc,css,md}": "vp run staged-check",
+    // Every staged file, whatever its type. A secret is as easy to paste into a
+    // YAML workflow or a lock file as into TypeScript.
+    "*": "vp run staged-scan",
   },
 });

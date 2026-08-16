@@ -18,7 +18,8 @@ RUN --mount=type=cache,id=bun-install-cache,target=/root/.bun/install/cache \
   bun install --frozen-lockfile
 
 COPY . .
-ENV NODE_ENV=production
+ENV NODE_ENV=production \
+  VARLOCK_TELEMETRY_DISABLED=1
 RUN ./node_modules/.bin/vp run -t medusa#build
 
 # The runtime stage carries the app alone, so the schema's @import(../../)
@@ -56,7 +57,8 @@ RUN rm -rf \
 FROM node:24-bookworm-slim@sha256:3638d9a6fe4030bd716be989438248074489337ba3275657f93595428be4fc03 AS runtime
 ENV NODE_ENV=production \
   HOST=0.0.0.0 \
-  PORT=9000
+  PORT=9000 \
+  VARLOCK_TELEMETRY_DISABLED=1
 WORKDIR /app
 RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx
 

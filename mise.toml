@@ -7,3 +7,9 @@ node = "24.18.1"
 # Must match `packageManager` in package.json, or corepack and mise disagree
 # about which bun is authoritative.
 bun = "1.3.14"
+
+[env]
+# varlock reports anonymous usage by default. This opts the whole repository
+# out for every developer shell. The images and CI set the same variable,
+# because neither reads this file.
+VARLOCK_TELEMETRY_DISABLED = "1"

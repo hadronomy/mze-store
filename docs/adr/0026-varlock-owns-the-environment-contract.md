@@ -48,6 +48,10 @@ ADR-0012 pins the Medusa backend to ts-node 10.9.2, which refuses ESM. `varlock/
 
 - **Every process needs a wrapper.** `varlock run` prefixes the Medusa and drizzle-kit scripts; the Vite plugin covers the Storefront. A process started without one fails loudly, which is the trade this decision accepts in exchange for deleting the package.
 
+- **A pre-commit scan guards the values the schema knows are secret.** `varlock scan --staged` resolves each application's sensitive values, a developer's own `.env.local` included, then fails the commit if one appears in a staged file. It runs through the existing `staged` block in `vite.config.ts`, so `vp config` installs it with the hooks already in place. Two flags are load-bearing and neither is obvious: `--staged` reports paths from the git root, so the task runs there, while the root schema declares no resolvable secret — `--path` supplies the application schemas as entry points instead. Run from an application directory, the scan silently finds nothing, because git reports paths the application cannot resolve.
+
+- **Telemetry is off for the whole repository.** varlock reports anonymous usage by default, and `varlock telemetry disable` writes only to the user's own config directory. The opt-out therefore lives in three places that do not read each other: `[env]` in `mise.toml` for developer shells, `ENV` in both build and runtime stages of each image, and the workflow `env` block for CI. Editing `mise.toml` invalidates `mise trust`, so each developer runs `mise trust` once after this change.
+
 ## Related
 
 - ADR-0012 — the Medusa backend is a tsc island. Why the CJS question had to be measured.
