@@ -26,7 +26,15 @@ docker-compose.yml
 # values through `env_file` or explicit `environment` entries.
 **/.env
 **/.env.*
-!**/.env.example
+
+# The committed contract is the exception. `varlock flatten` reads these during
+# the build, and the runtime resolves against them, so excluding them leaves the
+# image with no contract to validate. Neither holds a secret: the schema
+# declares shape, and `.env.build` holds placeholders for a build that reaches
+# no database. Local value files stay excluded by the rules above.
+!.env.schema
+!**/.env.schema
+!**/.env.build
 
 # These files do not affect a production build.
 docs
