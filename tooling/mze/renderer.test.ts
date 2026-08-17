@@ -289,24 +289,24 @@ it.effect("stops drawing once the rows have settled", () => {
   const capture = captureStdio();
 
   return Effect.gen(function* () {
-    yield* Effect.gen(function* () {
-      const renderer = yield* Renderer.Service;
-      yield* renderer.begin(["packages"]);
-      yield* renderer.transition("packages", "running");
-      yield* renderer.transition("packages", "failed");
-      yield* renderer.end();
+    const renderer = yield* Renderer.Service;
+    yield* renderer.begin(["packages"]);
+    yield* renderer.transition("packages", "running");
+    yield* renderer.transition("packages", "failed");
+    yield* renderer.end();
 
-      const settled = capture.stderr.length;
-      yield* renderer.write("\nthe failure block\n");
-      yield* TestClock.adjust("400 millis");
+    const settled = capture.stderr.length;
+    yield* renderer.write("\nthe failure block\n");
+    yield* TestClock.adjust("400 millis");
 
-      // A redraw here would stack a second copy of the settled rows under the
-      // block, and the frame loop would clear around the reporter's error line.
-      const after = capture.stderr.slice(settled).join("");
-      expect(after).toContain("the failure block");
-      expect(after).not.toContain("packages");
-    }).pipe(
-      Effect.provide(
+    // A redraw here would stack a second copy of the settled rows under the
+    // block, and the painter would clear around the reporter's error line.
+    const after = capture.stderr.slice(settled).join("");
+    expect(after).toContain("the failure block");
+    expect(after).not.toContain("packages");
+  }).pipe(
+    Effect.provide(
+      Layer.mergeAll(
         Layer.provide(
           Renderer.layer("live", { color: false }),
           Layer.mergeAll(
@@ -314,7 +314,8 @@ it.effect("stops drawing once the rows have settled", () => {
             capture.layer,
           ),
         ),
+        TestClock.layer(),
       ),
-    );
-  }).pipe(Effect.provide(TestClock.layer()));
+    ),
+  );
 });

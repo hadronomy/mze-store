@@ -1,6 +1,6 @@
 import ansiEscapes from "ansi-escapes";
 import { Chalk, type ChalkInstance } from "chalk";
-import { Context, Effect, Layer, Ref, Stdio, Stream } from "effect";
+import { Context, Effect, Fiber, Layer, Ref, Stdio, Stream } from "effect";
 import type { PlatformError } from "effect/PlatformError";
 
 import { TaskLog } from "./task-log.ts";
@@ -246,11 +246,6 @@ export const layer = (mode: Mode, options: Options = {}) =>
       // Lines of the live frame currently on screen, so the next draw knows how
       // far up to reach. Zero in every non-animated mode.
       const drawn = yield* Ref.make(0);
-      // Set once `end` has drawn the settled list. After that the rows are
-      // final, so nothing may redraw them: a later write would stack a second
-      // copy under the failure block, and the frame loop would keep clearing
-      // around the reporter's error line.
-      const finished = yield* Ref.make(false);
       const animated = mode === "live" && (yield* capabilities.isTerminal);
 
       const writeTo = (stream: "stdout" | "stderr", text: string) =>
@@ -279,7 +274,7 @@ export const layer = (mode: Mode, options: Options = {}) =>
       });
 
       const draw = Effect.gen(function* () {
-        if (!animated || (yield* Ref.get(finished))) {
+        if (!animated) {
           return;
         }
 
@@ -292,23 +287,36 @@ export const layer = (mode: Mode, options: Options = {}) =>
         yield* Ref.set(drawn, text === "" ? 0 : text.split("\n").length - 1);
       });
 
-      /** Every non-frame write goes through here, so nothing lands mid-frame. */
+      /**
+       * Erase the frame, write the line, and leave repainting to the painter.
+       *
+       * Once the painter has stopped there is nothing to repaint, which is what
+       * makes a line written after `end` the last thing on the terminal.
+       */
       const write = (text: string) =>
         Effect.gen(function* () {
           yield* clear;
           yield* writeText(text);
-          yield* draw;
         });
 
       if (animated) {
         yield* Effect.addFinalizer(() => writeText(ansiEscapes.cursorShow).pipe(Effect.ignore));
         yield* writeText(ansiEscapes.cursorHide);
-        yield* Effect.gen(function* () {
-          yield* Ref.update(state, (current) => ({ ...current, spinner: current.spinner + 1 }));
-          yield* draw;
-          yield* Effect.sleep(FRAME_INTERVAL);
-        }).pipe(Effect.forever, Effect.forkScoped);
       }
+
+      /**
+       * The one thing that paints frames.
+       *
+       * Its lifetime is the answer to "may the rows be redrawn?", so no flag
+       * has to track that separately and no flag can disagree with it.
+       */
+      const painter = animated
+        ? yield* Effect.gen(function* () {
+            yield* Ref.update(state, (current) => ({ ...current, spinner: current.spinner + 1 }));
+            yield* draw;
+            yield* Effect.sleep(FRAME_INTERVAL);
+          }).pipe(Effect.forever, Effect.forkScoped)
+        : undefined;
 
       const delimiter = (phase: string) =>
         Effect.gen(function* () {
@@ -389,8 +397,7 @@ export const layer = (mode: Mode, options: Options = {}) =>
           // command with no rows at all must behave as it always did.
           if (!current.rows.some((row) => row.status === "running")) {
             yield* clear;
-            yield* writeTo(stream, text);
-            return yield* draw;
+            return yield* writeTo(stream, text);
           }
 
           const tail = lastLine(text);
@@ -425,15 +432,14 @@ export const layer = (mode: Mode, options: Options = {}) =>
             ),
           }));
 
-          if (animated) {
+          if (painter !== undefined) {
+            // Retire the painter first, so the frame it leaves is the final one.
+            yield* Fiber.interrupt(painter);
             yield* draw;
             // Leave the settled block on screen: the next write must not erase it.
             yield* Ref.set(drawn, 0);
-            yield* Ref.set(finished, true);
             return;
           }
-
-          yield* Ref.set(finished, true);
 
           const current = yield* Ref.get(state);
           const skipped = current.rows.filter((row) => row.status === "skipped");
