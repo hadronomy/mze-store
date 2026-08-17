@@ -30,11 +30,12 @@ bun run mze docker up
 bun run mze docker down
 ```
 
-`bun install` runs `effect-language-service patch`, which patches the installed
-typescript so Effect diagnostics appear under `tsc` and not only in an editor.
-`mze check` typechecks `tooling/mze/` with them through its `tooling types`
-phase. The patch is a no-op where the tool is absent, such as the production
-image install.
+`tooling/mze` is a workspace package that pins typescript 7 and `@effect/tsgo`,
+so Effect diagnostics appear under `tsc` and not only in an editor. Its
+`prepare` script patches that binary on `bun install`. The rest of the
+repository stays on typescript 6 — see
+[ADR-0028](docs/adr/0028-mze-pins-typescript-7-for-effect-diagnostics.md).
+`mze check` runs the check through its `tooling types` phase.
 
 `bun run build`, `bun run check`, and `mze lint` report one row per phase and
 keep each task's output unless it fails. Pass `--verbose` for the full output,

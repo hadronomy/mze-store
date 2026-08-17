@@ -28,7 +28,7 @@ export interface Ports {
 export class ServicesStartFailed extends Schema.TaggedError<ServicesStartFailed>()(
   "ServicesStartFailed",
   {
-    exitCode: Schema.Number,
+    exitCode: Schema.Int,
     message: Schema.String,
   },
 ) {}
@@ -36,7 +36,7 @@ export class ServicesStartFailed extends Schema.TaggedError<ServicesStartFailed>
 export class ServicePortInvalid extends Schema.TaggedError<ServicePortInvalid>()(
   "ServicePortInvalid",
   {
-    exitCode: Schema.Number,
+    exitCode: Schema.Int,
     output: Schema.String,
     service: Schema.String,
   },

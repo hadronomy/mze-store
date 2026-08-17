@@ -7,13 +7,15 @@ TypeScript 7 upgrade that change requires.
 
 ## Result
 
-Do not migrate yet. `@effect/tsgo` is the better tool and TypeScript 7 checks
-most of this repository cleanly, but two packages block the upgrade and neither
-block is ours to remove.
+Do not move the whole repository yet. `@effect/tsgo` is the better tool and
+TypeScript 7 checks most of this repository cleanly, but two packages block a
+repository-wide upgrade and neither block is ours to remove.
 
-Keep `@effect/language-service@0.87.2` and `typescript@^6`. Revisit when
-`@medusajs/ui` ships React 19 types, and when either the TypeScript JS API
-returns or `tooling/oxlint` no longer needs it.
+Adopt it for `tooling/mze` alone. That package pins `typescript@7.0.2` and
+`@effect/tsgo@0.36.5`; everything else stays on `typescript@^6`. ADR-0028
+records that decision and its cost. Revisit the rest when `@medusajs/ui` ships
+React 19 types, and when either the TypeScript JS API returns or
+`tooling/oxlint` no longer needs it.
 
 ## Why @effect/tsgo is the better tool
 
@@ -130,19 +132,23 @@ island, and this is that island reaching one package further than expected. The
 
 ## Recommendation
 
-1. Stay on `typescript@^6` and `@effect/language-service`.
-2. Revisit when `@medusajs/ui` publishes React 19 types, which removes blocker 2
-   without any repository change.
-3. Decide blocker 1 separately, because it does not depend on the upgrade: either
-   rewrite `prefer-tilde-imports` against `typescript/unstable/*`, or accept a
-   pinned `typescript@6` for `tooling/oxlint` and record why.
+1. Scope the adoption to `tooling/mze`, which is the only Effect program this
+   repository typechecks and the only place these diagnostics apply. It becomes
+   a workspace package with its own `typescript@7` and `@effect/tsgo`. See
+   ADR-0028.
+2. Keep `packages/*` and `apps/*` on `typescript@^6` until blocker 2 clears
+   itself, which needs no change here: `@medusajs/ui` has to publish React 19
+   types.
+3. Decide blocker 1 separately, because it does not depend on the upgrade:
+   either rewrite `prefer-tilde-imports` against `typescript/unstable/*`, or
+   accept a pinned `typescript@6` for `tooling/oxlint` and record why.
 
-A scoped alternative exists and was rejected for now: make `tooling/` a
-workspace package with its own `typescript@7` and `@effect/tsgo`, leaving the
-rest of the repository on 6. It works, and it buys the better diagnostics on the
-only Effect code that compiles today. It also puts two TypeScript majors in the
-tree for a linting benefit, which is a poor trade until one of the blockers is
-gone anyway.
+The cost of step 1 is two TypeScript majors in one workspace. That is worth
+stating plainly, and it is why ADR-0028 exists rather than a line in a config.
+The split follows a real boundary, and the first run of the new diagnostics paid
+for itself: fourteen `schemaNumber` findings narrowed `exitCode` from
+`Schema.Number` to `Schema.Int`, and `lazyEffect` removed a thunk from the
+renderer interface.
 
 ## Related
 

@@ -1,0 +1,20 @@
+{
+  "name": "@mze-store/mze",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "prepare": "effect-tsgo patch"
+  },
+  "devDependencies": {
+    "@effect/platform-node": "4.0.0-beta.107",
+    "@effect/tsgo": "0.36.5",
+    "@effect/vitest": "4.0.0-beta.107",
+    "@mze-store/config": "workspace:*",
+    "ansi-escapes": "7.3.0",
+    "chalk": "6.0.0",
+    "effect": "4.0.0-beta.107",
+    "typescript": "7.0.2",
+    "vite-plus": "catalog:"
+  }
+}

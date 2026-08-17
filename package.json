@@ -5,6 +5,7 @@
     "packages": [
       "apps/*",
       "packages/*",
+      "tooling/mze",
       "tooling/oxlint"
     ],
     "catalog": {
@@ -47,7 +48,6 @@
   },
   "type": "module",
   "scripts": {
-    "prepare": "if command -v effect-language-service >/dev/null 2>&1; then effect-language-service patch; fi",
     "mze": "node tooling/mze/main.ts",
     "dev": "node tooling/mze/main.ts dev",
     "build": "node tooling/mze/main.ts build",
@@ -57,18 +57,13 @@
   },
   "devDependencies": {
     "@axe-core/playwright": "4.12.1",
-    "@effect/language-service": "0.87.2",
-    "@effect/platform-node": "4.0.0-beta.107",
     "@effect/vitest": "4.0.0-beta.107",
     "@mze-store/config": "workspace:*",
     "@mze-store/oxlint": "workspace:*",
     "@oxlint/plugins": "1.78.0",
     "@playwright/test": "1.62.1",
     "@types/node": "catalog:",
-    "ansi-escapes": "7.3.0",
-    "chalk": "6.0.0",
     "effect": "4.0.0-beta.107",
-    "ioredis": "catalog:",
     "knip": "6.32.1",
     "oxlint": "1.78.0",
     "rolldown": "1.1.4",

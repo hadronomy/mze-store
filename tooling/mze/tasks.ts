@@ -66,7 +66,7 @@ export const check = (cwd: string): ReadonlyArray<Phase> => [
   { name: "app types", spec: vpRun(cwd, ["--filter", "./apps/*", "check-types"]) },
   // mze checks itself last, so a change to this file is covered by the command
   // that file defines.
-  { name: "tooling types", spec: vpRun(cwd, ["-w", "check-types"]) },
+  { name: "tooling types", spec: vpRun(cwd, ["--filter", "@mze-store/mze", "check-types"]) },
 ];
 
 export const lint = (cwd: string): ReadonlyArray<Phase> => [

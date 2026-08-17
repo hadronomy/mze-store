@@ -6,7 +6,7 @@ import { Services } from "./services.ts";
 export class DataLossConfirmationRequired extends Schema.TaggedError<DataLossConfirmationRequired>()(
   "DataLossConfirmationRequired",
   {
-    exitCode: Schema.Number,
+    exitCode: Schema.Int,
     flag: Schema.String,
     operation: Schema.String,
   },

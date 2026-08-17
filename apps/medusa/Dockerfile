@@ -13,7 +13,7 @@ ENV SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH}
 COPY package.json bun.lock vite.config.ts tsconfig.json ./
 # Mirrors the workspace globs in the root package.json. --parents keeps each
 # manifest at its own path, so adding a package needs no change here.
-COPY --parents apps/*/package.json packages/*/package.json tooling/oxlint/package.json ./
+COPY --parents apps/*/package.json packages/*/package.json tooling/mze/package.json tooling/oxlint/package.json ./
 RUN --mount=type=cache,id=bun-install-cache,target=/root/.bun/install/cache \
   bun install --frozen-lockfile
 
@@ -36,7 +36,7 @@ ENV SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH}
 COPY package.json bun.lock vite.config.ts tsconfig.json ./
 # Mirrors the workspace globs in the root package.json. --parents keeps each
 # manifest at its own path, so adding a package needs no change here.
-COPY --parents apps/*/package.json packages/*/package.json tooling/oxlint/package.json ./
+COPY --parents apps/*/package.json packages/*/package.json tooling/mze/package.json tooling/oxlint/package.json ./
 # A flat production tree avoids race-dependent links in Bun's isolated store.
 RUN --mount=type=cache,id=bun-install-cache,target=/root/.bun/install/cache \
   bun install --frozen-lockfile --omit dev --linker=hoisted --backend=copyfile \

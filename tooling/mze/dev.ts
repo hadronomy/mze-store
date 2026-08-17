@@ -9,7 +9,7 @@ export type Target = "all" | "storefront";
 export class UnsupportedPlatform extends Schema.TaggedError<UnsupportedPlatform>()(
   "UnsupportedPlatform",
   {
-    exitCode: Schema.Number,
+    exitCode: Schema.Int,
     platform: Schema.String,
   },
 ) {}
@@ -17,7 +17,7 @@ export class UnsupportedPlatform extends Schema.TaggedError<UnsupportedPlatform>
 export class DevelopmentProcessExited extends Schema.TaggedError<DevelopmentProcessExited>()(
   "DevelopmentProcessExited",
   {
-    exitCode: Schema.Number,
+    exitCode: Schema.Int,
     process: Schema.String,
   },
 ) {}
