@@ -3,21 +3,21 @@
   "type": "module",
   "exports": {
     ".": {
-      "types": "./dist/src/index.d.ts",
+      "types": "./dist/src/index.d.mts",
       "development": "./src/index.ts",
-      "node": "./dist/src/index.js",
+      "node": "./dist/src/index.mjs",
       "default": "./src/index.ts"
     },
     "./auth": {
-      "types": "./dist/auth.d.ts",
+      "types": "./dist/auth.d.mts",
       "development": "./auth.ts",
-      "node": "./dist/auth.js",
+      "node": "./dist/auth.mjs",
       "default": "./auth.ts"
     },
     "./*": {
-      "types": "./dist/src/*.d.ts",
+      "types": "./dist/src/*.d.mts",
       "development": "./src/*.ts",
-      "node": "./dist/src/*.js",
+      "node": "./dist/src/*.mjs",
       "default": "./src/*.ts"
     }
   },
@@ -28,13 +28,13 @@
   "dependencies": {
     "@better-auth/drizzle-adapter": "catalog:",
     "@mze-store/db": "workspace:*",
-    "better-auth": "catalog:"
+    "better-auth": "catalog:",
+    "varlock": "1.16.1"
   },
   "devDependencies": {
     "@mze-store/config": "workspace:*",
     "auth": "catalog:",
     "typescript": "catalog:",
-    "varlock": "1.16.1",
     "zod": "catalog:"
   }
 }

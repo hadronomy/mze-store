@@ -104,12 +104,12 @@
         "@better-auth/drizzle-adapter": "catalog:",
         "@mze-store/db": "workspace:*",
         "better-auth": "catalog:",
+        "varlock": "1.16.1",
       },
       "devDependencies": {
         "@mze-store/config": "workspace:*",
         "auth": "catalog:",
         "typescript": "catalog:",
-        "varlock": "1.16.1",
         "zod": "catalog:",
       },
     },

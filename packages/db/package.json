@@ -3,21 +3,21 @@
   "type": "module",
   "exports": {
     ".": {
-      "types": "./dist/src/index.d.ts",
+      "types": "./dist/index.d.mts",
       "development": "./src/index.ts",
-      "node": "./dist/src/index.js",
+      "node": "./dist/index.mjs",
       "default": "./src/index.ts"
     },
     "./schema": {
-      "types": "./dist/src/schema/index.d.ts",
+      "types": "./dist/schema/index.d.mts",
       "development": "./src/schema/index.ts",
-      "node": "./dist/src/schema/index.js",
+      "node": "./dist/schema/index.mjs",
       "default": "./src/schema/index.ts"
     },
     "./*": {
-      "types": "./dist/src/*.d.ts",
+      "types": "./dist/*.d.mts",
       "development": "./src/*.ts",
-      "node": "./dist/src/*.js",
+      "node": "./dist/*.mjs",
       "default": "./src/*.ts"
     }
   },

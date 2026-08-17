@@ -26,7 +26,7 @@ test("the package root loads as built ESM", () => {
     `),
   ).toMatchObject({
     exportType: "function",
-    modulePath: expect.stringMatching(/\/dist\/src\/index\.js$/),
+    modulePath: expect.stringMatching(/\/dist\/index\.mjs$/),
   });
 });
 
@@ -42,7 +42,7 @@ test("the schema entry loads as built ESM", () => {
     `),
   ).toMatchObject({
     exportType: "object",
-    modulePath: expect.stringMatching(/\/dist\/src\/schema\/index\.js$/),
+    modulePath: expect.stringMatching(/\/dist\/schema\/index\.mjs$/),
   });
 });
 
@@ -58,6 +58,6 @@ test("the auth schema entry loads as built ESM", () => {
     `),
   ).toMatchObject({
     exportType: "object",
-    modulePath: expect.stringMatching(/\/dist\/src\/schema\/auth\.js$/),
+    modulePath: expect.stringMatching(/\/dist\/schema\/auth\.mjs$/),
   });
 });

@@ -35,7 +35,7 @@ test("the package root loads as built ESM", () => {
     `),
   ).toMatchObject({
     exportType: "function",
-    modulePath: expect.stringMatching(/\/dist\/src\/index\.js$/),
+    modulePath: expect.stringMatching(/\/dist\/src\/index\.mjs$/),
   });
 });
 
@@ -51,7 +51,7 @@ test("the lazy instance entry loads as built ESM", () => {
     `),
   ).toMatchObject({
     exportType: "function",
-    modulePath: expect.stringMatching(/\/dist\/src\/instance\.js$/),
+    modulePath: expect.stringMatching(/\/dist\/src\/instance\.mjs$/),
   });
 });
 
@@ -67,6 +67,6 @@ test("the Better Auth CLI entry loads as built ESM", () => {
     `),
   ).toMatchObject({
     exportType: "object",
-    modulePath: expect.stringMatching(/\/dist\/auth\.js$/),
+    modulePath: expect.stringMatching(/\/dist\/auth\.mjs$/),
   });
 });
