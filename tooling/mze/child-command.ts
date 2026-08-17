@@ -20,7 +20,7 @@ export interface Result {
 
 export class CommandFailed extends Schema.TaggedError<CommandFailed>()("CommandFailed", {
   command: Schema.String,
-  exitCode: Schema.Number,
+  exitCode: Schema.Int,
   stderr: Schema.String,
   stdout: Schema.String,
 }) {}
@@ -29,7 +29,7 @@ export class ExecutableMissing extends Schema.TaggedError<ExecutableMissing>()(
   "ExecutableMissing",
   {
     command: Schema.String,
-    exitCode: Schema.Number,
+    exitCode: Schema.Int,
   },
 ) {}
 
@@ -38,7 +38,7 @@ export class CommandExecutionFailed extends Schema.TaggedError<CommandExecutionF
   {
     command: Schema.String,
     description: Schema.String,
-    exitCode: Schema.Number,
+    exitCode: Schema.Int,
   },
 ) {}
 

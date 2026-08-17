@@ -9,14 +9,14 @@ const BUN_VERSION = "1.3.14";
 export class SetupRequiresInteractiveTerminal extends Schema.TaggedError<SetupRequiresInteractiveTerminal>()(
   "SetupRequiresInteractiveTerminal",
   {
-    exitCode: Schema.Number,
+    exitCode: Schema.Int,
   },
 ) {}
 
 export class ToolVersionMismatch extends Schema.TaggedError<ToolVersionMismatch>()(
   "ToolVersionMismatch",
   {
-    exitCode: Schema.Number,
+    exitCode: Schema.Int,
     found: Schema.String,
     required: Schema.String,
     tool: Schema.String,

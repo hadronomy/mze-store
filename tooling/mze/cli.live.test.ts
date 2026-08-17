@@ -42,7 +42,7 @@ const events = (output: string): ReadonlyArray<typeof NdjsonEvent.Type> =>
     .trim()
     .split("\n")
     .filter(Boolean)
-    .map((line) => Schema.decodeUnknownSync(Schema.fromJsonString(NdjsonEvent))(line));
+    .map((line) => Schema.decodeSync(Schema.fromJsonString(NdjsonEvent))(line));
 
 it.live("prints root help and exits successfully when no command is given", () =>
   Effect.gen(function* () {

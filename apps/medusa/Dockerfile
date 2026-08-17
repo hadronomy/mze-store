@@ -11,9 +11,10 @@ ENV SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH}
 
 # Keep workspace manifests in a stable layer so source changes reuse the install.
 COPY package.json bun.lock vite.config.ts tsconfig.json ./
-# Mirrors the workspace globs in the root package.json. --parents keeps each
-# manifest at its own path, so adding a package needs no change here.
-COPY --parents apps/*/package.json packages/*/package.json tooling/oxlint/package.json ./
+# Every manifest in the tree, at any depth. --parents keeps each one at its own
+# path, so adding a package anywhere needs no change here. .dockerignore keeps
+# node_modules out, which is what makes the recursive glob safe.
+COPY --parents **/package.json ./
 RUN --mount=type=cache,id=bun-install-cache,target=/root/.bun/install/cache \
   bun install --frozen-lockfile
 
@@ -34,9 +35,10 @@ WORKDIR /app
 ENV SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH}
 
 COPY package.json bun.lock vite.config.ts tsconfig.json ./
-# Mirrors the workspace globs in the root package.json. --parents keeps each
-# manifest at its own path, so adding a package needs no change here.
-COPY --parents apps/*/package.json packages/*/package.json tooling/oxlint/package.json ./
+# Every manifest in the tree, at any depth. --parents keeps each one at its own
+# path, so adding a package anywhere needs no change here. .dockerignore keeps
+# node_modules out, which is what makes the recursive glob safe.
+COPY --parents **/package.json ./
 # A flat production tree avoids race-dependent links in Bun's isolated store.
 RUN --mount=type=cache,id=bun-install-cache,target=/root/.bun/install/cache \
   bun install --frozen-lockfile --omit dev --linker=hoisted --backend=copyfile \

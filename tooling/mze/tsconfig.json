@@ -1,0 +1,20 @@
+{
+  "extends": "@mze-store/config/tsconfig.esm.json",
+  "compilerOptions": {
+    "allowImportingTsExtensions": true,
+    "erasableSyntaxOnly": true,
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "noEmit": true,
+    "rewriteRelativeImportExtensions": true,
+    // This package pins typescript 7 so it can run @effect/tsgo, which the
+    // rest of the repository cannot yet — see
+    // docs/research/typescript-7-and-effect-tsgo.md. `prepare` patches that
+    // binary, so the Effect diagnostics an editor shows also run under tsc.
+    // The plugin key keeps the language-service name: @effect/tsgo ships the
+    // same language service, and it looks for that entry.
+    "plugins": [{ "name": "@effect/language-service" }]
+  },
+  "include": ["**/*.ts"],
+  "exclude": ["vite.config.ts"]
+}

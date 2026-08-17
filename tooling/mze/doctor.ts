@@ -24,7 +24,7 @@ class DoctorCheckFailed extends Schema.TaggedError<DoctorCheckFailed>()("DoctorC
 }) {}
 
 export class DoctorFailed extends Schema.TaggedError<DoctorFailed>()("DoctorFailed", {
-  exitCode: Schema.Number,
+  exitCode: Schema.Int,
   failures: Schema.Array(Schema.String),
 }) {}
 

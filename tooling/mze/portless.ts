@@ -12,7 +12,7 @@ export class PortlessUnavailable extends Schema.TaggedError<PortlessUnavailable>
   "PortlessUnavailable",
   {
     detail: Schema.String,
-    exitCode: Schema.Number,
+    exitCode: Schema.Int,
     installCommand: Schema.String,
   },
 ) {}
@@ -20,7 +20,7 @@ export class PortlessUnavailable extends Schema.TaggedError<PortlessUnavailable>
 export class PortlessVersionMismatch extends Schema.TaggedError<PortlessVersionMismatch>()(
   "PortlessVersionMismatch",
   {
-    exitCode: Schema.Number,
+    exitCode: Schema.Int,
     found: Schema.String,
     installCommand: Schema.String,
     required: Schema.String,
@@ -30,7 +30,7 @@ export class PortlessVersionMismatch extends Schema.TaggedError<PortlessVersionM
 export class PortlessRouteConflict extends Schema.TaggedError<PortlessRouteConflict>()(
   "PortlessRouteConflict",
   {
-    exitCode: Schema.Number,
+    exitCode: Schema.Int,
     message: Schema.String,
   },
 ) {}
