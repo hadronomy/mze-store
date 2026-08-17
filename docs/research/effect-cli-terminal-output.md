@@ -266,7 +266,18 @@ Add a terminal UX package only when a command has a measured need:
 
 - Add `cli-table3` when output needs ANSI-aware wrapping or complex table spans.
 - Add `ansi-escapes` when a tested TTY renderer needs cursor control.
+  **Met.** ADR-0027 gives `build`, `check`, and `lint` animated phase rows.
+  `ansi-escapes@7.3.0` is pinned, and the renderer's frame function is pure and
+  tested directly, with one `TestClock` test for the loop and cursor restore.
 - Reconsider Ora only for one exclusive, quiet operation with no child output.
+  **Still rejected.** The commands that wanted progress output are made
+  entirely of child output, which is Ora's own stated exclusion.
 - Reconsider Listr2 only if Listr2 replaces the workflow model for that command.
+  **Still rejected.** Effect owns the workflow, and a declarative phase list
+  plus a renderer needs no second task model.
 
 Do not add Clack while Effect owns prompt input and cancellation.
+
+The standard-error observation above became load-bearing. Rows draw on standard
+error, so `Stdio`'s missing standard-error check and `Terminal.columns`
+reporting standard output are the two reasons `TerminalCapabilities` exists.

@@ -3,7 +3,7 @@ import { Effect, Runtime, Schema } from "effect";
 import { ChildCommand } from "./child-command.ts";
 import { DataLossConfirmationRequired } from "./database.ts";
 import { DevelopmentProcessExited, UnsupportedPlatform } from "./dev.ts";
-import { DoctorCheckFailed, DoctorFailed } from "./doctor.ts";
+import { DoctorFailed } from "./doctor.ts";
 import { Output } from "./output.ts";
 import { PortlessRouteConflict, PortlessUnavailable, PortlessVersionMismatch } from "./portless.ts";
 import { ServicesStartFailed, ServicePortInvalid } from "./services.ts";
@@ -28,7 +28,6 @@ const OperationalCauseSchema = Schema.Union([
   ChildCommand.ExecutableMissing,
   DataLossConfirmationRequired,
   DevelopmentProcessExited,
-  DoctorCheckFailed,
   DoctorFailed,
   PortlessRouteConflict,
   PortlessUnavailable,
@@ -51,7 +50,11 @@ export const exitCode = (cause: unknown): number => {
 export const message = (cause: unknown): string => {
   const error = operationalCause(cause);
 
-  switch (error?._tag) {
+  if (error === undefined) {
+    return cause instanceof Error ? cause.message : String(cause);
+  }
+
+  switch (error._tag) {
     case "CommandFailed":
       return `Command failed with exit code ${error.exitCode}: ${error.command}`;
     case "CommandExecutionFailed":
@@ -77,12 +80,13 @@ export const message = (cause: unknown): string => {
       return `${error.tool} ${error.required} is required; found ${error.found}.`;
     case "DoctorFailed":
       return `Doctor found blocking problems: ${error.failures.join(", ") || "unknown checks"}.`;
-    case "DoctorCheckFailed":
-      return error.detail;
     case "DataLossConfirmationRequired":
       return `The ${error.operation} operation requires ${error.flag}.`;
     default: {
-      return cause instanceof Error ? cause.message : String(cause);
+      // Add a member to OperationalCauseSchema without a case above and this
+      // assignment stops compiling, so the union and this switch cannot drift.
+      const unhandled: never = error;
+      return String(unhandled);
     }
   }
 };

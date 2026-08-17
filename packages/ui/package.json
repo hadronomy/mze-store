@@ -6,21 +6,21 @@
   "exports": {
     "./globals.css": "./src/styles/globals.css",
     "./lib/*": {
-      "types": "./dist/src/lib/*.d.ts",
+      "types": "./dist/lib/*.d.mts",
       "development": "./src/lib/*.ts",
-      "node": "./dist/src/lib/*.js",
+      "node": "./dist/lib/*.mjs",
       "default": "./src/lib/*.ts"
     },
     "./components/*": {
-      "types": "./dist/src/components/*.d.ts",
+      "types": "./dist/components/*.d.mts",
       "development": "./src/components/*.tsx",
-      "node": "./dist/src/components/*.js",
+      "node": "./dist/components/*.mjs",
       "default": "./src/components/*.tsx"
     },
     "./hooks/*": {
-      "types": "./dist/src/hooks/*.d.ts",
+      "types": "./dist/hooks/*.d.mts",
       "development": "./src/hooks/*.ts",
-      "node": "./dist/src/hooks/*.js",
+      "node": "./dist/hooks/*.mjs",
       "default": "./src/hooks/*.ts"
     },
     "./postcss.config": "./postcss.config.mjs"

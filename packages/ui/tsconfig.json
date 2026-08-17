@@ -4,14 +4,11 @@
     "jsx": "react-jsx",
     "lib": ["ESNext", "DOM", "DOM.Iterable"],
     "types": [],
-    "declaration": true,
-    "declarationMap": true,
-    "sourceMap": true,
-    "outDir": "dist",
-    "rootDir": ".",
-    "composite": true,
+    // `vp pack` emits, and it resolves the ~/ alias while it does. tsc only checks.
+    "noEmit": true,
     "paths": {
       "~/*": ["./src/*"],
+      // The shadcn CLI resolves the aliases in components.json through here.
       "@mze-store/ui/*": ["./src/*"]
     }
   },

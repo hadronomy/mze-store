@@ -26,20 +26,21 @@ function packageInputs(dependencies: string[] = []) {
       workspaceInput(`${packagePath}/package.json`),
       workspaceInput(`${packagePath}/tsconfig*.json`),
       workspaceInput(`${packagePath}/vite.config.ts`),
-      workspaceInput(`!${packagePath}/**/*.tsbuildinfo`),
       workspaceInput(`!${packagePath}/dist/**`),
     ]),
-    "!**/*.tsbuildinfo",
     "!dist/**",
   ];
 }
 
+// A dependency has to be built before this package can read it: the `types`
+// condition in every workspace `exports` map points into dist/, so tsc reads a
+// dependency's declarations, never its source.
 export function packageBuildTask(command: string, dependencies: string[] = []) {
   return {
     command,
     dependsOn: dependencies.map(packageSelector),
     input: packageInputs(dependencies),
-    output: [{ auto: true }, "!**/*.tsbuildinfo"],
+    output: [{ auto: true }],
   };
 }
 

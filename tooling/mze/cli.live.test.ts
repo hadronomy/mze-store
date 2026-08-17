@@ -11,18 +11,30 @@ const provideLive = <A, E>(
   effect: Effect.Effect<A, E, ChildCommand.Service | FileSystem.FileSystem | Path.Path>,
 ) =>
   effect.pipe(
-    Effect.provide(ChildCommand.layer),
-    Effect.provide(layer),
-    Effect.provide(NodeServices.layer),
+    Effect.provide(
+      Layer.provide(ChildCommand.layer, Layer.mergeAll(layer, NodeServices.layer)).pipe(
+        Layer.provideMerge(NodeServices.layer),
+      ),
+    ),
   );
 
 const NdjsonEvent = Schema.Struct({
   command: Schema.String,
   data: Schema.optional(Schema.Unknown),
-  event: Schema.Literals(["child-output", "failed", "message", "started", "succeeded"]),
+  event: Schema.Literals([
+    "child-output",
+    "failed",
+    "message",
+    "phase-plan",
+    "phase-started",
+    "phase-succeeded",
+    "phase-failed",
+    "started",
+    "succeeded",
+  ]),
   stream: Schema.Literals(["stderr", "stdout"]),
   time: Schema.String,
-  version: Schema.Literal(1),
+  version: Schema.Literal(2),
 });
 
 const events = (output: string): ReadonlyArray<typeof NdjsonEvent.Type> =>
@@ -84,14 +96,14 @@ it.live("keeps workflow failures in NDJSON mode", () =>
         command: "db push",
         event: "started",
         stream: "stdout",
-        version: 1,
+        version: 2,
       });
       expect(failed).toMatchObject({
         command: "db push",
         data: { exitCode: 2 },
         event: "failed",
         stream: "stderr",
-        version: 1,
+        version: 2,
       });
     }
   }).pipe(provideLive),
@@ -116,7 +128,7 @@ it.live("keeps parser failures in NDJSON mode", () =>
           data: { message: expect.stringContaining("mze <subcommand> [flags]") },
           event: "message",
           stream: "stdout",
-          version: 1,
+          version: 2,
         }),
       );
       expect(events(error.stderr)).toEqual([
@@ -125,7 +137,7 @@ it.live("keeps parser failures in NDJSON mode", () =>
           data: { exitCode: 2, message: expect.stringContaining("Unknown subcommand") },
           event: "failed",
           stream: "stderr",
-          version: 1,
+          version: 2,
         }),
       ]);
     }
@@ -158,7 +170,7 @@ it.live("renders JSON help and version output as NDJSON", () =>
         data: { message: expect.stringContaining("mze <subcommand> [flags]") },
         event: "message",
         stream: "stdout",
-        version: 1,
+        version: 2,
       });
     }
     expect(events(version.stdout)[0]).toMatchObject({
@@ -166,7 +178,7 @@ it.live("renders JSON help and version output as NDJSON", () =>
       data: { message: "mze v1.0.0" },
       event: "message",
       stream: "stdout",
-      version: 1,
+      version: 2,
     });
   }).pipe(provideLive),
 );
