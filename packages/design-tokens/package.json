@@ -32,7 +32,7 @@
     "test": "vp run build && vp test --dir test"
   },
   "devDependencies": {
-    "@effect/platform-node": "4.0.0-beta.107",
+    "@effect/platform-node": "4.0.0-rc.109",
     "@jridgewell/gen-mapping": "^0.3.13",
     "@mze-store/config": "workspace:*",
     "@types/culori": "^4.0.1",
