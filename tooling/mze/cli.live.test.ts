@@ -11,9 +11,11 @@ const provideLive = <A, E>(
   effect: Effect.Effect<A, E, ChildCommand.Service | FileSystem.FileSystem | Path.Path>,
 ) =>
   effect.pipe(
-    Effect.provide(ChildCommand.layer),
-    Effect.provide(layer),
-    Effect.provide(NodeServices.layer),
+    Effect.provide(
+      Layer.provide(ChildCommand.layer, Layer.mergeAll(layer, NodeServices.layer)).pipe(
+        Layer.provideMerge(NodeServices.layer),
+      ),
+    ),
   );
 
 const NdjsonEvent = Schema.Struct({

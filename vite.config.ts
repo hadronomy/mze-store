@@ -21,6 +21,21 @@ const ignorePatterns = [
 export default defineConfig({
   run: {
     tasks: {
+      // The mze tooling is not a workspace package, so no package filter reaches
+      // it and nothing typechecked it until this task existed. The patched
+      // typescript also reports Effect diagnostics here — see ADR-0027.
+      "check-types": {
+        command: "tsc --noEmit -p tooling/tsconfig.json",
+        input: [
+          { auto: true },
+          "tooling/mze/**",
+          "tooling/tsconfig.json",
+          "packages/config/**",
+          "package.json",
+          "bun.lock",
+        ],
+        output: [],
+      },
       "staged-check": {
         command: "vp check --fix",
         dependsOn: ["@mze-store/oxlint#build"],

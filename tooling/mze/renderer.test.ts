@@ -172,9 +172,12 @@ it.effect("writes one line per transition when the stream is not a terminal", ()
     expect(capture.stderr.join("")).toBe("  → packages\n  ✔ packages  0.0s\n  ○ apps  skipped\n");
     expect(capture.stdout).toEqual([]);
   }).pipe(
-    Effect.provide(Renderer.layer("plain", { color: false })),
-    Effect.provide(TerminalCapabilities.fixed({ isTerminal: false })),
-    Effect.provide(capture.layer),
+    Effect.provide(
+      Layer.provide(
+        Renderer.layer("plain", { color: false }),
+        Layer.mergeAll(TerminalCapabilities.fixed({ isTerminal: false }), capture.layer),
+      ),
+    ),
   );
 });
 
@@ -192,9 +195,12 @@ it.effect("keeps the whole failed phase output for the failure block", () => {
     // The head of the log is the part that names the cause, so it must survive.
     expect(yield* renderer.failureOutput).toBe("first error\nlater noise\n");
   }).pipe(
-    Effect.provide(Renderer.layer("plain", { color: false })),
-    Effect.provide(TerminalCapabilities.fixed({ isTerminal: false })),
-    Effect.provide(capture.layer),
+    Effect.provide(
+      Layer.provide(
+        Renderer.layer("plain", { color: false }),
+        Layer.mergeAll(TerminalCapabilities.fixed({ isTerminal: false }), capture.layer),
+      ),
+    ),
   );
 });
 
@@ -210,9 +216,15 @@ it.effect("passes child output through and rules off each phase when verbose", (
     expect(capture.stderr.join("")).toContain("── packages ──");
     expect(capture.stderr.join("")).toContain("compiling\n");
   }).pipe(
-    Effect.provide(Renderer.layer("verbose", { color: false })),
-    Effect.provide(TerminalCapabilities.fixed({ isTerminal: false, columns: 20 })),
-    Effect.provide(capture.layer),
+    Effect.provide(
+      Layer.provide(
+        Renderer.layer("verbose", { color: false }),
+        Layer.mergeAll(
+          TerminalCapabilities.fixed({ isTerminal: false, columns: 20 }),
+          capture.layer,
+        ),
+      ),
+    ),
   );
 });
 
@@ -232,13 +244,77 @@ it.effect("animates on a terminal, then restores the cursor when the scope close
       expect(written).toContain(ansiEscapes.eraseDown);
       expect(written).not.toContain(ansiEscapes.cursorShow);
     }).pipe(
-      Effect.provide(Renderer.layer("live", { color: false })),
-      Effect.provide(TerminalCapabilities.fixed({ isTerminal: true, columns: 40 })),
-      Effect.provide(capture.layer),
+      Effect.provide(
+        Layer.provide(
+          Renderer.layer("live", { color: false }),
+          Layer.mergeAll(
+            TerminalCapabilities.fixed({ isTerminal: true, columns: 40 }),
+            capture.layer,
+          ),
+        ),
+      ),
     );
 
     // The finalizer is the only thing standing between an interrupt and a
     // terminal left without a cursor.
     expect(capture.stderr.join("")).toContain(ansiEscapes.cursorShow);
+  }).pipe(Effect.provide(TestClock.layer()));
+});
+
+it.effect("does not hand back output that verbose already printed", () => {
+  const capture = captureStdio();
+
+  return Effect.gen(function* () {
+    const renderer = yield* Renderer.Service;
+    yield* renderer.begin(["packages"]);
+    yield* renderer.transition("packages", "running");
+    yield* renderer.childOutput("compiler error\n", "stdout");
+    yield* renderer.transition("packages", "failed");
+
+    // Verbose streams every chunk as it arrives, so replaying the buffer would
+    // print the whole failed phase a second time.
+    expect(capture.stderr.join("")).toContain("compiler error\n");
+    expect(yield* renderer.failureOutput).toBe("");
+  }).pipe(
+    Effect.provide(
+      Layer.provide(
+        Renderer.layer("verbose", { color: false }),
+        Layer.mergeAll(TerminalCapabilities.fixed({ isTerminal: false }), capture.layer),
+      ),
+    ),
+  );
+});
+
+it.effect("stops drawing once the rows have settled", () => {
+  const capture = captureStdio();
+
+  return Effect.gen(function* () {
+    yield* Effect.gen(function* () {
+      const renderer = yield* Renderer.Service;
+      yield* renderer.begin(["packages"]);
+      yield* renderer.transition("packages", "running");
+      yield* renderer.transition("packages", "failed");
+      yield* renderer.end();
+
+      const settled = capture.stderr.length;
+      yield* renderer.write("\nthe failure block\n");
+      yield* TestClock.adjust("400 millis");
+
+      // A redraw here would stack a second copy of the settled rows under the
+      // block, and the frame loop would clear around the reporter's error line.
+      const after = capture.stderr.slice(settled).join("");
+      expect(after).toContain("the failure block");
+      expect(after).not.toContain("packages");
+    }).pipe(
+      Effect.provide(
+        Layer.provide(
+          Renderer.layer("live", { color: false }),
+          Layer.mergeAll(
+            TerminalCapabilities.fixed({ isTerminal: true, columns: 40 }),
+            capture.layer,
+          ),
+        ),
+      ),
+    );
   }).pipe(Effect.provide(TestClock.layer()));
 });

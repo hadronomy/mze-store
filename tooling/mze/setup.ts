@@ -51,7 +51,9 @@ export const run = (options: {
   Effect.gen(function* () {
     yield* requireWritableMode(options.mode);
 
-    if (yield* Config.boolean("CI").pipe(Config.withDefault(false))) {
+    // See services.ts: the default covers an absent variable, and a CI value
+    // that is not a boolean is a broken environment, not an operator error.
+    if (yield* Config.boolean("CI").pipe(Config.withDefault(false), Effect.orDie)) {
       return yield* new SetupRequiresInteractiveTerminal({ exitCode: 1 });
     }
 

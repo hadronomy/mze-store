@@ -76,8 +76,14 @@ export const ports = (cwd: string) =>
 export const start = (cwd: string) =>
   Effect.gen(function* () {
     const commands = yield* ChildCommand.Service;
+    // `Config<T>` is an `Effect<T, ConfigError>`, so `withDefault` narrows the
+    // value but never the error channel. The default makes a read failure
+    // unreachable here, and a broken config provider is a defect rather than
+    // something an operator can act on, so it does not belong in the channel
+    // every caller of `start` has to carry.
     const configuredPassword = yield* Config.redacted("POSTGRES_PASSWORD").pipe(
       Config.withDefault(Redacted.make("password")),
+      Effect.orDie,
     );
     const password = Redacted.value(configuredPassword) || "password";
 

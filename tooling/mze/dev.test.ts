@@ -28,8 +28,7 @@ it.effect("starts a Storefront with discovered service ports", () =>
     );
 
     yield* Dev.run({ cwd: "/repo", platform: "darwin", target: "storefront" }).pipe(
-      Effect.provide(commands),
-      Effect.provide(Path.layer),
+      Effect.provide(Layer.mergeAll(commands, Path.layer)),
       Effect.provideService(ConfigProvider.ConfigProvider, ConfigProvider.fromEnv({ env: {} })),
       Effect.ignore,
     );
@@ -58,15 +57,17 @@ it.effect("starts a Storefront with discovered service ports", () =>
 it.effect("rejects Windows before it starts a process", () =>
   Dev.run({ cwd: "/repo", platform: "win32", target: "all" }).pipe(
     Effect.provide(
-      Layer.succeed(
-        ChildCommand.Service,
-        ChildCommand.Service.of({
-          capture: () => Effect.die("capture was not expected"),
-          run: () => Effect.die("run was not expected"),
-        }),
+      Layer.mergeAll(
+        Layer.succeed(
+          ChildCommand.Service,
+          ChildCommand.Service.of({
+            capture: () => Effect.die("capture was not expected"),
+            run: () => Effect.die("run was not expected"),
+          }),
+        ),
+        Path.layer,
       ),
     ),
-    Effect.provide(Path.layer),
     Effect.flip,
     Effect.map((error) => {
       expect(error._tag).toBe("UnsupportedPlatform");
@@ -136,14 +137,12 @@ it.effect("interrupts the sibling when a development process exits", () =>
 
           if (storefront) {
             yield* Deferred.await(bothStarted);
-            return yield* Effect.fail(
-              new ChildCommand.CommandFailed({
-                command: "portless run",
-                exitCode: 23,
-                stderr: "",
-                stdout: "",
-              }),
-            );
+            return yield* new ChildCommand.CommandFailed({
+              command: "portless run",
+              exitCode: 23,
+              stderr: "",
+              stdout: "",
+            });
           }
 
           yield* Deferred.await(medusaInterrupted);

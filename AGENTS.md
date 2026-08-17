@@ -30,6 +30,12 @@ bun run mze docker up
 bun run mze docker down
 ```
 
+`bun install` runs `effect-language-service patch`, which patches the installed
+typescript so Effect diagnostics appear under `tsc` and not only in an editor.
+`mze check` typechecks `tooling/mze/` with them through its `tooling types`
+phase. The patch is a no-op where the tool is absent, such as the production
+image install.
+
 `bun run build`, `bun run check`, and `mze lint` report one row per phase and
 keep each task's output unless it fails. Pass `--verbose` for the full output,
 or `--json` for the NDJSON event stream. See

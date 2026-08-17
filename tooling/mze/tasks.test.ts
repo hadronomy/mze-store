@@ -94,8 +94,7 @@ it.effect("stops at the first failed phase and never starts the rest", () => {
     });
   }).pipe(
     Effect.provideService(ChildCommand.Service, commands),
-    Effect.provide(Output.layer("json")),
-    Effect.provide(capture.layer),
+    Effect.provide(Layer.provide(Output.layer("json"), capture.layer)),
   );
 });
 

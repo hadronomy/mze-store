@@ -91,10 +91,9 @@ const execute = <A, E, R>(
     const renderer =
       options.rows === true && !json ? Renderer.layer(verbose ? "verbose" : "live") : Layer.empty;
 
-    return yield* program.pipe(
-      Effect.provide(renderer),
-      Effect.provide(TerminalCapabilities.layer),
-    );
+    // One provide, so the renderer and the terminal it draws on share a
+    // lifetime. Two chained provides would build them under separate scopes.
+    return yield* program.pipe(Effect.provide(Layer.provide(renderer, TerminalCapabilities.layer)));
   });
 
 const setup = Command.make("setup", {}, () =>

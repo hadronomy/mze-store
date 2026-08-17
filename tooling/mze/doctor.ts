@@ -11,12 +11,17 @@ interface Check {
   readonly passed: boolean;
 }
 
-export class DoctorCheckFailed extends Schema.TaggedError<DoctorCheckFailed>()(
-  "DoctorCheckFailed",
-  {
-    detail: Schema.String,
-  },
-) {}
+/**
+ * A single failed check.
+ *
+ * This never leaves the module: `inspect` catches every one of these and turns
+ * it into a Check row, and `run` reports the whole set as one DoctorFailed. It
+ * is deliberately not exported, so it cannot be mistaken for a failure the
+ * reporter has to render.
+ */
+class DoctorCheckFailed extends Schema.TaggedError<DoctorCheckFailed>()("DoctorCheckFailed", {
+  detail: Schema.String,
+}) {}
 
 export class DoctorFailed extends Schema.TaggedError<DoctorFailed>()("DoctorFailed", {
   exitCode: Schema.Number,

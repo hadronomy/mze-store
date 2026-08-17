@@ -6,7 +6,10 @@
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
     "noEmit": true,
-    "rewriteRelativeImportExtensions": true
+    "rewriteRelativeImportExtensions": true,
+    // The root `prepare` script patches typescript with this plugin, so the
+    // Effect diagnostics that an editor shows also run under tsc.
+    "plugins": [{ "name": "@effect/language-service" }]
   },
   "include": ["mze/**/*.ts"]
 }

@@ -39,7 +39,7 @@ it.effect("passes child output through in human mode", () => {
 
     expect(capture.stdout).toEqual(["ready\n"]);
     expect(capture.stderr).toEqual([]);
-  }).pipe(Effect.provide(Output.layer("human")), Effect.provide(capture.layer));
+  }).pipe(Effect.provide(Layer.provide(Output.layer("human"), capture.layer)));
 });
 
 it.effect("renders the event rail without ANSI codes when color is disabled", () => {
@@ -70,7 +70,7 @@ it.effect("renders the event rail without ANSI codes when color is disabled", ()
     expect(capture.stderr).toEqual([
       "  ✗ services\n    PostgreSQL and Redis are not both running.\n",
     ]);
-  }).pipe(Effect.provide(Output.layer("human", { color: false })), Effect.provide(capture.layer));
+  }).pipe(Effect.provide(Layer.provide(Output.layer("human", { color: false }), capture.layer)));
 });
 
 it.effect("colors status marks when the terminal policy enables color", () => {
@@ -103,7 +103,7 @@ it.effect("colors status marks when the terminal policy enables color", () => {
     expect(capture.stderr[0]).not.toContain("\u001b[31mMedusa route ownership");
     expect(capture.stderr[1]).toContain("\u001b[31m✗\u001b[39m");
     expect(capture.stderr[1]).not.toContain("\u001b[31mroute already owned");
-  }).pipe(Effect.provide(Output.layer("human", { color: true })), Effect.provide(capture.layer));
+  }).pipe(Effect.provide(Layer.provide(Output.layer("human", { color: true }), capture.layer)));
 });
 
 it.effect("writes versioned NDJSON to the selected stream", () => {
@@ -128,7 +128,7 @@ it.effect("writes versioned NDJSON to the selected stream", () => {
       time: "1970-01-01T00:00:00.000Z",
       version: 2,
     });
-  }).pipe(Effect.provide(Output.layer("json")), Effect.provide(capture.layer));
+  }).pipe(Effect.provide(Layer.provide(Output.layer("json"), capture.layer)));
 });
 
 it.effect("records phase events for machine consumers", () => {
@@ -148,7 +148,7 @@ it.effect("records phase events for machine consumers", () => {
       event: "phase-succeeded",
       version: 2,
     });
-  }).pipe(Effect.provide(Output.layer("json")), Effect.provide(capture.layer));
+  }).pipe(Effect.provide(Layer.provide(Output.layer("json"), capture.layer)));
 });
 
 it.effect("leaves phase rows to the renderer in human mode", () => {
@@ -166,5 +166,5 @@ it.effect("leaves phase rows to the renderer in human mode", () => {
 
     // Printing the row here as well would duplicate it and corrupt a live frame.
     expect(capture.stdout).toEqual(["✔ build ready\n"]);
-  }).pipe(Effect.provide(Output.layer("human", { color: false })), Effect.provide(capture.layer));
+  }).pipe(Effect.provide(Layer.provide(Output.layer("human", { color: false }), capture.layer)));
 });

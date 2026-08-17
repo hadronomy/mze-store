@@ -246,6 +246,11 @@ export const layer = (mode: Mode, options: Options = {}) =>
       // Lines of the live frame currently on screen, so the next draw knows how
       // far up to reach. Zero in every non-animated mode.
       const drawn = yield* Ref.make(0);
+      // Set once `end` has drawn the settled list. After that the rows are
+      // final, so nothing may redraw them: a later write would stack a second
+      // copy under the failure block, and the frame loop would keep clearing
+      // around the reporter's error line.
+      const finished = yield* Ref.make(false);
       const animated = mode === "live" && (yield* capabilities.isTerminal);
 
       const writeTo = (stream: "stdout" | "stderr", text: string) =>
@@ -274,7 +279,7 @@ export const layer = (mode: Mode, options: Options = {}) =>
       });
 
       const draw = Effect.gen(function* () {
-        if (!animated) {
+        if (!animated || (yield* Ref.get(finished))) {
           return;
         }
 
@@ -424,8 +429,11 @@ export const layer = (mode: Mode, options: Options = {}) =>
             yield* draw;
             // Leave the settled block on screen: the next write must not erase it.
             yield* Ref.set(drawn, 0);
+            yield* Ref.set(finished, true);
             return;
           }
+
+          yield* Ref.set(finished, true);
 
           const current = yield* Ref.get(state);
           const skipped = current.rows.filter((row) => row.status === "skipped");
@@ -441,6 +449,12 @@ export const layer = (mode: Mode, options: Options = {}) =>
         });
 
       const failureOutput = Effect.gen(function* () {
+        // Verbose already printed every chunk as it arrived. Handing the buffer
+        // back would print the whole failed phase a second time.
+        if (mode === "verbose") {
+          return "";
+        }
+
         const current = yield* Ref.get(state);
         return current.rows.find((row) => row.status === "failed")?.buffer ?? "";
       });

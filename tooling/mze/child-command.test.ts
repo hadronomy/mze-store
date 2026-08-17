@@ -12,9 +12,11 @@ const provideLiveChildCommand = <A, E>(
   outputLayer: Layer.Layer<Output.Service> = silentOutput,
 ) =>
   effect.pipe(
-    Effect.provide(ChildCommand.layer),
-    Effect.provide(outputLayer),
-    Effect.provide(NodeServices.layer),
+    Effect.provide(
+      Layer.provide(ChildCommand.layer, Layer.mergeAll(outputLayer, NodeServices.layer)).pipe(
+        Layer.provideMerge(NodeServices.layer),
+      ),
+    ),
   );
 
 it.live("captures child output without losing the exit code", () =>
