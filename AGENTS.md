@@ -30,6 +30,11 @@ bun run mze docker up
 bun run mze docker down
 ```
 
+`bun run build`, `bun run check`, and `mze lint` report one row per phase and
+keep each task's output unless it fails. Pass `--verbose` for the full output,
+or `--json` for the NDJSON event stream. See
+[ADR-0027](docs/adr/0027-batch-commands-report-phase-rows.md).
+
 `bun run test` and direct Medusa development need PostgreSQL and Redis. Copy
 `apps/storefront/.env.template` and `apps/medusa/.env.template` before you run
 the applications. Use a Stripe test secret in the Medusa environment file.

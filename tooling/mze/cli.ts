@@ -1,4 +1,4 @@
-import { Console, Effect, Option, Path } from "effect";
+import { Console, Effect, Layer, Option, Path } from "effect";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
 import { ChildCommand } from "./child-command.ts";
@@ -8,7 +8,9 @@ import { Dev } from "./dev.ts";
 import { Docker } from "./docker.ts";
 import { Doctor } from "./doctor.ts";
 import { Output } from "./output.ts";
+import { Renderer } from "./renderer.ts";
 import { Reporter } from "./reporter.ts";
+import { TerminalCapabilities } from "./terminal-capabilities.ts";
 import { Services } from "./services.ts";
 import { Setup } from "./setup.ts";
 import { Tasks } from "./tasks.ts";
@@ -17,6 +19,12 @@ export const root = Command.make("mze").pipe(
   Command.withDescription("Run MZE Store development and repository workflows."),
   Command.withSharedFlags({
     json: Flag.boolean("json").pipe(Flag.withDescription("Write versioned NDJSON events.")),
+    verbose: Flag.boolean("verbose").pipe(
+      Flag.withAlias("v"),
+      Flag.withDescription(
+        "Show every task's output, framed per phase. Ignored with --json, which already carries it.",
+      ),
+    ),
   }),
 );
 
@@ -27,12 +35,18 @@ interface WorkflowContext {
   readonly platform: string;
 }
 
+interface ExecuteOptions {
+  /** Whether the command reports its work as phase rows. */
+  readonly rows?: boolean;
+}
+
 const execute = <A, E, R>(
   name: string,
   workflow: (context: WorkflowContext) => Effect.Effect<A, E, R>,
+  options: ExecuteOptions = {},
 ) =>
   Effect.gen(function* () {
-    const { json } = yield* root;
+    const { json, verbose } = yield* root;
     const path = yield* Path.Path;
     const runtime = {
       nodeVersion: process.version.replace(/^v/, ""),
@@ -53,9 +67,12 @@ const execute = <A, E, R>(
         event: "started",
         stream: "stdout",
       });
+      const startedAt = yield* Effect.clockWith((clock) => clock.currentTimeMillis);
       const result = yield* workflow({ cwd, mode, ...runtime });
+      const finishedAt = yield* Effect.clockWith((clock) => clock.currentTimeMillis);
       yield* output.write({
         command: name,
+        data: { elapsedMillis: finishedAt - startedAt },
         event: "succeeded",
         stream: "stdout",
       });
@@ -69,7 +86,15 @@ const execute = <A, E, R>(
       Effect.provide(Output.layer(mode)),
     );
 
-    return yield* program;
+    // NDJSON already carries every child chunk, so --verbose has nothing to add
+    // there and the renderer would only fight the stream for the cursor.
+    const renderer =
+      options.rows === true && !json ? Renderer.layer(verbose ? "verbose" : "live") : Layer.empty;
+
+    return yield* program.pipe(
+      Effect.provide(renderer),
+      Effect.provide(TerminalCapabilities.layer),
+    );
   });
 
 const setup = Command.make("setup", {}, () =>
@@ -95,8 +120,12 @@ const dev = Command.make(
     ),
 ).pipe(Command.withDescription("Start healthy services and development applications."));
 
-const build = Command.make("build", {}, () => execute("build", ({ cwd }) => Tasks.build(cwd)));
-const check = Command.make("check", {}, () => execute("check", ({ cwd }) => Tasks.check(cwd)));
+const build = Command.make("build", {}, () =>
+  execute("build", ({ cwd }) => Tasks.runPhases("build", Tasks.build(cwd)), { rows: true }),
+);
+const check = Command.make("check", {}, () =>
+  execute("check", ({ cwd }) => Tasks.runPhases("check", Tasks.check(cwd)), { rows: true }),
+);
 const test = Command.make(
   "test",
   { target: Argument.choice("target", ["e2e"] as const).pipe(Argument.optional) },
@@ -105,7 +134,9 @@ const test = Command.make(
       Tasks.test(cwd, Option.isSome(target) ? target.value : "workspace"),
     ),
 );
-const lint = Command.make("lint", {}, () => execute("lint", ({ cwd }) => Tasks.lint(cwd)));
+const lint = Command.make("lint", {}, () =>
+  execute("lint", ({ cwd }) => Tasks.runPhases("lint", Tasks.lint(cwd)), { rows: true }),
+);
 const format = Command.make("format", {}, () => execute("format", ({ cwd }) => Tasks.format(cwd)));
 
 const servicesStart = Command.make("start", {}, () =>

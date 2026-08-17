@@ -160,3 +160,5 @@ behavior gates.
 - [Effect tooling research](../research/effect-tooling-scripts.md)
 - ADR-0001 — Medusa runs under Bun workspaces, with Node as the runtime.
 - ADR-0012 — the Medusa backend is a tsc island in a Vite+ workspace.
+- ADR-0027 — batch commands report phase rows. It extends the output section
+  here: the NDJSON stream gains phase events and moves to version 2.

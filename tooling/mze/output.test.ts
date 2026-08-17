@@ -126,7 +126,45 @@ it.effect("writes versioned NDJSON to the selected stream", () => {
       event: "failed",
       stream: "stderr",
       time: "1970-01-01T00:00:00.000Z",
-      version: 1,
+      version: 2,
     });
   }).pipe(Effect.provide(Output.layer("json")), Effect.provide(capture.layer));
+});
+
+it.effect("records phase events for machine consumers", () => {
+  const capture = captureStdio();
+
+  return Effect.gen(function* () {
+    const output = yield* Output.Service;
+    yield* output.write({
+      command: "build",
+      data: { elapsedMillis: 1200, phase: "packages" },
+      event: "phase-succeeded",
+      stream: "stdout",
+    });
+
+    expect(JSON.parse(capture.stdout[0]!)).toMatchObject({
+      data: { elapsedMillis: 1200, phase: "packages" },
+      event: "phase-succeeded",
+      version: 2,
+    });
+  }).pipe(Effect.provide(Output.layer("json")), Effect.provide(capture.layer));
+});
+
+it.effect("leaves phase rows to the renderer in human mode", () => {
+  const capture = captureStdio();
+
+  return Effect.gen(function* () {
+    const output = yield* Output.Service;
+    yield* output.write({
+      command: "build",
+      data: { phase: "packages" },
+      event: "phase-started",
+      stream: "stdout",
+    });
+    yield* output.write({ command: "build", event: "succeeded", stream: "stdout" });
+
+    // Printing the row here as well would duplicate it and corrupt a live frame.
+    expect(capture.stdout).toEqual(["✔ build ready\n"]);
+  }).pipe(Effect.provide(Output.layer("human", { color: false })), Effect.provide(capture.layer));
 });

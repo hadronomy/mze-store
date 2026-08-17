@@ -1,6 +1,8 @@
 import { Chalk, chalkStderr, type ChalkInstance } from "chalk";
-import { Clock, Context, Effect, Layer, Stdio, Stream } from "effect";
+import { Clock, Context, Effect, Layer, Option, Stdio, Stream } from "effect";
 import type { PlatformError } from "effect/PlatformError";
+
+import { elapsed, Renderer } from "./renderer.ts";
 
 export type Mode = "human" | "json";
 export type OutputStream = "stderr" | "stdout";
@@ -50,7 +52,19 @@ export type Event =
       readonly event: "message";
     })
   | (BaseEvent & {
-      readonly event: "started" | "succeeded";
+      readonly data: { readonly phases: ReadonlyArray<string> };
+      readonly event: "phase-plan";
+    })
+  | (BaseEvent & {
+      readonly data: { readonly phase: string; readonly elapsedMillis?: number };
+      readonly event: "phase-started" | "phase-succeeded" | "phase-failed";
+    })
+  | (BaseEvent & {
+      readonly event: "started";
+    })
+  | (BaseEvent & {
+      readonly data?: { readonly elapsedMillis: number };
+      readonly event: "succeeded";
     });
 
 export interface Interface {
@@ -73,6 +87,17 @@ const indent = (text: string, prefix = "  "): string =>
 function humanText(event: Event, colors: ChalkInstance): string {
   if (event.event === "child-output") {
     return event.data;
+  }
+
+  // Phase rows belong to the renderer, which owns the cursor. Printing them
+  // here too would duplicate every row and corrupt a live frame.
+  if (
+    event.event === "phase-plan" ||
+    event.event === "phase-started" ||
+    event.event === "phase-succeeded" ||
+    event.event === "phase-failed"
+  ) {
+    return "";
   }
 
   if (event.event === "failed") {
@@ -99,7 +124,12 @@ function humanText(event: Event, colors: ChalkInstance): string {
     return `${colors.cyan("→")} ${colors.bold(event.command)} ${colors.dim("started")}\n`;
   }
 
-  return `${colors.green("✓")} ${colors.bold(event.command)} ${colors.dim("ready")}\n`;
+  if (event.event === "succeeded") {
+    const took = event.data === undefined ? "" : ` ${elapsed(event.data.elapsedMillis)}`;
+    return `${colors.green("✔")} ${colors.bold(event.command)} ${colors.dim(`ready${took}`)}\n`;
+  }
+
+  return "";
 }
 
 export const layer = (mode: Mode, options: Options = {}) =>
@@ -107,8 +137,24 @@ export const layer = (mode: Mode, options: Options = {}) =>
     Service,
     Effect.gen(function* () {
       const stdio = yield* Stdio.Stdio;
+      // Present only for the batch commands that draw phase rows. When it is
+      // there it owns the terminal, so child output becomes a row's tail
+      // instead of scrolling past.
+      const renderer = yield* Effect.serviceOption(Renderer.Service);
 
       const write = Effect.fn("Output.write")(function* (event: Event) {
+        if (mode === "human" && Option.isSome(renderer)) {
+          if (event.event === "child-output") {
+            return yield* renderer.value.childOutput(event.data, event.stream);
+          }
+
+          // The row list says the command started, so the banner would only
+          // repeat it above a block that is about to redraw.
+          if (event.event === "started") {
+            return;
+          }
+        }
+
         const text =
           mode === "human"
             ? humanText(
@@ -125,8 +171,13 @@ export const layer = (mode: Mode, options: Options = {}) =>
                 event: event.event,
                 stream: event.stream,
                 time: new Date(yield* Clock.currentTimeMillis).toISOString(),
-                version: 1,
+                version: 2,
               })}\n`;
+
+        if (text === "") {
+          return;
+        }
+
         const sink =
           event.stream === "stdout"
             ? stdio.stdout({ endOnDone: false })
