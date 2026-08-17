@@ -167,7 +167,7 @@ it.effect("writes one line per transition when the stream is not a terminal", ()
     yield* renderer.begin(["packages", "apps"]);
     yield* renderer.transition("packages", "running");
     yield* renderer.transition("packages", "succeeded");
-    yield* renderer.end();
+    yield* renderer.end;
 
     expect(capture.stderr.join("")).toBe("  → packages\n  ✔ packages  0.0s\n  ○ apps  skipped\n");
     expect(capture.stdout).toEqual([]);
@@ -293,7 +293,7 @@ it.effect("stops drawing once the rows have settled", () => {
     yield* renderer.begin(["packages"]);
     yield* renderer.transition("packages", "running");
     yield* renderer.transition("packages", "failed");
-    yield* renderer.end();
+    yield* renderer.end;
 
     const settled = capture.stderr.length;
     yield* renderer.write("\nthe failure block\n");

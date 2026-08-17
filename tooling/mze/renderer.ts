@@ -206,7 +206,7 @@ export interface Interface {
     stream: "stdout" | "stderr",
   ) => Effect.Effect<void, PlatformError>;
   /** Settle the list: whatever never ran is reported skipped, not erased. */
-  readonly end: () => Effect.Effect<void, PlatformError>;
+  readonly end: Effect.Effect<void, PlatformError>;
   /** Write a plain line without corrupting a live frame. */
   readonly write: (text: string) => Effect.Effect<void, PlatformError>;
   /** Everything the failed phase printed, for the block under the rows. */
@@ -423,36 +423,35 @@ export const layer = (mode: Mode, options: Options = {}) =>
           return mode === "verbose" ? yield* writeText(text) : undefined;
         });
 
-      const end = () =>
-        Effect.gen(function* () {
-          yield* Ref.update(state, (current) => ({
-            ...current,
-            rows: current.rows.map((row) =>
-              row.status === "pending" ? { ...row, status: "skipped" as const } : row,
-            ),
-          }));
+      const end = Effect.gen(function* () {
+        yield* Ref.update(state, (current) => ({
+          ...current,
+          rows: current.rows.map((row) =>
+            row.status === "pending" ? { ...row, status: "skipped" as const } : row,
+          ),
+        }));
 
-          if (painter !== undefined) {
-            // Retire the painter first, so the frame it leaves is the final one.
-            yield* Fiber.interrupt(painter);
-            yield* draw;
-            // Leave the settled block on screen: the next write must not erase it.
-            yield* Ref.set(drawn, 0);
-            return;
-          }
+        if (painter !== undefined) {
+          // Retire the painter first, so the frame it leaves is the final one.
+          yield* Fiber.interrupt(painter);
+          yield* draw;
+          // Leave the settled block on screen: the next write must not erase it.
+          yield* Ref.set(drawn, 0);
+          return;
+        }
 
-          const current = yield* Ref.get(state);
-          const skipped = current.rows.filter((row) => row.status === "skipped");
-          yield* writeText(
-            frame(
-              { pending: "", rows: skipped, spinner: 0 },
-              {
-                colors,
-                columns: yield* capabilities.columns,
-              },
-            ),
-          );
-        });
+        const current = yield* Ref.get(state);
+        const skipped = current.rows.filter((row) => row.status === "skipped");
+        yield* writeText(
+          frame(
+            { pending: "", rows: skipped, spinner: 0 },
+            {
+              colors,
+              columns: yield* capabilities.columns,
+            },
+          ),
+        );
+      });
 
       const failureOutput = Effect.gen(function* () {
         // Verbose already printed every chunk as it arrived. Handing the buffer

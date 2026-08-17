@@ -135,7 +135,7 @@ export const runPhases = (command: string, phases: ReadonlyArray<Phase>) =>
     ).pipe(
       Effect.onExit(() =>
         Effect.gen(function* () {
-          yield* draw((current) => current.end());
+          yield* draw((current) => current.end);
           const captured = Option.isSome(renderer) ? yield* renderer.value.failureOutput : "";
 
           if (captured === "") {
