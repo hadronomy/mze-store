@@ -143,16 +143,8 @@ export const layer = (mode: Mode, options: Options = {}) =>
       const renderer = yield* Effect.serviceOption(Renderer.Service);
 
       const write = Effect.fn("Output.write")(function* (event: Event) {
-        if (mode === "human" && Option.isSome(renderer)) {
-          if (event.event === "child-output") {
-            return yield* renderer.value.childOutput(event.data, event.stream);
-          }
-
-          // The row list says the command started, so the banner would only
-          // repeat it above a block that is about to redraw.
-          if (event.event === "started") {
-            return;
-          }
+        if (mode === "human" && Option.isSome(renderer) && event.event === "child-output") {
+          return yield* renderer.value.childOutput(event.data, event.stream);
         }
 
         const text =
