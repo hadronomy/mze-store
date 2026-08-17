@@ -30,6 +30,10 @@ bun run mze docker up
 bun run mze docker down
 ```
 
+To add a package, create a directory with a `package.json` under `apps/`,
+`packages/`, or `tooling/`. Nothing else needs an edit: the workspace globs and
+both Dockerfiles name the directories rather than the packages.
+
 `tooling/mze` is a workspace package that pins typescript 7 and `@effect/tsgo`,
 so Effect diagnostics appear under `tsc` and not only in an editor. Its
 `prepare` script patches that binary on `bun install`. The rest of the

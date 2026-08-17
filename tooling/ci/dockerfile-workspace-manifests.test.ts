@@ -8,30 +8,42 @@ import { readFile } from "node:fs/promises";
  * `--filter` narrows what gets built, so one missing manifest fails the build
  * outright — and only inside Docker, which is the slowest place to find out.
  *
- * `COPY --parents` with the same globs the workspace uses means adding a
- * package needs no Dockerfile change at all. What can still drift is the globs
- * themselves, so that is what this checks.
+ * One recursive `COPY --parents **\/package.json` means adding a package needs
+ * no Dockerfile change at all, wherever it goes. `.dockerignore` excludes
+ * node_modules, which is what makes the recursive glob safe. What can still
+ * drift is that line itself, so that is what these check.
  */
 
 const dockerfiles = ["apps/medusa/Dockerfile", "apps/storefront/Dockerfile"];
 
-async function workspaceGlobs(): Promise<ReadonlyArray<string>> {
+async function workspaceEntries(): Promise<ReadonlyArray<string>> {
   const manifest = JSON.parse(await readFile("package.json", "utf8")) as {
     readonly workspaces?: ReadonlyArray<string> | { readonly packages?: ReadonlyArray<string> };
   };
   const workspaces = manifest.workspaces;
-  const globs = Array.isArray(workspaces) ? workspaces : (workspaces?.packages ?? []);
-  return globs.map((glob) => `${glob}/package.json`);
+  return Array.isArray(workspaces) ? workspaces : (workspaces?.packages ?? []);
 }
 
-it.each(dockerfiles)("%s copies manifests with the workspace's own globs", async (path) => {
-  const [contents, globs] = await Promise.all([readFile(path, "utf8"), workspaceGlobs()]);
+/**
+ * The Dockerfiles no longer depend on this, but a reader adding a package still
+ * should not have to touch the root manifest. `tooling/mze` named one package;
+ * `tooling/*` names the directory and never changes again.
+ */
+it("declares every workspace as a directory glob", async () => {
+  const entries = await workspaceEntries();
+
+  expect(entries.length).toBeGreaterThan(0);
+  expect(entries.filter((entry) => !entry.endsWith("/*"))).toStrictEqual([]);
+});
+
+it.each(dockerfiles)("%s copies every manifest with one recursive glob", async (path) => {
+  const contents = await readFile(path, "utf8");
 
   const copies = [...contents.matchAll(/^COPY --parents (.+) \.\/$/gm)].map((match) => match[1]);
   expect(copies.length).toBeGreaterThan(0);
 
   for (const copy of copies) {
-    expect(copy.split(" ").sort()).toStrictEqual([...globs].sort());
+    expect(copy).toBe("**/package.json");
   }
 
   // An enumerated manifest list is the shape that goes stale. Copying a

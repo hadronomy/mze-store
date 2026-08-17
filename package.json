@@ -5,8 +5,7 @@
     "packages": [
       "apps/*",
       "packages/*",
-      "tooling/mze",
-      "tooling/oxlint"
+      "tooling/*"
     ],
     "catalog": {
       "dotenv": "^17.4.2",
