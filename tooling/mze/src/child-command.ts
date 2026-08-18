@@ -1,9 +1,22 @@
-import { Context, Effect, Layer, PlatformError, Ref, Schema, Stream } from "effect";
+import { Context, Effect, Layer, Option, PlatformError, Ref, Schema, Stream } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process";
 
 import { Output } from "./output.ts";
 
 const MAX_CAPTURED_OUTPUT = 16_384;
+
+/**
+ * Which phase, if any, is running commands through this service right now.
+ *
+ * `phase.ts` provides this locally around each node's own effect, so
+ * `child-output` events can name the row they belong to without threading a
+ * `phase` argument through every `Spec` and every `run` call site — a caller
+ * outside any phase reads the default and tags nothing, exactly as before.
+ */
+export const CurrentPhase = Context.Reference<Option.Option<string>>(
+  "@mze-store/tooling/ChildCommand/CurrentPhase",
+  { defaultValue: () => Option.none() },
+);
 
 export interface Spec {
   readonly executable: string;
@@ -150,14 +163,18 @@ export const layer = Layer.effect(
     );
 
     const run = Effect.fn("ChildCommand.run")((spec: Spec) =>
-      execute(spec, (stream, text) =>
-        output.write({
-          command: spec.executable,
-          data: text,
-          event: "child-output",
-          stream,
-        }),
-      ).pipe(Effect.asVoid),
+      Effect.gen(function* () {
+        const phase = yield* CurrentPhase;
+        yield* execute(spec, (stream, text) =>
+          output.write({
+            command: spec.executable,
+            data: text,
+            event: "child-output",
+            phase: Option.getOrUndefined(phase),
+            stream,
+          }),
+        );
+      }),
     );
 
     const capture = Effect.fn("ChildCommand.capture")((spec: Spec) =>

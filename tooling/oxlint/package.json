@@ -27,12 +27,12 @@
   },
   "dependencies": {
     "@oxlint/plugins": "1.78.0",
-    "effect": "4.0.0-beta.107",
+    "effect": "4.0.0-rc.109",
     "effect-oxlint": "github:hadronomy/effect-oxlint#ef3bfa2",
     "typescript": "catalog:"
   },
   "devDependencies": {
-    "@effect/vitest": "4.0.0-beta.107",
+    "@effect/vitest": "4.0.0-rc.109",
     "@mze-store/config": "workspace:*",
     "@types/node": "catalog:",
     "vite-plus": "catalog:"

@@ -54,6 +54,27 @@ const execute = <A, E, R>(
     };
     const cwd = path.resolve(import.meta.dirname, "../..");
     const mode: Output.Mode = json ? "json" : "human";
+
+    // NDJSON already carries every child chunk, so --verbose has nothing to add
+    // there and the renderer would only fight the stream for the cursor.
+    const renderer =
+      options.rows === true && !json ? Renderer.layer(verbose ? "verbose" : "live") : Layer.empty;
+    const rendererLayer = Layer.provide(renderer, TerminalCapabilities.layer);
+
+    // Named rather than inlined into the pipe below: applying `Effect.provide`
+    // directly to `workflow`'s still-generic result type left its leftover
+    // requirement as `unknown` instead of the true remainder; a named
+    // function taking the already-built layer gives the compiler a concrete
+    // `R` to subtract its services from.
+    const provideRenderer = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+      effect.pipe(Effect.provide(rendererLayer));
+
+    // One provide, scoped to the workflow alone rather than the whole
+    // command: the renderer settles its rows and prints its own failure
+    // block as its scope closes (see `Renderer.layer`'s finalizer), and that
+    // must happen before `Reporter.report` prints its summary line below, not
+    // after. Two chained provides would also build the renderer and the
+    // terminal it draws on under separate scopes.
     const program = Effect.gen(function* () {
       const output = yield* Output.Service;
       if (runtime.platform !== "darwin" && runtime.platform !== "linux") {
@@ -68,7 +89,7 @@ const execute = <A, E, R>(
         stream: "stdout",
       });
       const startedAt = yield* Effect.clockWith((clock) => clock.currentTimeMillis);
-      const result = yield* workflow({ cwd, mode, ...runtime });
+      const result = yield* provideRenderer(workflow({ cwd, mode, ...runtime }));
       const finishedAt = yield* Effect.clockWith((clock) => clock.currentTimeMillis);
       yield* output.write({
         command: name,
@@ -86,14 +107,7 @@ const execute = <A, E, R>(
       Effect.provide(Output.layer(mode)),
     );
 
-    // NDJSON already carries every child chunk, so --verbose has nothing to add
-    // there and the renderer would only fight the stream for the cursor.
-    const renderer =
-      options.rows === true && !json ? Renderer.layer(verbose ? "verbose" : "live") : Layer.empty;
-
-    // One provide, so the renderer and the terminal it draws on share a
-    // lifetime. Two chained provides would build them under separate scopes.
-    return yield* program.pipe(Effect.provide(Layer.provide(renderer, TerminalCapabilities.layer)));
+    return yield* program;
   });
 
 const setup = Command.make("setup", {}, () =>

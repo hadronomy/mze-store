@@ -29,6 +29,12 @@ export interface Row {
   /** Everything the phase printed, kept whole so a failure can show its first error. */
   readonly buffer: string;
   readonly subtasks: ReadonlyArray<Subtask>;
+  /**
+   * Partial trailing line of this row's own child output, awaiting the chunk
+   * that ends it. Concurrent phases each accumulate their own tail, so this
+   * cannot live on `State` the way it did when only one phase ran at a time.
+   */
+  readonly pending: string;
   readonly startedAt?: number;
   readonly elapsedMillis?: number;
 }
@@ -36,8 +42,6 @@ export interface Row {
 export interface State {
   readonly rows: ReadonlyArray<Row>;
   readonly spinner: number;
-  /** Partial trailing line of child output, awaiting the chunk that ends it. */
-  readonly pending: string;
 }
 
 export interface FrameOptions {
@@ -196,21 +200,20 @@ export interface Interface {
     status: Exclude<Status, "pending">,
   ) => Effect.Effect<void, PlatformError>;
   /**
-   * Route one chunk of child output: captured always, displayed per mode.
+   * Route one chunk of child output to the row it belongs to: captured
+   * always, displayed per mode.
    *
    * Output produced while no phase runs passes straight through on its own
-   * stream, so a command without rows behaves exactly as it did before.
+   * stream, so a command without rows behaves exactly as it did before. A
+   * chunk naming a phase that is not the currently running row it claims —
+   * stale output racing a settling phase — is dropped rather than
+   * misattributed to a different row or corrupting the live frame.
    */
   readonly childOutput: (
+    phase: string | undefined,
     text: string,
     stream: "stdout" | "stderr",
   ) => Effect.Effect<void, PlatformError>;
-  /** Settle the list: whatever never ran is reported skipped, not erased. */
-  readonly end: Effect.Effect<void, PlatformError>;
-  /** Write a plain line without corrupting a live frame. */
-  readonly write: (text: string) => Effect.Effect<void, PlatformError>;
-  /** Everything the failed phase printed, for the block under the rows. */
-  readonly failureOutput: Effect.Effect<string>;
 }
 
 export class Service extends Context.Service<Service, Interface>()("@mze-store/tooling/Renderer") {}
@@ -222,6 +225,7 @@ export interface Options {
 
 const startRow = (row: Row, now: number): Row => ({
   ...row,
+  pending: "",
   startedAt: now,
   status: "running",
 });
@@ -229,6 +233,7 @@ const startRow = (row: Row, now: number): Row => ({
 const settleRow = (row: Row, status: Exclude<Status, "pending">, now: number): Row => ({
   ...row,
   elapsedMillis: row.startedAt === undefined ? undefined : now - row.startedAt,
+  pending: "",
   status,
   subtasks: [],
   tail: "",
@@ -242,7 +247,7 @@ export const layer = (mode: Mode, options: Options = {}) =>
       const capabilities = yield* TerminalCapabilities.Service;
       const colors =
         options.color === undefined ? new Chalk() : new Chalk({ level: options.color ? 1 : 0 });
-      const state = yield* Ref.make<State>({ pending: "", rows: [], spinner: 0 });
+      const state = yield* Ref.make<State>({ rows: [], spinner: 0 });
       // Lines of the live frame currently on screen, so the next draw knows how
       // far up to reach. Zero in every non-animated mode.
       const drawn = yield* Ref.make(0);
@@ -291,7 +296,7 @@ export const layer = (mode: Mode, options: Options = {}) =>
        * Erase the frame, write the line, and leave repainting to the painter.
        *
        * Once the painter has stopped there is nothing to repaint, which is what
-       * makes a line written after `end` the last thing on the terminal.
+       * makes a line written after `settle` the last thing on the terminal.
        */
       const write = (text: string) =>
         Effect.gen(function* () {
@@ -318,6 +323,75 @@ export const layer = (mode: Mode, options: Options = {}) =>
           }).pipe(Effect.forever, Effect.forkScoped)
         : undefined;
 
+      /**
+       * Settles the list and shows what the failed phase printed, whenever
+       * this service's own scope closes — success, failure, or interruption.
+       *
+       * A caller that begins rows never has to remember to wind them down: a
+       * batch command provides this service narrowly around its own
+       * workflow (see `cli.ts`'s `execute`), so this finalizer fires exactly
+       * when that workflow settles, before the top-level reporter prints its
+       * own summary line above.
+       */
+      const settle = Effect.gen(function* () {
+        // A caller that transitions every row explicitly (`Phase.run` does)
+        // leaves nothing "pending" here — these are stragglers a caller
+        // never transitioned at all, the only rows this pass is responsible
+        // for printing. A row already transitioned to "skipped" printed
+        // itself once already, on its own transition.
+        const before = yield* Ref.get(state);
+        const stragglers = new Set(
+          before.rows.filter((row) => row.status === "pending").map((row) => row.name),
+        );
+
+        yield* Ref.update(state, (current) => ({
+          ...current,
+          rows: current.rows.map((row) =>
+            row.status === "pending" ? { ...row, status: "skipped" as const } : row,
+          ),
+        }));
+
+        if (painter !== undefined) {
+          // Retire the painter first, so the frame it leaves is the final one.
+          yield* Fiber.interrupt(painter);
+          yield* draw;
+          // Leave the settled block on screen: the next write must not erase it.
+          yield* Ref.set(drawn, 0);
+        } else {
+          const current = yield* Ref.get(state);
+          const skipped = current.rows.filter((row) => stragglers.has(row.name));
+          yield* writeText(
+            frame(
+              { rows: skipped, spinner: 0 },
+              {
+                colors,
+                columns: yield* capabilities.columns,
+              },
+            ),
+          );
+        }
+
+        // Verbose already printed every chunk as it arrived. Printing the
+        // buffer here too would print the whole failed phase a second time.
+        if (mode === "verbose") {
+          return;
+        }
+
+        const settled = yield* Ref.get(state);
+        const failed = settled.rows.find((row) => row.status === "failed")?.buffer ?? "";
+        if (failed === "") {
+          return;
+        }
+
+        yield* write(`\n${failed}`);
+      });
+
+      // Registered after the cursor-hide finalizer, so LIFO order runs this
+      // first on cleanup: rows settle and the failure block prints while the
+      // cursor is still hidden, then the cursor returns as the last thing
+      // this service does.
+      yield* Effect.addFinalizer(() => settle.pipe(Effect.ignore));
+
       const delimiter = (phase: string) =>
         Effect.gen(function* () {
           const columns = yield* capabilities.columns;
@@ -332,6 +406,7 @@ export const layer = (mode: Mode, options: Options = {}) =>
             rows: phases.map((name) => ({
               buffer: "",
               name,
+              pending: "",
               status: "pending" as const,
               subtasks: [],
               tail: "",
@@ -347,7 +422,7 @@ export const layer = (mode: Mode, options: Options = {}) =>
           const row = (yield* Ref.get(state)).rows.find((current) => current.name === phase);
           yield* writeText(
             frame(
-              { pending: "", rows: row === undefined ? [] : [row], spinner: 0 },
+              { rows: row === undefined ? [] : [row], spinner: 0 },
               {
                 colors,
                 columns,
@@ -361,9 +436,6 @@ export const layer = (mode: Mode, options: Options = {}) =>
           const now = yield* Effect.clockWith((clock) => clock.currentTimeMillis);
           yield* Ref.update(state, (current) => ({
             ...current,
-            // Each phase is its own process, so a half-written line cannot span
-            // the boundary and must not be prefixed onto the next phase's first.
-            pending: "",
             rows: current.rows.map((row) =>
               row.name === phase
                 ? status === "running"
@@ -388,34 +460,46 @@ export const layer = (mode: Mode, options: Options = {}) =>
             : writeText(`${ROW_INDENT}${colors.cyan("→")} ${phase}\n`);
         });
 
-      const childOutput = (text: string, stream: "stdout" | "stderr") =>
+      const childOutput = (phase: string | undefined, text: string, stream: "stdout" | "stderr") =>
         Effect.gen(function* () {
           const current = yield* Ref.get(state);
+          const row =
+            phase === undefined
+              ? undefined
+              : current.rows.find((candidate) => candidate.name === phase);
 
           // Output that belongs to no phase still belongs on screen: `mze test`
           // streams its reporters once the service row has settled, and a
           // command with no rows at all must behave as it always did.
-          if (!current.rows.some((row) => row.status === "running")) {
+          if (!current.rows.some((candidate) => candidate.status === "running")) {
             yield* clear;
             return yield* writeTo(stream, text);
           }
 
+          // Rows are active, but this chunk cannot be attributed to one of
+          // them — a phase that is not (or no longer) running, or a caller
+          // outside any phase while others are mid-run. Concurrent rows make
+          // guessing which one this belongs to worse than dropping it.
+          if (row === undefined || row.status !== "running") {
+            return;
+          }
+
           const tail = lastLine(text);
           const now = yield* Effect.clockWith((clock) => clock.currentTimeMillis);
-          const taken = TaskLog.takeLines(current.pending, text);
+          const taken = TaskLog.takeLines(row.pending, text);
 
           yield* Ref.update(state, (previous) => ({
             ...previous,
-            pending: taken.pending,
-            rows: previous.rows.map((row) =>
-              row.status === "running"
+            rows: previous.rows.map((candidate) =>
+              candidate.name === row.name
                 ? {
-                    ...row,
-                    buffer: `${row.buffer}${text}`,
-                    subtasks: applyMarkers(row.subtasks, taken.lines, now),
-                    tail: tail ?? row.tail,
+                    ...candidate,
+                    buffer: `${candidate.buffer}${text}`,
+                    pending: taken.pending,
+                    subtasks: applyMarkers(candidate.subtasks, taken.lines, now),
+                    tail: tail ?? candidate.tail,
                   }
-                : row,
+                : candidate,
             ),
           }));
 
@@ -423,48 +507,7 @@ export const layer = (mode: Mode, options: Options = {}) =>
           return mode === "verbose" ? yield* writeText(text) : undefined;
         });
 
-      const end = Effect.gen(function* () {
-        yield* Ref.update(state, (current) => ({
-          ...current,
-          rows: current.rows.map((row) =>
-            row.status === "pending" ? { ...row, status: "skipped" as const } : row,
-          ),
-        }));
-
-        if (painter !== undefined) {
-          // Retire the painter first, so the frame it leaves is the final one.
-          yield* Fiber.interrupt(painter);
-          yield* draw;
-          // Leave the settled block on screen: the next write must not erase it.
-          yield* Ref.set(drawn, 0);
-          return;
-        }
-
-        const current = yield* Ref.get(state);
-        const skipped = current.rows.filter((row) => row.status === "skipped");
-        yield* writeText(
-          frame(
-            { pending: "", rows: skipped, spinner: 0 },
-            {
-              colors,
-              columns: yield* capabilities.columns,
-            },
-          ),
-        );
-      });
-
-      const failureOutput = Effect.gen(function* () {
-        // Verbose already printed every chunk as it arrived. Handing the buffer
-        // back would print the whole failed phase a second time.
-        if (mode === "verbose") {
-          return "";
-        }
-
-        const current = yield* Ref.get(state);
-        return current.rows.find((row) => row.status === "failed")?.buffer ?? "";
-      });
-
-      return Service.of({ begin, childOutput, end, failureOutput, transition, write });
+      return Service.of({ begin, childOutput, transition });
     }),
   );
 
