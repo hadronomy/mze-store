@@ -52,7 +52,8 @@
     "build": "node tooling/mze/src/main.ts build",
     "test": "node tooling/mze/src/main.ts test",
     "test:e2e": "node tooling/mze/src/main.ts test e2e",
-    "check": "node tooling/mze/src/main.ts check"
+    "check": "node tooling/mze/src/main.ts check",
+    "doctor": "bun run --cwd apps/storefront doctor"
   },
   "devDependencies": {
     "@axe-core/playwright": "4.12.1",

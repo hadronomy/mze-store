@@ -1,3 +1,5 @@
+import { scan } from "react-scan";
+import { useEffect } from "react";
 import { Toaster } from "@mze-store/ui/components/sonner";
 import type { QueryClient } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
@@ -71,6 +73,13 @@ export const Route = createRootRouteWithContext<RouterAppContext>()({
 });
 
 function RootDocument() {
+  useEffect(() => {
+    if (!import.meta.env.DEV) return;
+
+    scan({ enabled: true });
+    void import("react-grab");
+  }, []);
+
   return (
     // The store is light-only (ADR-0024). Setting `dark` here fired every
     // `dark:` utility the primitives ship against a light palette.
