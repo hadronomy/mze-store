@@ -5,6 +5,7 @@
   "scripts": {
     "build": "APP_ENV=build vp build",
     "check-types": "tsc --noEmit",
+    "doctor": "react-doctor --verbose --scope changed --no-telemetry",
     "serve": "vp preview",
     "dev": "vp run dev:raw",
     "dev:raw": "vp dev"
@@ -36,6 +37,9 @@
     "@types/react-dom": "catalog:",
     "@varlock/vite-integration": "1.4.0",
     "@vitejs/plugin-react": "^6.0.3",
+    "react-doctor": "0.9.12",
+    "react-grab": "0.2.0",
+    "react-scan": "0.5.7",
     "typescript": "catalog:",
     "vite": "^8.1.3"
   }

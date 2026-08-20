@@ -9,6 +9,12 @@ export default defineConfig({
   server: {
     port: 3001,
   },
+  // React Scan imports React Grab's package metadata. Bundle both development
+  // tools for SSR so Node does not try to load that JSON file as an external
+  // module before the client-only effect runs.
+  ssr: {
+    noExternal: ["react-scan", "react-grab"],
+  },
   resolve: {
     tsconfigPaths: true,
   },

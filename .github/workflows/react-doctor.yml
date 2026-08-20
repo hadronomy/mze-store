@@ -1,0 +1,41 @@
+name: React Doctor
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+  statuses: write
+
+concurrency:
+  group: react-doctor-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  react-doctor:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      # Changed-scope analysis needs the merge base with the target branch.
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      # Keep the first baseline advisory while the team reviews the signal.
+      - name: Scan the Storefront
+        uses: millionco/react-doctor@01820bb4fd4d0a4aebcd8df2b2a143a098649cb2 # v2.2.8
+        with:
+          project: storefront
+          version: 0.9.12
+          scope: changed
+          blocking: none
+          comment: true
+          review-comments: true
+          commit-status: true
