@@ -1,6 +1,5 @@
-import { Console, Effect, Layer, Option } from "effect";
+import { Console, Effect, Layer, Option, Path } from "effect";
 import { Argument, Command, Flag } from "effect/unstable/cli";
-import { resolve } from "node:path";
 
 import { ChildCommand } from "./child-command.ts";
 import { Auth } from "./auth.ts";
@@ -41,7 +40,8 @@ interface ExecuteOptions {
   readonly rows?: boolean;
 }
 
-export const repositoryRoot = (sourceDirectory: string) => resolve(sourceDirectory, "../../..");
+export const repositoryRoot = (path: Path.Path, sourceDirectory: string) =>
+  path.resolve(sourceDirectory, "../../..");
 
 const execute = <A, E, R>(
   name: string,
@@ -50,11 +50,12 @@ const execute = <A, E, R>(
 ) =>
   Effect.gen(function* () {
     const { json, verbose } = yield* root;
+    const path = yield* Path.Path;
     const runtime = {
       nodeVersion: process.version.replace(/^v/, ""),
       platform: process.platform,
     };
-    const cwd = repositoryRoot(import.meta.dirname);
+    const cwd = repositoryRoot(path, import.meta.dirname);
     const mode: Output.Mode = json ? "json" : "human";
 
     // NDJSON already carries every child chunk, so --verbose has nothing to add
