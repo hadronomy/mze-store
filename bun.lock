@@ -36,6 +36,7 @@
         "@medusajs/medusa": "catalog:",
         "@medusajs/ui": "4.2.0",
         "@mze-store/design-tokens": "workspace:*",
+        "@mze-store/odoo-bridge": "workspace:*",
         "@mze-store/territory": "workspace:*",
         "fast-json-stable-stringify": "^2.1.0",
         "varlock": "1.16.1",
@@ -143,6 +144,18 @@
         "culori": "^4.0.2",
         "effect": "4.0.0-rc.109",
         "lightningcss": "^1.33.0",
+        "typescript": "catalog:",
+      },
+    },
+    "packages/odoo-bridge": {
+      "name": "@mze-store/odoo-bridge",
+      "version": "0.0.0",
+      "dependencies": {
+        "zod": "catalog:",
+      },
+      "devDependencies": {
+        "@mze-store/config": "workspace:*",
+        "@types/node": "catalog:",
         "typescript": "catalog:",
       },
     },
@@ -927,6 +940,8 @@
     "@mze-store/design-tokens": ["@mze-store/design-tokens@workspace:packages/design-tokens"],
 
     "@mze-store/mze": ["@mze-store/mze@workspace:tooling/mze"],
+
+    "@mze-store/odoo-bridge": ["@mze-store/odoo-bridge@workspace:packages/odoo-bridge"],
 
     "@mze-store/oxlint": ["@mze-store/oxlint@workspace:tooling/oxlint"],
 

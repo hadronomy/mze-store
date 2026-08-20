@@ -253,5 +253,6 @@ application hosting plan.
 - [Architecture](docs/architecture.md)
 - [Medusa backend guide](apps/medusa/README.md)
 - [Architecture decisions](docs/adr/)
+- [Odoo JSON-2 gate runbook](docs/runbooks/odoo-json2-gate.md)
 - [Roadmap](docs/roadmap.md)
 - [Issue tracker guide](docs/agents/issue-tracker.md)

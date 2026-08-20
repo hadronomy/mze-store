@@ -97,6 +97,28 @@ The issued fiscal document for a sale. Distinct from an Order: an Order is the o
 **Order Confirmation**:
 The message a Shopper receives on checkout. Not a fiscal document and never an Invoice — it arrives before one exists.
 
+### Odoo bridge
+
+**Odoo Integration Key**:
+An immutable UUID on an Odoo Product or Variant. Medusa uses it as the stable identity when it reads the catalog. It is not a SKU and it is not an API key.
+_Avoid_: external ID, source ID, product code
+
+**Bridge Contract**:
+The typed request and response for one Odoo JSON-2 method. The first contract is `mze.odoo.catalog.v1`, exposed by `mze.medusa.bridge/read_catalog_batch`. A missing documented method blocks the rollout.
+_Avoid_: generic RPC, raw Odoo record, integration payload
+
+**Source Revision**:
+The latest Odoo Product or Variant `write_date` plus Product ID used as the cursor for a Catalog Batch. It lets Medusa continue a read when either record changes without changing Odoo records.
+_Avoid_: sync token, checkpoint token, version number
+
+**Private Odoo Route**:
+The NetBird-reachable Odoo hostname or cluster service used by Medusa. The public customer hostname is never a bridge endpoint.
+_Avoid_: public API, customer route, external route
+
+**Service User**:
+The dedicated Odoo internal user that owns the bridge API key. It has the bridge documentation and read access only. It never uses an Operator's login, an admin password, or a database password.
+_Avoid_: integration user, bot user, system user
+
 ### Erasure
 
 **Erasure**:

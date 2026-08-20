@@ -8,6 +8,7 @@
     "db:rollback": "vp run --filter 'medusa^...' build && varlock run -- medusa db:rollback",
     "dev": "vp run --filter 'medusa^...' build && vp run dev:raw",
     "dev:raw": "varlock run -- medusa develop",
+    "odoo:contract": "vp run --filter 'medusa^...' build && APP_ENV=build varlock run -- medusa build && tsc-alias -p tsconfig.json && varlock run -- node .medusa/server/src/scripts/odoo-contract-check.js",
     "seed": "vp run --filter 'medusa^...' build && varlock run -- medusa exec ./src/scripts/seed.ts",
     "seed:probe": "vp run --filter 'medusa^...' build && varlock run -- medusa exec ./src/scripts/seed-probe.ts",
     "start": "varlock run -- medusa start",
@@ -24,6 +25,7 @@
     "@medusajs/medusa": "catalog:",
     "@medusajs/ui": "4.2.0",
     "@mze-store/design-tokens": "workspace:*",
+    "@mze-store/odoo-bridge": "workspace:*",
     "@mze-store/territory": "workspace:*",
     "fast-json-stable-stringify": "^2.1.0",
     "varlock": "1.16.1"
