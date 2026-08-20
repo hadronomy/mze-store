@@ -3,7 +3,7 @@
 
 FROM oven/bun:1.3.14@sha256:e10577f0db68676a7024391c6e5cb4b879ebd17188ab750cf10024a6d700e5c4 AS bun
 
-FROM node:24@sha256:934240a162082fd8b8a2f90cd5114446443f1eba1c5378f6687167ca405e6584 AS build
+FROM node:26@sha256:bde0dae02f2b12d2bce5ee72b2432f0e511767b7b2dc4dd3b064df11ae422fee AS build
 ARG SOURCE_DATE_EPOCH=0
 COPY --from=bun /usr/local/bin/bun /usr/local/bin/bun
 WORKDIR /app
@@ -28,7 +28,7 @@ RUN ./node_modules/.bin/vp run -t medusa#build
 # directory and rewrites the paths. It resolves no values.
 RUN cd apps/medusa && ../../node_modules/.bin/varlock flatten
 
-FROM node:24@sha256:934240a162082fd8b8a2f90cd5114446443f1eba1c5378f6687167ca405e6584 AS production-deps
+FROM node:26@sha256:bde0dae02f2b12d2bce5ee72b2432f0e511767b7b2dc4dd3b064df11ae422fee AS production-deps
 ARG SOURCE_DATE_EPOCH=0
 COPY --from=bun /usr/local/bin/bun /usr/local/bin/bun
 WORKDIR /app
@@ -56,7 +56,7 @@ RUN rm -rf \
   /app/node_modules/@esbuild \
   /app/node_modules/esbuild
 
-FROM node:24-bookworm-slim@sha256:3638d9a6fe4030bd716be989438248074489337ba3275657f93595428be4fc03 AS runtime
+FROM node:26-bookworm-slim@sha256:cd565714d4da3e84bfd341e31448f81d47c6362198f152345297c9c1154e6341 AS runtime
 ENV NODE_ENV=production \
   HOST=0.0.0.0 \
   PORT=9000 \
