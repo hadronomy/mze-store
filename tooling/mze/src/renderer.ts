@@ -32,7 +32,7 @@ export interface Row {
   /**
    * Partial trailing line of this row's own child output, awaiting the chunk
    * that ends it. Concurrent phases each accumulate their own tail, so this
-   * cannot live on `State` the way it did when only one phase ran at a time.
+   * cannot live on `State` because concurrent phases each need their own tail.
    */
   readonly pending: string;
   readonly startedAt?: number;

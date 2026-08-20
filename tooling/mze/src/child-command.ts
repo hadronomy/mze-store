@@ -11,7 +11,7 @@ const MAX_CAPTURED_OUTPUT = 16_384;
  * `phase.ts` provides this locally around each node's own effect, so
  * `child-output` events can name the row they belong to without threading a
  * `phase` argument through every `Spec` and every `run` call site — a caller
- * outside any phase reads the default and tags nothing, exactly as before.
+ * outside any phase reads the default and leaves the event untagged.
  */
 export const CurrentPhase = Context.Reference<Option.Option<string>>(
   "@mze-store/tooling/ChildCommand/CurrentPhase",

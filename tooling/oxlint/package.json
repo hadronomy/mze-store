@@ -28,7 +28,7 @@
   "dependencies": {
     "@oxlint/plugins": "1.78.0",
     "effect": "4.0.0-rc.109",
-    "effect-oxlint": "github:hadronomy/effect-oxlint#ef3bfa2",
+    "effect-oxlint": "https://github.com/hadronomy/effect-oxlint/archive/ef3bfa21d55db6227391720ce52726bfc116f32f.tar.gz",
     "typescript": "catalog:"
   },
   "devDependencies": {

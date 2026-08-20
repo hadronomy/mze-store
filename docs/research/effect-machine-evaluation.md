@@ -3,17 +3,17 @@
 **Date checked:** 2026-08-18
 
 **Scope:** whether `@typeonce/effect-machine` (`typeonce-dev/effect-machine` on
-GitHub) fits the planned redesign of `Phase` in `tooling/mze/tasks.ts` from a
+GitHub) fits the planned redesign of `Phase` in `tooling/mze/src/tasks.ts` from a
 flat sequential list into a small dependency graph.
 
 **Sources:** the effect-machine GitHub repository (README, `package.json`,
 `CHANGELOG.md`, commits, releases, contributors, `LICENSE`) via `gh api`, the
 npm registry, and the `Effect-TS/effect` repository's own source tree —
 fetched directly, not read through blog posts. Cross-checked against
-[`tooling/mze/tasks.ts`](../../tooling/mze/tasks.ts),
-[`tooling/mze/child-command.ts`](../../tooling/mze/child-command.ts),
-[`tooling/mze/output.ts`](../../tooling/mze/output.ts),
-[`tooling/mze/renderer.ts`](../../tooling/mze/renderer.ts),
+[`tooling/mze/src/tasks.ts`](../../tooling/mze/src/tasks.ts),
+[`tooling/mze/src/child-command.ts`](../../tooling/mze/src/child-command.ts),
+[`tooling/mze/src/output.ts`](../../tooling/mze/src/output.ts),
+[`tooling/mze/src/renderer.ts`](../../tooling/mze/src/renderer.ts),
 [ADR-0023](../adr/0023-effect-supervises-repository-commands.md), and
 [ADR-0027](../adr/0027-batch-commands-report-phase-rows.md).
 
@@ -22,11 +22,11 @@ fetched directly, not read through blog posts. Cross-checked against
 `Phase` today is `{ name: string; spec: ChildCommand.Spec }`, and
 `Tasks.runPhases` runs the list in order with
 `Effect.forEach(phases, ..., { discard: true })`
-([`tasks.ts:114-134`](../../tooling/mze/tasks.ts#L114-L134)). The next step
+([`tasks.ts:114-134`](../../tooling/mze/src/tasks.ts#L114-L134)). The next step
 adds `dependsOn` to `Phase` and runs ready phases concurrently. Each phase must
 still report `queued`/`running`/`succeeded`/`failed`/`skipped` to the
 `Renderer` and the NDJSON `Output` service, exactly as it does now
-([`tasks.ts:94-104`](../../tooling/mze/tasks.ts#L94-L104)).
+([`tasks.ts:94-104`](../../tooling/mze/src/tasks.ts#L94-L104)).
 
 Does `effect-machine` belong in that redesign — either as the model for one
 phase's own run-state transitions, or as the model for the scheduler that
@@ -34,25 +34,17 @@ decides which phases are ready?
 
 ## Result
 
-**Skip it. Build the dependency graph with plain Effect: a `Ref` of phase
-status keyed by name, and `Effect.forEach` with bounded concurrency gated by
-each phase's `dependsOn` set, or a hand-rolled topological `Effect.gen` loop.**
+**Use it only for each phase's local run-state. Build the dependency graph with
+plain Effect: a `Deferred` per node and a readiness gate for each dependency.**
 
 Two independent reasons, either one sufficient on its own:
 
-1. **The peer dependency does not resolve against this repository's pinned
-   `effect`.** `effect-machine`'s `package.json` declares
+1. **The peer dependency requires a coordinated cohort.** `effect-machine`'s
+   `package.json` declares
    `"peerDependencies": { "effect": "4.0.0-rc.109" }` — an exact version, not a
-   range (confirmed below). This repository pins `effect@4.0.0-beta.107`
-   exactly, in both
-   [`package.json:65`](../../package.json#L65) and
-   [`tooling/mze/package.json:16`](../../tooling/mze/package.json#L16), per
-   [ADR-0023](../adr/0023-effect-supervises-repository-commands.md): "The
-   cohort moves as one exact-version update." Installing `effect-machine`
-   today means running two mismatched exact-pinned builds of `effect` in one
-   package, or bumping the whole repository from a beta to an unrelated rc
-   cohort — a jump ADR-0023 does not currently ask for and this evaluation
-   was not asked to justify.
+   range (confirmed below). The implementation therefore updates every
+   workspace that pins the Effect cohort to `4.0.0-rc.109` in one change,
+   including this package's `@effect/platform-node` and `@effect/vitest` pins.
 2. **It solves a different, larger problem than "run a DAG of shell commands
    once and report progress."** `effect-machine` is a statechart library —
    compound/parallel states, history, hierarchical parent/child machines with
@@ -261,8 +253,8 @@ Effect-native concurrency gap `effect-machine` closes that `Ref`, `Fiber`,
 The scheduler this repository needs is: track each phase's status in a `Ref`,
 and start a phase once every entry in its `dependsOn` has settled. That is
 what `Effect.forEach`/`Effect.all` with a readiness gate already expresses,
-using primitives this codebase already imports (`tasks.ts:1` imports
-`Effect, Option`; `child-command.ts:1` imports `Context, Effect, Layer,
+using primitives this codebase already imports (`src/tasks.ts:1` imports
+`Effect, Option`; `src/child-command.ts:1` imports `Context, Effect, Layer,
 PlatformError, Ref, Schema, Stream`).
 
 ## Fit for mze's two problems
@@ -274,10 +266,10 @@ them re-entered, with a linear happy path and no branching behavior beyond
 regions, history, and typed event protocols between siblings — none of which
 this state shape has a use for. `runPhases` already encodes it correctly
 today as a status literal plus two typed events written straight to
-`Output`/`Renderer` (`tasks.ts:94-104`); a statechart library would add a
-schema layer, a machine definition, and a `handle` tree around a transition
-table that fits in the `Status` union `renderer.ts:9` already declares
-(`"pending" | "running" | "succeeded" | "failed" | "skipped"`).
+`Output`/`Renderer` (`src/tasks.ts:94-104`). The implementation keeps that
+scheduler contract in plain Effect and uses the machine only to guard a
+phase's five local transitions. This keeps the state model explicit without
+putting graph readiness or rendering inside a statechart.
 
 **(b) Modeling the graph scheduler.** This is the part of `effect-machine`
 that looks superficially relevant — `Machine.invoke` running an Effect and
@@ -295,18 +287,9 @@ layer around logic that still has to live in plain Effect.
 
 ## Recommendation
 
-Skip `@typeonce/effect-machine` for this redesign. Its peer dependency
-pins an exact `effect` version this repository does not run, which alone
-would force either running two `effect` builds or moving the whole repository
-off its ADR-0023 beta cohort onto an rc cohort for a build-tooling
-convenience — a cost with no matching benefit here. Independent of that
-blocker, the library targets long-lived, hierarchical, event-driven
-application state (its own examples are games), while mze's phase graph is a
-flat one-shot DAG of 3–6 shell commands with five terminal statuses; the
-scheduler problem is "which ready phases can start now," which `Ref` plus
-`Effect.forEach`/`Effect.all` with a dependency-readiness gate solves
-directly, in the same idiom `ChildCommand` and `Output` already use, with no
-new dependency and no version conflict. Revisit only if Effect ships a
-first-party machine/actor primitive that supersedes it, or if `mze` grows a
-genuinely long-lived, multi-actor coordination problem this graph does not
-have today.
+Adopt `@typeonce/effect-machine` only for the local phase state. Its exact
+peer pin requires the repository-wide `4.0.0-rc.109` cohort, so the manifests
+and lockfile move together. Keep the scheduler in plain Effect because it
+decides which ready phases can start and must coordinate `Deferred`s, output,
+and rendering. This boundary avoids using the library's actor-style features
+for a one-shot graph while still making illegal phase transitions impossible.

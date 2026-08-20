@@ -129,7 +129,7 @@ performs no detection of its own, so the caller keeps the terminal policy.
 - Failure output is buffered whole rather than tailed. The 16 KB tail that
   `ChildCommand` keeps for its typed errors truncates the head, which is the
   part naming the first error.
-- `tooling/mze/tasks.test.ts` asserts a phase list, and the NDJSON schema in the
+- `tooling/mze/src/tasks.test.ts` asserts a phase list, and the NDJSON schema in the
   live suite moves to version 2.
 - Ora and Listr2 remain rejected. Ora owns stdin, cursor state, signals, and a
   render loop that Effect scopes already own. Listr2 duplicates the workflow

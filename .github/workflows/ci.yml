@@ -212,7 +212,7 @@ jobs:
         run: bun install --frozen-lockfile
 
       - name: Run live process tests
-        run: ./node_modules/.bin/vp test tooling/mze/child-command.test.ts tooling/mze/cli.live.test.ts
+        run: ./node_modules/.bin/vp test tooling/mze/src/child-command.test.ts tooling/mze/src/cli.live.test.ts
 
       - name: Run live process tests in a container
         if: matrix.os == 'ubuntu-24.04'
@@ -221,7 +221,7 @@ jobs:
           --volume "$PWD:/workspace"
           --workdir /workspace
           node:24.18.1-bookworm@sha256:19cd848a0e073d34bd8cd5545a1b6b4d28489b3e3b607366621ced442bd5f6b4
-          ./node_modules/.bin/vp test tooling/mze/cli.live.test.ts
+          ./node_modules/.bin/vp test tooling/mze/src/cli.live.test.ts
 
   docker-integration:
     name: Docker smoke test

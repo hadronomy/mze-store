@@ -119,7 +119,7 @@ export const reporter = Effect.fn("PhaseState.reporter")(function* (command: str
   // `Renderer.Service` is absent in `--json` mode even for a rows-shaped
   // command, so its own render write is best-effort — a closed render pipe
   // must not take a build down over a cosmetic failure. `Output.write` is
-  // not similarly guarded, matching how `runPhases` treated the two before.
+  // not similarly guarded because output delivery remains part of the command contract.
   const renderer = yield* Effect.serviceOption(Renderer.Service);
   const output = yield* Output.Service;
   const refs = yield* Ref.make(new Map<string, PhaseRef>());

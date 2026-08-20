@@ -39,20 +39,9 @@ export const make = <E = ChildCommand.Error>(
  * dependency hands nothing forward — `after` only orders.
  */
 export function after<E>(dependency: Node<E>): (self: Node<E>) => Node<E>;
-export function after<E>(self: Node<E>, dependency: Node<E>): Node<E>;
-export function after<E>(
-  selfOrDependency: Node<E>,
-  maybeDependency?: Node<E>,
-): Node<E> | ((self: Node<E>) => Node<E>) {
-  if (maybeDependency === undefined) {
-    const dependency = selfOrDependency;
-    return (self: Node<E>) => construct(self.name, self.effect, [...self.dependencies, dependency]);
-  }
-
-  return construct(selfOrDependency.name, selfOrDependency.effect, [
-    ...selfOrDependency.dependencies,
-    maybeDependency,
-  ]);
+export function after<E>(selfOrDependency: Node<E>): (self: Node<E>) => Node<E> {
+  const dependency = selfOrDependency;
+  return (self: Node<E>) => construct(self.name, self.effect, [...self.dependencies, dependency]);
 }
 
 export interface Graph<E = ChildCommand.Error> {

@@ -94,10 +94,9 @@ export const check = (cwd: string): Phase.Graph => {
 };
 
 /**
- * `lint` keeps depending on both `oxlint plugin` and `packages`, matching the
- * full sequential order this command ran before it had a real graph — nobody
- * has confirmed lint's type-aware rules are safe without a package's built
- * declarations, the way `check`'s `format and lint` was confirmed to be.
+ * `lint` depends on both `oxlint plugin` and `packages` because its type-aware
+ * rules need built declarations. `check` has the same dependency for its
+ * `format and lint` phase.
  * `oxlint plugin` and `packages` share no dependency, so they still run
  * concurrently; only `lint` itself waits for both.
  */
@@ -119,8 +118,7 @@ export const lint = (cwd: string): Phase.Graph => {
  * Runs a graph, reporting each node to the event stream and the renderer.
  *
  * The graph itself stops starting new work at the first failure; whatever
- * never got to run stays `"skipped"` rather than erased, the same contract
- * the flat phase list kept. Settling the rows and printing the failed
+ * never got to run stays `"skipped"` rather than erased. Settling the rows and printing the failed
  * phase's own output is `Renderer`'s job, done automatically as its scope
  * closes — this only has to announce the plan before the graph runs.
  */
