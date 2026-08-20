@@ -131,12 +131,12 @@ Veri\*Factu becomes mandatory in 2027 (January for corporations, July otherwise)
 
 ## Catalog bridge
 
-The first Odoo link is a read-only gate. Medusa reaches Odoo only through the private route and the typed `@mze-store/odoo-bridge` client:
+The first Odoo link is a read-only gate. Medusa reaches Odoo only through the private route and the typed `@mze-store/odoo-bridge` Promise edge:
 
 ```
 Odoo Product and Variant
   └─ mze_medusa_bridge/read_catalog_batch
-       └─ private JSON-2 ──► OdooBridgeClient ──► normalized Catalog Batch
+       └─ private JSON-2 ──► OdooBridge /promise ──► normalized Catalog Batch
 ```
 
 The Odoo addon owns the Integration Keys and the normalized source shape. Medusa reads the Bridge Contract but does not write Odoo records. The service API key comes from OpenBao and belongs to a dedicated read-only Service User. The public customer hostname is not an allowed `ODOO_BASE_URL`.

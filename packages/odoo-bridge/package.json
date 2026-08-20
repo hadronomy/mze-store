@@ -14,14 +14,24 @@
         "default": "./dist/index.cjs"
       }
     },
-    "./client": {
+    "./effect": {
       "import": {
-        "types": "./dist/client.d.mts",
-        "default": "./dist/client.mjs"
+        "types": "./dist/effect.d.mts",
+        "default": "./dist/effect.mjs"
       },
       "require": {
-        "types": "./dist/client.d.cts",
-        "default": "./dist/client.cjs"
+        "types": "./dist/effect.d.cts",
+        "default": "./dist/effect.cjs"
+      }
+    },
+    "./promise": {
+      "import": {
+        "types": "./dist/promise.d.mts",
+        "default": "./dist/promise.mjs"
+      },
+      "require": {
+        "types": "./dist/promise.d.cts",
+        "default": "./dist/promise.cjs"
       }
     },
     "./contract": {
@@ -39,7 +49,7 @@
     "test": "vp run build && vp test --dir test"
   },
   "dependencies": {
-    "zod": "catalog:"
+    "effect": "4.0.0-rc.109"
   },
   "devDependencies": {
     "@mze-store/config": "workspace:*",

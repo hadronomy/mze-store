@@ -151,7 +151,7 @@
       "name": "@mze-store/odoo-bridge",
       "version": "0.0.0",
       "dependencies": {
-        "zod": "catalog:",
+        "effect": "4.0.0-rc.109",
       },
       "devDependencies": {
         "@mze-store/config": "workspace:*",

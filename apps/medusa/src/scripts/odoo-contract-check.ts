@@ -1,4 +1,4 @@
-import { OdooBridgeClient, OdooBridgeError } from "@mze-store/odoo-bridge";
+import { OdooBridgeError, createPromiseBridge } from "@mze-store/odoo-bridge/promise";
 import { ENV as RESOLVED } from "varlock/init-server";
 import type { CoercedEnvSchema } from "../../env";
 
@@ -6,11 +6,11 @@ const ENV = RESOLVED as Readonly<CoercedEnvSchema>;
 
 export default async function checkOdooContract() {
   try {
-    const contract = await new OdooBridgeClient({
+    const contract = await createPromiseBridge({
       apiKey: ENV.ODOO_API_KEY,
       baseUrl: ENV.ODOO_BASE_URL,
       database: ENV.ODOO_DATABASE,
-    }).checkReadOnlyContract();
+    }).verify();
 
     const variantCount = contract.catalog.items.reduce(
       (total, item) => total + item.variants.length,

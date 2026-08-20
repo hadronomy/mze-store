@@ -1,108 +1,118 @@
-import { z } from "zod";
+import { Schema } from "effect";
 
 export const ODOO_BRIDGE_MODEL = "mze.medusa.bridge" as const;
 export const ODOO_BRIDGE_METHOD = "read_catalog_batch" as const;
 export const ODOO_CATALOG_CONTRACT_VERSION = "mze.odoo.catalog.v1" as const;
 
-const OdooDateTimeSchema = z.string().datetime({ offset: true });
-const DecimalSchema = z.string().regex(/^\d+(?:\.\d{1,6})?$/u);
-const IntegrationKeySchema = z.string().uuid();
+const OdooDateTime = Schema.String.check(
+  Schema.isPattern(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/u),
+);
+const Decimal = Schema.String.check(Schema.isPattern(/^\d+(?:\.\d{1,6})?$/u));
+const IntegrationKey = Schema.String.check(Schema.isUUID());
+const NonEmptyString = Schema.String.check(Schema.isMinLength(1));
 
-export const OdooBridgeConfigSchema = z.object({
-  baseUrl: z.string().url(),
-  database: z.string().trim().min(1),
-  apiKey: z.string().min(1),
+export const OdooBridgeConfigSchema = Schema.Struct({
+  apiKey: NonEmptyString,
+  baseUrl: NonEmptyString,
+  database: NonEmptyString,
 });
 
-export type OdooBridgeConfig = z.infer<typeof OdooBridgeConfigSchema>;
+export type OdooBridgeConfig = Schema.Schema.Type<typeof OdooBridgeConfigSchema>;
 
-export const OdooCatalogCursorSchema = z.object({
-  id: z.number().int().positive(),
-  write_date: OdooDateTimeSchema,
+export const OdooCatalogCursorSchema = Schema.Struct({
+  id: Schema.Int.check(Schema.isGreaterThan(0)),
+  write_date: OdooDateTime,
 });
 
-export type OdooCatalogCursor = z.infer<typeof OdooCatalogCursorSchema>;
+export type OdooCatalogCursor = Schema.Schema.Type<typeof OdooCatalogCursorSchema>;
 
-export const OdooCatalogBatchRequestSchema = z.object({
-  limit: z.number().int().min(1).max(100).default(25),
-  cursor: OdooCatalogCursorSchema.nullable().default(null),
+export const OdooCatalogBatchRequestSchema = Schema.Struct({
+  cursor: Schema.NullOr(OdooCatalogCursorSchema),
+  limit: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 100 })),
 });
 
-export type OdooCatalogBatchRequest = z.input<typeof OdooCatalogBatchRequestSchema>;
+export type OdooCatalogBatchRequest = Schema.Schema.Type<typeof OdooCatalogBatchRequestSchema>;
 
-const OdooAttributeValueSchema = z.object({
-  attribute_id: z.number().int().positive(),
-  attribute_name: z.string().min(1),
-  id: z.number().int().positive(),
-  name: z.string().min(1),
+export type OdooCatalogBatchRequestInput = {
+  readonly cursor?: OdooCatalogCursor | null;
+  readonly limit?: number;
+};
+
+const OdooAttributeValueSchema = Schema.Struct({
+  attribute_id: Schema.Int.check(Schema.isGreaterThan(0)),
+  attribute_name: NonEmptyString,
+  id: Schema.Int.check(Schema.isGreaterThan(0)),
+  name: NonEmptyString,
 });
 
-const OdooVariantSchema = z.object({
-  active: z.boolean(),
-  attribute_values: z.array(OdooAttributeValueSchema),
-  barcode: z.string().min(1).nullable(),
-  default_code: z.string().min(1).nullable(),
-  id: z.number().int().positive(),
-  integration_key: IntegrationKeySchema,
-  model: z.literal("product.product"),
-  name: z.string().min(1),
-  price: DecimalSchema,
-  sale_ok: z.boolean(),
-  write_date: OdooDateTimeSchema,
+const OdooVariantSchema = Schema.Struct({
+  active: Schema.Boolean,
+  attribute_values: Schema.Array(OdooAttributeValueSchema),
+  barcode: Schema.NullOr(NonEmptyString),
+  default_code: Schema.NullOr(NonEmptyString),
+  id: Schema.Int.check(Schema.isGreaterThan(0)),
+  integration_key: IntegrationKey,
+  model: Schema.Literal("product.product"),
+  name: NonEmptyString,
+  price: Decimal,
+  sale_ok: Schema.Boolean,
+  write_date: OdooDateTime,
 });
 
-export type OdooCatalogVariant = z.infer<typeof OdooVariantSchema>;
+export const OdooCatalogVariantSchema = OdooVariantSchema;
+export type OdooCatalogVariant = Schema.Schema.Type<typeof OdooVariantSchema>;
 
-const OdooTemplateSchema = z.object({
-  active: z.boolean(),
-  currency: z.string().regex(/^[A-Z]{3}$/u),
-  description: z.string().nullable(),
-  id: z.number().int().positive(),
-  integration_key: IntegrationKeySchema,
-  model: z.literal("product.template"),
-  name: z.string().min(1),
-  price: DecimalSchema,
-  sale_ok: z.boolean(),
-  tax_ids: z.array(z.number().int().positive()),
-  write_date: OdooDateTimeSchema,
+const OdooTemplateSchema = Schema.Struct({
+  active: Schema.Boolean,
+  currency: Schema.String.check(Schema.isPattern(/^[A-Z]{3}$/u)),
+  description: Schema.NullOr(Schema.String),
+  id: Schema.Int.check(Schema.isGreaterThan(0)),
+  integration_key: IntegrationKey,
+  model: Schema.Literal("product.template"),
+  name: NonEmptyString,
+  price: Decimal,
+  sale_ok: Schema.Boolean,
+  tax_ids: Schema.Array(Schema.Int.check(Schema.isGreaterThan(0))),
+  write_date: OdooDateTime,
 });
 
-export type OdooCatalogTemplate = z.infer<typeof OdooTemplateSchema>;
+export const OdooCatalogTemplateSchema = OdooTemplateSchema;
+export type OdooCatalogTemplate = Schema.Schema.Type<typeof OdooTemplateSchema>;
 
-export const OdooCatalogItemSchema = z.object({
+export const OdooCatalogItemSchema = Schema.Struct({
   template: OdooTemplateSchema,
-  variants: z.array(OdooVariantSchema).min(1),
+  variants: Schema.Array(OdooVariantSchema).check(Schema.isMinLength(1)),
 });
 
-export type OdooCatalogItem = z.infer<typeof OdooCatalogItemSchema>;
+export type OdooCatalogItem = Schema.Schema.Type<typeof OdooCatalogItemSchema>;
 
-export const OdooCatalogBatchSchema = z.object({
-  contract_version: z.literal(ODOO_CATALOG_CONTRACT_VERSION),
-  items: z.array(OdooCatalogItemSchema).max(100),
-  next_cursor: OdooCatalogCursorSchema.nullable(),
+export const OdooCatalogBatchSchema = Schema.Struct({
+  contract_version: Schema.Literal(ODOO_CATALOG_CONTRACT_VERSION),
+  items: Schema.Array(OdooCatalogItemSchema).check(Schema.isMaxLength(100)),
+  next_cursor: Schema.NullOr(OdooCatalogCursorSchema),
 });
 
-export type OdooCatalogBatch = z.infer<typeof OdooCatalogBatchSchema>;
+export type OdooCatalogBatch = Schema.Schema.Type<typeof OdooCatalogBatchSchema>;
 
-const OdooDocumentationModelSchema = z.object({
-  model: z.string().min(1),
-  methods: z.array(z.string().min(1)),
+const OdooDocumentationModelSchema = Schema.Struct({
+  model: NonEmptyString,
+  methods: Schema.Array(NonEmptyString),
 });
 
-export const OdooDocumentationIndexSchema = z.object({
-  models: z.array(OdooDocumentationModelSchema),
-  modules: z.array(z.string().min(1)),
+export const OdooDocumentationIndexSchema = Schema.Struct({
+  models: Schema.Array(OdooDocumentationModelSchema),
+  modules: Schema.Array(NonEmptyString),
 });
 
-export type OdooDocumentationIndex = z.infer<typeof OdooDocumentationIndexSchema>;
+export type OdooDocumentationIndex = Schema.Schema.Type<typeof OdooDocumentationIndexSchema>;
 
-const OdooMethodDocumentationSchema = z.looseObject({
-  api: z.array(z.string().min(1)).optional(),
+const OdooMethodDocumentationSchema = Schema.Struct({
+  api: Schema.optionalKey(Schema.Array(NonEmptyString)),
 });
 
-export const OdooModelDocumentationSchema = z.object({
-  methods: z.record(z.string(), OdooMethodDocumentationSchema),
-  model: z.string().min(1),
+export const OdooModelDocumentationSchema = Schema.Struct({
+  methods: Schema.Record(Schema.String, OdooMethodDocumentationSchema),
+  model: NonEmptyString,
 });
 
-export type OdooModelDocumentation = z.infer<typeof OdooModelDocumentationSchema>;
+export type OdooModelDocumentation = Schema.Schema.Type<typeof OdooModelDocumentationSchema>;

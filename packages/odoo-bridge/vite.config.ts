@@ -3,8 +3,9 @@ import { packageBuildTask, packageTypecheckTask } from "../../tooling/vite/packa
 
 const entries = {
   index: "src/index.ts",
-  client: "src/client.ts",
   contract: "src/contract.ts",
+  effect: "src/effect.ts",
+  promise: "src/promise.ts",
 };
 
 export default defineConfig({
