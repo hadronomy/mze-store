@@ -41,6 +41,8 @@ interface BaseEvent {
 export type Event =
   | (BaseEvent & {
       readonly data: string;
+      /** Which running phase produced this chunk, when the caller runs inside one. */
+      readonly phase?: string;
       readonly event: "child-output";
     })
   | (BaseEvent & {
@@ -58,6 +60,12 @@ export type Event =
   | (BaseEvent & {
       readonly data: { readonly phase: string; readonly elapsedMillis?: number };
       readonly event: "phase-started" | "phase-succeeded" | "phase-failed";
+    })
+  | (BaseEvent & {
+      // A skipped phase never ran, so it carries no elapsed time — unlike the
+      // three events above, whose shared shape allows one.
+      readonly data: { readonly phase: string };
+      readonly event: "phase-skipped";
     })
   | (BaseEvent & {
       readonly event: "started";
@@ -95,7 +103,8 @@ function humanText(event: Event, colors: ChalkInstance): string {
     event.event === "phase-plan" ||
     event.event === "phase-started" ||
     event.event === "phase-succeeded" ||
-    event.event === "phase-failed"
+    event.event === "phase-failed" ||
+    event.event === "phase-skipped"
   ) {
     return "";
   }
@@ -137,14 +146,17 @@ export const layer = (mode: Mode, options: Options = {}) =>
     Service,
     Effect.gen(function* () {
       const stdio = yield* Stdio.Stdio;
-      // Present only for the batch commands that draw phase rows. When it is
-      // there it owns the terminal, so child output becomes a row's tail
-      // instead of scrolling past.
-      const renderer = yield* Effect.serviceOption(Renderer.Service);
 
       const write = Effect.fn("Output.write")(function* (event: Event) {
+        // Looked up per call, not once at layer build: a batch command
+        // provides `Renderer.Service` narrowly around its own workflow, not
+        // for the whole command, so whether it is present can genuinely
+        // differ between one `write` call and the next. When it is there it
+        // owns the terminal, so child output becomes a row's tail instead of
+        // scrolling past.
+        const renderer = yield* Effect.serviceOption(Renderer.Service);
         if (mode === "human" && Option.isSome(renderer) && event.event === "child-output") {
-          return yield* renderer.value.childOutput(event.data, event.stream);
+          return yield* renderer.value.childOutput(event.phase, event.data, event.stream);
         }
 
         const text =
@@ -161,9 +173,10 @@ export const layer = (mode: Mode, options: Options = {}) =>
                 command: event.command,
                 data: "data" in event ? event.data : undefined,
                 event: event.event,
+                phase: "phase" in event ? event.phase : undefined,
                 stream: event.stream,
                 time: new Date(yield* Clock.currentTimeMillis).toISOString(),
-                version: 2,
+                version: 3,
               })}\n`;
 
         if (text === "") {

@@ -29,12 +29,13 @@ const NdjsonEvent = Schema.Struct({
     "phase-started",
     "phase-succeeded",
     "phase-failed",
+    "phase-skipped",
     "started",
     "succeeded",
   ]),
   stream: Schema.Literals(["stderr", "stdout"]),
   time: Schema.String,
-  version: Schema.Literal(2),
+  version: Schema.Literal(3),
 });
 
 const events = (output: string): ReadonlyArray<typeof NdjsonEvent.Type> =>
@@ -49,7 +50,7 @@ it.live("prints root help and exits successfully when no command is given", () =
     const commands = yield* ChildCommand.Service;
     const result = yield* commands.capture({
       executable: process.execPath,
-      arguments: ["tooling/mze/main.ts"],
+      arguments: ["tooling/mze/src/main.ts"],
       cwd: process.cwd(),
     });
 
@@ -64,7 +65,7 @@ it.live("uses exit code 2 when db push lacks its consequence flag", () =>
     const error = yield* commands
       .capture({
         executable: process.execPath,
-        arguments: ["tooling/mze/main.ts", "db", "push"],
+        arguments: ["tooling/mze/src/main.ts", "db", "push"],
         cwd: process.cwd(),
       })
       .pipe(Effect.flip);
@@ -83,7 +84,7 @@ it.live("keeps workflow failures in NDJSON mode", () =>
     const error = yield* commands
       .capture({
         executable: process.execPath,
-        arguments: ["tooling/mze/main.ts", "db", "push", "--json"],
+        arguments: ["tooling/mze/src/main.ts", "db", "push", "--json"],
         cwd: process.cwd(),
       })
       .pipe(Effect.flip);
@@ -96,14 +97,14 @@ it.live("keeps workflow failures in NDJSON mode", () =>
         command: "db push",
         event: "started",
         stream: "stdout",
-        version: 2,
+        version: 3,
       });
       expect(failed).toMatchObject({
         command: "db push",
         data: { exitCode: 2 },
         event: "failed",
         stream: "stderr",
-        version: 2,
+        version: 3,
       });
     }
   }).pipe(provideLive),
@@ -115,7 +116,7 @@ it.live("keeps parser failures in NDJSON mode", () =>
     const error = yield* commands
       .capture({
         executable: process.execPath,
-        arguments: ["tooling/mze/main.ts", "--json", "not-a-command"],
+        arguments: ["tooling/mze/src/main.ts", "--json", "not-a-command"],
         cwd: process.cwd(),
       })
       .pipe(Effect.flip);
@@ -128,7 +129,7 @@ it.live("keeps parser failures in NDJSON mode", () =>
           data: { message: expect.stringContaining("mze <subcommand> [flags]") },
           event: "message",
           stream: "stdout",
-          version: 2,
+          version: 3,
         }),
       );
       expect(events(error.stderr)).toEqual([
@@ -137,7 +138,7 @@ it.live("keeps parser failures in NDJSON mode", () =>
           data: { exitCode: 2, message: expect.stringContaining("Unknown subcommand") },
           event: "failed",
           stream: "stderr",
-          version: 2,
+          version: 3,
         }),
       ]);
     }
@@ -149,17 +150,17 @@ it.live("renders JSON help and version output as NDJSON", () =>
     const commands = yield* ChildCommand.Service;
     const implicitHelp = yield* commands.capture({
       executable: process.execPath,
-      arguments: ["tooling/mze/main.ts", "--json"],
+      arguments: ["tooling/mze/src/main.ts", "--json"],
       cwd: process.cwd(),
     });
     const help = yield* commands.capture({
       executable: process.execPath,
-      arguments: ["tooling/mze/main.ts", "--json", "--help"],
+      arguments: ["tooling/mze/src/main.ts", "--json", "--help"],
       cwd: process.cwd(),
     });
     const version = yield* commands.capture({
       executable: process.execPath,
-      arguments: ["tooling/mze/main.ts", "--json", "--version"],
+      arguments: ["tooling/mze/src/main.ts", "--json", "--version"],
       cwd: process.cwd(),
     });
 
@@ -170,7 +171,7 @@ it.live("renders JSON help and version output as NDJSON", () =>
         data: { message: expect.stringContaining("mze <subcommand> [flags]") },
         event: "message",
         stream: "stdout",
-        version: 2,
+        version: 3,
       });
     }
     expect(events(version.stdout)[0]).toMatchObject({
@@ -178,7 +179,7 @@ it.live("renders JSON help and version output as NDJSON", () =>
       data: { message: "mze v1.0.0" },
       event: "message",
       stream: "stdout",
-      version: 2,
+      version: 3,
     });
   }).pipe(provideLive),
 );
@@ -242,7 +243,7 @@ it.live("writes the complete doctor report to stdout", () =>
       const error = yield* commands
         .capture({
           executable: process.execPath,
-          arguments: ["tooling/mze/main.ts", "doctor", "--json"],
+          arguments: ["tooling/mze/src/main.ts", "doctor", "--json"],
           cwd: process.cwd(),
           environment: { PATH: `${directory}:${process.env.PATH ?? ""}` },
         })
@@ -301,7 +302,7 @@ it.live(
           const error = yield* commands
             .capture({
               executable: process.execPath,
-              arguments: ["tooling/mze/main.ts", "services", "status"],
+              arguments: ["tooling/mze/src/main.ts", "services", "status"],
               cwd: process.cwd(),
               environment: {
                 MZE_GRANDCHILD_SIGNAL_FILE: grandchildSignalFile,

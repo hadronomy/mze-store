@@ -56,10 +56,12 @@ it("certifies the exact supported version cohort", async () => {
   expect(root.packageManager).toBe("bun@1.3.14");
   expect(mise).toContain(`node = "24.18.1"`);
   expect(mise).toContain(`bun = "1.3.14"`);
-  expect(root.devDependencies.effect).toBe("4.0.0-beta.107");
-  expect(packageJson.dependencies.effect).toBe("4.0.0-beta.107");
-  expect(packageJson.devDependencies["@effect/vitest"]).toBe("4.0.0-beta.107");
-  expect(packageJson.dependencies["effect-oxlint"]).toBe("github:hadronomy/effect-oxlint#ef3bfa2");
+  expect(root.devDependencies.effect).toBe("4.0.0-rc.109");
+  expect(packageJson.dependencies.effect).toBe("4.0.0-rc.109");
+  expect(packageJson.devDependencies["@effect/vitest"]).toBe("4.0.0-rc.109");
+  expect(packageJson.dependencies["effect-oxlint"]).toBe(
+    "https://github.com/hadronomy/effect-oxlint/archive/ef3bfa21d55db6227391720ce52726bfc116f32f.tar.gz",
+  );
   expect(packageJson.dependencies["@oxlint/plugins"]).toBe("1.78.0");
   expect(decodeVersionManifest(pluginsSource).version).toBe("1.78.0");
   expect(decodeVersionManifest(oxlintSource).version).toBe("1.78.0");

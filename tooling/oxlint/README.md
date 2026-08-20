@@ -79,18 +79,18 @@ vp test --run tooling/oxlint/test/baseline.test.ts
 
 The package supports this exact cohort:
 
-| Surface                            | Version        |
-| ---------------------------------- | -------------- |
-| Node                               | 24.18.1        |
-| Bun package manager                | 1.3.14         |
-| Effect and `@effect/vitest`        | 4.0.0-beta.107 |
-| `effect-oxlint` fork               | `ef3bfa2`      |
-| Local `@oxlint/plugins` dependency | 1.78.0         |
-| Direct Oxlint dependency           | 1.78.0         |
-| Vite+                              | 0.2.6          |
-| Oxlint hosted by Vite+             | 1.75.0         |
-| Plugin API hosted by Vite+         | 1.73.0         |
-| TypeScript lock resolution         | 6.0.3          |
+| Surface                            | Version      |
+| ---------------------------------- | ------------ |
+| Node                               | 24.18.1      |
+| Bun package manager                | 1.3.14       |
+| Effect and `@effect/vitest`        | 4.0.0-rc.109 |
+| `effect-oxlint` fork               | `ef3bfa21`   |
+| Local `@oxlint/plugins` dependency | 1.78.0       |
+| Direct Oxlint dependency           | 1.78.0       |
+| Vite+                              | 0.2.6        |
+| Oxlint hosted by Vite+             | 1.75.0       |
+| Plugin API hosted by Vite+         | 1.73.0       |
+| TypeScript lock resolution         | 6.0.3        |
 
 The local plugin API and the Vite+ host API are separate compatibility
 surfaces. The package compiles with 1.78.0. The real Vite+ consumer test loads

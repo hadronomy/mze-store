@@ -126,8 +126,36 @@ it.effect("writes versioned NDJSON to the selected stream", () => {
       event: "failed",
       stream: "stderr",
       time: "1970-01-01T00:00:00.000Z",
-      version: 2,
+      version: 3,
     });
+  }).pipe(Effect.provide(Layer.provide(Output.layer("json"), capture.layer)));
+});
+
+it.effect("names the phase a chunk of child output came from", () => {
+  const capture = captureStdio();
+
+  return Effect.gen(function* () {
+    const output = yield* Output.Service;
+    yield* output.write({
+      command: "vp",
+      data: "compiling\n",
+      event: "child-output",
+      phase: "packages",
+      stream: "stdout",
+    });
+    // A caller outside any phase — most `child-output` writers — tags
+    // nothing, and the field must not appear at all rather than show up as
+    // `null` for every consumer that never runs inside a phase.
+    yield* output.write({
+      command: "medusa",
+      data: "ready\n",
+      event: "child-output",
+      stream: "stdout",
+    });
+
+    const [tagged, untagged] = capture.stdout.map((line) => JSON.parse(line) as { phase?: string });
+    expect(tagged?.phase).toBe("packages");
+    expect(untagged).not.toHaveProperty("phase");
   }).pipe(Effect.provide(Layer.provide(Output.layer("json"), capture.layer)));
 });
 
@@ -146,7 +174,7 @@ it.effect("records phase events for machine consumers", () => {
     expect(JSON.parse(capture.stdout[0]!)).toMatchObject({
       data: { elapsedMillis: 1200, phase: "packages" },
       event: "phase-succeeded",
-      version: 2,
+      version: 3,
     });
   }).pipe(Effect.provide(Layer.provide(Output.layer("json"), capture.layer)));
 });

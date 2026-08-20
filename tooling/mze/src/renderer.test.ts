@@ -11,6 +11,7 @@ const colors = new Chalk({ level: 0 });
 
 const makeRow = (overrides: Partial<Renderer.Row> & { readonly name: string }): Renderer.Row => ({
   buffer: "",
+  pending: "",
   status: "pending",
   subtasks: [],
   tail: "",
@@ -18,7 +19,7 @@ const makeRow = (overrides: Partial<Renderer.Row> & { readonly name: string }): 
 });
 
 const render = (rows: ReadonlyArray<Renderer.Row>, columns = 60) =>
-  Renderer.frame({ pending: "", rows, spinner: 0 }, { colors, columns });
+  Renderer.frame({ rows, spinner: 0 }, { colors, columns });
 
 function captureStdio() {
   const stderr: Array<string> = [];
@@ -159,49 +160,56 @@ it("takes the last non-blank line and drops ANSI codes", () => {
   expect(Renderer.lastLine("\n  \n")).toBeUndefined();
 });
 
-it.effect("writes one line per transition when the stream is not a terminal", () => {
+it.effect("writes one line per transition, then settles stragglers when the scope closes", () => {
   const capture = captureStdio();
 
   return Effect.gen(function* () {
-    const renderer = yield* Renderer.Service;
-    yield* renderer.begin(["packages", "apps"]);
-    yield* renderer.transition("packages", "running");
-    yield* renderer.transition("packages", "succeeded");
-    yield* renderer.end;
+    // `Renderer.layer`'s finalizer settles the list automatically when its
+    // own scope closes, so it is nested here rather than around the whole
+    // test — the assertions below need to observe what happens *after* that.
+    yield* Effect.gen(function* () {
+      const renderer = yield* Renderer.Service;
+      yield* renderer.begin(["packages", "apps"]);
+      yield* renderer.transition("packages", "running");
+      yield* renderer.transition("packages", "succeeded");
+    }).pipe(
+      Effect.provide(
+        Layer.provide(
+          Renderer.layer("plain", { color: false }),
+          Layer.mergeAll(TerminalCapabilities.fixed({ isTerminal: false }), capture.layer),
+        ),
+      ),
+    );
 
     expect(capture.stderr.join("")).toBe("  → packages\n  ✔ packages  0.0s\n  ○ apps  skipped\n");
     expect(capture.stdout).toEqual([]);
-  }).pipe(
-    Effect.provide(
-      Layer.provide(
-        Renderer.layer("plain", { color: false }),
-        Layer.mergeAll(TerminalCapabilities.fixed({ isTerminal: false }), capture.layer),
-      ),
-    ),
-  );
+  });
 });
 
 it.effect("keeps the whole failed phase output for the failure block", () => {
   const capture = captureStdio();
 
   return Effect.gen(function* () {
-    const renderer = yield* Renderer.Service;
-    yield* renderer.begin(["packages"]);
-    yield* renderer.transition("packages", "running");
-    yield* renderer.childOutput("first error\n", "stdout");
-    yield* renderer.childOutput("later noise\n", "stdout");
-    yield* renderer.transition("packages", "failed");
-
-    // The head of the log is the part that names the cause, so it must survive.
-    expect(yield* renderer.failureOutput).toBe("first error\nlater noise\n");
-  }).pipe(
-    Effect.provide(
-      Layer.provide(
-        Renderer.layer("plain", { color: false }),
-        Layer.mergeAll(TerminalCapabilities.fixed({ isTerminal: false }), capture.layer),
+    yield* Effect.gen(function* () {
+      const renderer = yield* Renderer.Service;
+      yield* renderer.begin(["packages"]);
+      yield* renderer.transition("packages", "running");
+      yield* renderer.childOutput("packages", "first error\n", "stdout");
+      yield* renderer.childOutput("packages", "later noise\n", "stdout");
+      yield* renderer.transition("packages", "failed");
+    }).pipe(
+      Effect.provide(
+        Layer.provide(
+          Renderer.layer("plain", { color: false }),
+          Layer.mergeAll(TerminalCapabilities.fixed({ isTerminal: false }), capture.layer),
+        ),
       ),
-    ),
-  );
+    );
+
+    // The head of the log is the part that names the cause, so it must
+    // survive — printed automatically once the scope above closes.
+    expect(capture.stderr.join("")).toContain("first error\nlater noise\n");
+  });
 });
 
 it.effect("passes child output through and rules off each phase when verbose", () => {
@@ -211,7 +219,7 @@ it.effect("passes child output through and rules off each phase when verbose", (
     const renderer = yield* Renderer.Service;
     yield* renderer.begin(["packages"]);
     yield* renderer.transition("packages", "running");
-    yield* renderer.childOutput("compiling\n", "stdout");
+    yield* renderer.childOutput("packages", "compiling\n", "stdout");
 
     expect(capture.stderr.join("")).toContain("── packages ──");
     expect(capture.stderr.join("")).toContain("compiling\n");
@@ -261,61 +269,69 @@ it.effect("animates on a terminal, then restores the cursor when the scope close
   }).pipe(Effect.provide(TestClock.layer()));
 });
 
-it.effect("does not hand back output that verbose already printed", () => {
+it.effect("does not print the failed phase twice when verbose", () => {
   const capture = captureStdio();
 
   return Effect.gen(function* () {
-    const renderer = yield* Renderer.Service;
-    yield* renderer.begin(["packages"]);
-    yield* renderer.transition("packages", "running");
-    yield* renderer.childOutput("compiler error\n", "stdout");
-    yield* renderer.transition("packages", "failed");
-
-    // Verbose streams every chunk as it arrives, so replaying the buffer would
-    // print the whole failed phase a second time.
-    expect(capture.stderr.join("")).toContain("compiler error\n");
-    expect(yield* renderer.failureOutput).toBe("");
-  }).pipe(
-    Effect.provide(
-      Layer.provide(
-        Renderer.layer("verbose", { color: false }),
-        Layer.mergeAll(TerminalCapabilities.fixed({ isTerminal: false }), capture.layer),
+    yield* Effect.gen(function* () {
+      const renderer = yield* Renderer.Service;
+      yield* renderer.begin(["packages"]);
+      yield* renderer.transition("packages", "running");
+      yield* renderer.childOutput("packages", "compiler error\n", "stdout");
+      yield* renderer.transition("packages", "failed");
+    }).pipe(
+      Effect.provide(
+        Layer.provide(
+          Renderer.layer("verbose", { color: false }),
+          Layer.mergeAll(TerminalCapabilities.fixed({ isTerminal: false }), capture.layer),
+        ),
       ),
-    ),
-  );
+    );
+
+    // Verbose streams every chunk as it arrives, so printing the buffer
+    // again on settle would print the whole failed phase a second time.
+    const printed = capture.stderr.join("");
+    expect(printed).toContain("compiler error\n");
+    expect(printed.split("compiler error\n")).toHaveLength(2);
+  });
 });
 
-it.effect("stops drawing once the rows have settled", () => {
-  const capture = captureStdio();
+it.effect(
+  "prints the failure block once the scope closes, without redrawing the settled rows",
+  () => {
+    const capture = captureStdio();
 
-  return Effect.gen(function* () {
-    const renderer = yield* Renderer.Service;
-    yield* renderer.begin(["packages"]);
-    yield* renderer.transition("packages", "running");
-    yield* renderer.transition("packages", "failed");
-    yield* renderer.end;
-
-    const settled = capture.stderr.length;
-    yield* renderer.write("\nthe failure block\n");
-    yield* TestClock.adjust("400 millis");
-
-    // A redraw here would stack a second copy of the settled rows under the
-    // block, and the painter would clear around the reporter's error line.
-    const after = capture.stderr.slice(settled).join("");
-    expect(after).toContain("the failure block");
-    expect(after).not.toContain("packages");
-  }).pipe(
-    Effect.provide(
-      Layer.mergeAll(
-        Layer.provide(
-          Renderer.layer("live", { color: false }),
-          Layer.mergeAll(
-            TerminalCapabilities.fixed({ isTerminal: true, columns: 40 }),
-            capture.layer,
+    return Effect.gen(function* () {
+      yield* Effect.gen(function* () {
+        const renderer = yield* Renderer.Service;
+        yield* renderer.begin(["packages"]);
+        yield* renderer.transition("packages", "running");
+        yield* renderer.childOutput("packages", "boom\n", "stdout");
+        yield* renderer.transition("packages", "failed");
+      }).pipe(
+        Effect.provide(
+          Layer.provide(
+            Renderer.layer("live", { color: false }),
+            Layer.mergeAll(
+              TerminalCapabilities.fixed({ isTerminal: true, columns: 40 }),
+              capture.layer,
+            ),
           ),
         ),
-        TestClock.layer(),
-      ),
-    ),
-  );
-});
+      );
+
+      // The painter redraws the whole frame on every tick while `packages` is
+      // running, so it — and the failure block, written once settling
+      // finishes — are already on screen by the time the scope above closes.
+      const settled = capture.stderr.join("");
+      expect(settled).toContain("boom\n");
+
+      yield* TestClock.adjust("400 millis");
+
+      // A further redraw here would mean the painter survived settling: it
+      // would stack a second copy of the rows under the block, and clear
+      // around it on its next tick.
+      expect(capture.stderr.join("")).toBe(settled);
+    }).pipe(Effect.provide(TestClock.layer()));
+  },
+);
