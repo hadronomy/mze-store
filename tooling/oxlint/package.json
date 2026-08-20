@@ -32,7 +32,7 @@
     "typescript": "catalog:"
   },
   "devDependencies": {
-    "@effect/vitest": "4.0.0-rc.109",
+    "@effect/vitest": "4.0.0-rc.110",
     "@mze-store/config": "workspace:*",
     "@types/node": "catalog:",
     "vite-plus": "catalog:"
