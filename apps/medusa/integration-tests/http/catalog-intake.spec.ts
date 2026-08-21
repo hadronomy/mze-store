@@ -12,10 +12,21 @@ import { signInAsOperator } from "../utils/operator";
 
 jest.setTimeout(120 * 1000);
 
-const ODOO_ORIGIN = "https://odoo.eden.mizonaecologica.es";
 const ODOO_CATALOG_PATH = "/json/2/mze.medusa.bridge/read_catalog_batch";
+const ODOO_BASE_URL = requireContractValue("ODOO_BASE_URL");
+const ODOO_DATABASE = requireContractValue("ODOO_DATABASE");
+const ODOO_API_KEY = requireContractValue("ODOO_API_KEY");
 const TEMPLATE_INTEGRATION_KEY = "3f8c5e48-4aa9-4a77-b4f4-1f9ff22e1182";
 const VARIANT_INTEGRATION_KEY = "5aa969c0-8eb2-4a68-a093-8e0f9bd66f52";
+
+function requireContractValue(name: "ODOO_API_KEY" | "ODOO_BASE_URL" | "ODOO_DATABASE"): string {
+  const value = process.env[name];
+  if (!value) {
+    throw new Error(`The Catalog intake test requires ${name}.`);
+  }
+
+  return value;
+}
 
 const CatalogImportResponseSchema = z.object({
   product: z.object({
@@ -128,12 +139,12 @@ let beforeOdooRequest: (() => Promise<void>) | undefined;
 const odooFetch: typeof globalThis.fetch = async (input, init) => {
   const request = new Request(input, init);
   odooCalls.push(request);
-  if (request.url !== `${ODOO_ORIGIN}${ODOO_CATALOG_PATH}` || request.method !== "POST") {
+  if (request.url !== `${ODOO_BASE_URL}${ODOO_CATALOG_PATH}` || request.method !== "POST") {
     throw new Error(`Unexpected Odoo request to ${request.method} ${request.url}.`);
   }
   if (
-    request.headers.get("authorization") !== "Bearer test-placeholder-api-key" ||
-    request.headers.get("x-odoo-database") !== "odoo"
+    request.headers.get("authorization") !== `Bearer ${ODOO_API_KEY}` ||
+    request.headers.get("x-odoo-database") !== ODOO_DATABASE
   ) {
     throw new Error("The Odoo request did not use the Service User credentials.");
   }
