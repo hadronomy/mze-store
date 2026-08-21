@@ -56,6 +56,16 @@ RUN rm -rf \
   /app/node_modules/@esbuild \
   /app/node_modules/esbuild
 
+# Effect publishes its TypeScript source, declarations, and agent documentation
+# beside the runtime. Keep JavaScript source maps for production stack traces.
+RUN rm -rf \
+  /app/node_modules/effect/AGENTS.md \
+  /app/node_modules/effect/CLAUDE.md \
+  /app/node_modules/effect/ai-docs \
+  /app/node_modules/effect/src \
+  && find /app/node_modules/effect/dist -type f \
+    \( -name '*.d.ts' -o -name '*.d.ts.map' \) -delete
+
 FROM node:24-bookworm-slim@sha256:3638d9a6fe4030bd716be989438248074489337ba3275657f93595428be4fc03 AS runtime
 ENV NODE_ENV=production \
   HOST=0.0.0.0 \

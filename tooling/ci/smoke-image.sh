@@ -42,6 +42,7 @@ case "$image_name" in
       --env "AUTH_CORS=http://127.0.0.1:3001,http://127.0.0.1:9000"
       --env "JWT_SECRET=ci-medusa-jwt-secret-32-characters"
       --env "COOKIE_SECRET=ci-medusa-cookie-secret-32-characters"
+      --env "ODOO_API_KEY=ci-placeholder-api-key"
       --env "STRIPE_API_KEY=sk_test_ci"
     )
 

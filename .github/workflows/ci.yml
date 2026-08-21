@@ -12,6 +12,9 @@ permissions:
   contents: read
 
 env:
+  # The smoke test does not call Odoo, but Varlock validates the Service User
+  # credential before Medusa starts.
+  ODOO_API_KEY: ci-placeholder-api-key
   STRIPE_API_KEY: sk_test_ci
   # Runners do not read mise.toml, so the repository-wide opt-out is repeated
   # here. See the [env] block in mise.toml.

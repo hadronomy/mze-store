@@ -1,0 +1,9 @@
+{
+  "extends": "@mze-store/config/tsconfig.esm.json",
+  "compilerOptions": {
+    "paths": {
+      "~/*": ["./src/*"]
+    }
+  },
+  "exclude": ["dist", "vite.config.ts"]
+}

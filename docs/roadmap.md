@@ -86,6 +86,9 @@ Do **not** wire the stock `removeCustomerAccountWorkflow` — it soft-deletes an
 
 Moved out of "Later". Odoo is now on the launch path: you cannot sell without invoicing, and Odoo issues (ADR-0017).
 
+- Read-only Odoo JSON-2 gate through `mze_medusa_bridge`, with a private route,
+  Service User API key from OpenBao, and a typed normalized catalog fixture
+  (ADR-0030)
 - `SyncRecord` model, workflow, and admin queue — push Order to Odoo on payment capture, durable and retryable, failures visible
 - Odoo web numbering series, kept gapless independently of shop and POS
 - Invoice payload endpoint: Medusa reads Odoo's issued figures

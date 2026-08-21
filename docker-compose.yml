@@ -33,6 +33,9 @@ x-medusa-env: &medusa-env
   # Supply this through the shell or the root .env file. The backend rejects an
   # empty value before it starts.
   STRIPE_API_KEY: ${STRIPE_API_KEY:-}
+  # OpenBao or the deployment secret supplies this Service User credential.
+  # Keep the empty fallback so a missing credential stops Medusa at startup.
+  ODOO_API_KEY: ${ODOO_API_KEY:-}
 
 services:
   storefront:

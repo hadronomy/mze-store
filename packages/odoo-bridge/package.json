@@ -1,0 +1,49 @@
+{
+  "name": "@mze-store/odoo-bridge",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.mts",
+        "default": "./dist/index.mjs"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    },
+    "./effect": {
+      "import": {
+        "types": "./dist/effect.d.mts",
+        "default": "./dist/effect.mjs"
+      },
+      "require": {
+        "types": "./dist/effect.d.cts",
+        "default": "./dist/effect.cjs"
+      }
+    },
+    "./contract": {
+      "import": {
+        "types": "./dist/contract.d.mts",
+        "default": "./dist/contract.mjs"
+      },
+      "require": {
+        "types": "./dist/contract.d.cts",
+        "default": "./dist/contract.cjs"
+      }
+    }
+  },
+  "scripts": {
+    "test": "vp run build && vp test --dir test"
+  },
+  "dependencies": {
+    "effect": "4.0.0-rc.109"
+  },
+  "devDependencies": {
+    "@mze-store/config": "workspace:*",
+    "@types/node": "catalog:",
+    "typescript": "catalog:"
+  }
+}

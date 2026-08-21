@@ -26,6 +26,7 @@ type Workflow = {
     readonly "cancel-in-progress"?: boolean;
     readonly group?: string;
   };
+  readonly env?: Readonly<Record<string, boolean | number | string>>;
   readonly jobs?: Readonly<Record<string, Job>>;
   readonly on?: Readonly<
     Record<
@@ -191,6 +192,8 @@ it("pins CI inputs and validates workflow and container definitions", async () =
   expect(compose).toMatch(/postgres:18@sha256:[a-f0-9]{64}/u);
   expect(compose).toMatch(/redis:8-alpine@sha256:[a-f0-9]{64}/u);
   expect(compose).toContain('command: ["/app/node_modules/.bin/medusa", "db:migrate"]');
+  expect(compose).toContain("ODOO_API_KEY: ${ODOO_API_KEY:-}");
+  expect(ci.env?.ODOO_API_KEY).toBe("ci-placeholder-api-key");
   expect(workflows).toMatch(/node:24\.18\.1-bookworm@sha256:[a-f0-9]{64}/u);
   expect(dependabot).toContain("package-ecosystem: docker-compose");
 
@@ -247,6 +250,7 @@ it("builds and smokes exact platform digests on native runners", async () => {
   expect(bake).not.toContain('tags       = ["${REGISTRY}/mze-store-storefront:${REVISION}"]');
   expect(buildPolicy).toContain("docker image inspect");
   expect(buildPolicy).toContain("/app/node_modules/.bin/medusa db:migrate");
+  expect(smoke).toContain('--env "ODOO_API_KEY=ci-placeholder-api-key"');
   expect(buildPolicy).toContain("/health");
   expect(buildPolicy).toContain("/app");
   expect(buildPolicy).toContain("imagetools create");
