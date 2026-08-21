@@ -14,6 +14,7 @@ export type {
   ReadCatalogBatchResult,
 } from "./client";
 export {
+  decodeSourceRevision,
   ODOO_BRIDGE_METHOD,
   ODOO_BRIDGE_MODEL,
   ODOO_BRIDGE_MODULE,
@@ -43,5 +44,6 @@ export type {
   OdooTemplateAttributeValueId,
   OdooVariantId,
   SourceRevision,
+  SourceRevisionEncoded,
 } from "./contract";
 export * from "./error";

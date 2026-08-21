@@ -145,6 +145,25 @@ The root client returns Effect `Result` values for configuration, remote,
 cancellation, and closure failures. Unknown defects reject the Promise. The
 `/effect` entry exposes the same operations with exact Effect error channels.
 
+The authenticated Admin intake route imports one Catalog Item at a time. It
+creates and updates a durable Sync Record outside compensation. It then runs
+the Product, Variant, option, Mapping, and link writes in one compensating
+Medusa workflow:
+
+```
+POST /admin/odoo/catalog-imports
+  └─ durable Sync Record
+       └─ Odoo Catalog Batch read (limit 1)
+            └─ draft Product + Variant + hidden Configuration option
+                 └─ template and Variant Catalog Mappings + module links
+```
+
+The operation ID and request fingerprint control replay. A completed operation
+returns its existing IDs without another Odoo call. A failed operation returns
+the same stored failure; the Operator uses a new operation ID after source
+repair. The Store Product and Cart paths read Medusa data only and never
+resolve the Odoo bridge.
+
 The rollout gate checks the machine documentation, the documented bridge method, and one catalog item in that order. If any check fails, it exits with an `ODOO_ROLLOUT_BLOCKER` and no write path is available. See [`docs/runbooks/odoo-json2-gate.md`](./runbooks/odoo-json2-gate.md) and ADR-0030.
 
 ## Layer discipline
@@ -155,4 +174,4 @@ Medusa's rule, and it is not optional:
 Module (data + CRUD)  →  Workflow (business logic, compensation)  →  API route (HTTP)  →  Storefront
 ```
 
-Mutations go through workflows. Routes validate and delegate. Business logic in a route is a defect, not a shortcut. Custom endpoints belong in `apps/medusa/src/api/store/*` — there is no parallel API layer. See ADR-0002.
+Mutations go through workflows. Routes validate and delegate. Business logic in a route is a defect, not a shortcut. Custom endpoints belong under `apps/medusa/src/api/admin/*` or `apps/medusa/src/api/store/*` — there is no parallel API layer. See ADR-0002.

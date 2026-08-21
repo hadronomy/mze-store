@@ -6,6 +6,10 @@ An oRPC layer in front of Medusa creates a second API surface that bypasses the 
 
 ## Consequences
 
-Custom endpoints live in the Medusa backend under `src/api/store/*`, where they inherit the workflow engine and middleware by default. Anything the storefront needs that Medusa doesn't expose is a Medusa API route, not a parallel service.
+Custom endpoints live in the Medusa backend. Shopper-facing endpoints belong
+under `src/api/store/*`. Authenticated Operator endpoints belong under
+`src/api/admin/*`. Both use Medusa workflows, modules, and middleware. Anything
+the Storefront needs that Medusa does not expose is a Medusa Store API route,
+not a parallel service.
 
 This is worth re-reading before anyone reintroduces a general-purpose RPC layer for "app concerns." Nothing in scope today qualifies.
