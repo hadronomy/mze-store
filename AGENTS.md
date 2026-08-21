@@ -5,6 +5,12 @@ code, tests, commits, and documentation. Read [`docs/architecture.md`](./docs/ar
 and the relevant records in [`docs/adr/`](./docs/adr/) before you change a
 boundary.
 
+Before you design or change any public or private code interface, read and
+apply [`docs/agents/api-design.md`](./docs/agents/api-design.md). This includes
+module boundaries, package exports, services, adapters, options, errors, and
+lifecycle contracts. If the interface uses an Effect primitive, also read and
+apply [`docs/agents/effect-api-design.md`](./docs/agents/effect-api-design.md).
+
 ## Toolchain
 
 - Mise pins Node 24.18.1 and Bun 1.3.14 in [`mise.toml`](./mise.toml).
