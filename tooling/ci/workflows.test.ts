@@ -250,6 +250,7 @@ it("builds and smokes exact platform digests on native runners", async () => {
   expect(bake).not.toContain('tags       = ["${REGISTRY}/mze-store-storefront:${REVISION}"]');
   expect(buildPolicy).toContain("docker image inspect");
   expect(buildPolicy).toContain("/app/node_modules/.bin/medusa db:migrate");
+  expect(smoke).toContain('--env "ODOO_API_KEY=ci-placeholder-api-key"');
   expect(buildPolicy).toContain("/health");
   expect(buildPolicy).toContain("/app");
   expect(buildPolicy).toContain("imagetools create");
