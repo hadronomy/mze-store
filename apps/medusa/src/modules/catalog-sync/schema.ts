@@ -15,3 +15,26 @@ export const CatalogImportRequestSchema = z.object({
 });
 
 export type CatalogImportRequest = z.infer<typeof CatalogImportRequestSchema>;
+
+const CatalogCursorSchema = z.object({
+  changedAt: z.string().datetime({ offset: true }),
+  productId: z.number().int().positive(),
+});
+
+export const CatalogSynchronizationResultSchema = z.object({
+  syncRecordId: z.string(),
+  productId: z.string(),
+  templateCatalogMappingId: z.string(),
+  variants: z.array(
+    z.object({
+      integrationKey: z.string().uuid(),
+      odooVariantId: z.number().int().positive(),
+      medusaVariantId: z.string(),
+      catalogMappingId: z.string(),
+      disposition: z.enum(["created", "updated", "unchanged", "archived", "reactivated"]),
+      availability: z.enum(["available", "unavailable"]),
+    }),
+  ),
+  sourceRevision: CatalogCursorSchema,
+  nextCursor: CatalogCursorSchema.nullable(),
+});
