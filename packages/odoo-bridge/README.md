@@ -52,7 +52,27 @@ The asynchronous client has three methods:
 Expected failures fulfill with `Result.Failure`. Use `Result.isFailure`, then
 narrow `failure._tag`. Caller cancellation returns `OdooBridgeCallAborted`.
 Runtime closure returns `OdooBridgeClientClosed`. Unknown implementation
-defects reject the Promise.
+defects reject the Promise. If Odoo returns a structured JSON-2 error,
+`OdooRequestRejected` keeps its HTTP status, Python exception name, and reason.
+
+## Catalog Batch
+
+Each Catalog Batch identifies the public price list, its ISO currency, and the
+time at which Odoo resolved prices. It returns no more than 100 Products. Each
+Product contains:
+
+- its immutable Odoo Integration Key, Odoo ID, Source Revision, name,
+  description, archive state, and sale state;
+- stable attribute, attribute-value, and template-value IDs;
+- the ordered tax rules, grouped-tax identity, base behavior, and Product image
+  reference;
+- every Variant, including archived or unsaleable Variants;
+- each Variant's immutable Odoo Integration Key, internal reference, barcode,
+  stable attribute-value IDs, image reference, and resolved price-list price.
+
+The resolved price follows Odoo's per-Variant price behavior. The contract does
+not include the POS `review_needed` field. Use `active` and `saleOk` for catalog
+publication decisions.
 
 ## Native Effect service
 

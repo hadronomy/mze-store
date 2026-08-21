@@ -19,8 +19,10 @@ The addon exposes:
   `api.readonly`;
 - immutable Odoo Integration Keys on Product and Variant;
 - a normalized catalog response with a bounded page size and Source Revision
-  cursor. The revision uses the latest Product or Variant `write_date`, so a
-  Variant-only change advances the read.
+  cursor. The revision uses the latest relevant Product, Variant, attribute,
+  tax, currency, price-list, or active price-list boundary change;
+- archived and unsaleable records, stable attribute IDs, tax inputs, media
+  references, and resolved per-Variant prices from the public price list.
 
 The Medusa package:
 
@@ -29,6 +31,7 @@ The Medusa package:
 - validates the machine documentation before it reads one catalog item;
 - exposes a native Effect service and a Result client over the same service;
 - gives each operation an exact union of schema-backed tagged failures;
+- preserves Odoo's structured error name and reason for rejected requests;
 - fails with `ODOO_ROLLOUT_BLOCKER` when the private route, documented method, authentication, or response contract is unavailable.
 
 The API key belongs to a dedicated Odoo Service User with the bridge documentation and read access only. OpenBao is the source of truth for the key. The public customer hostname, an Operator password, and a database password are not valid credentials for this link.

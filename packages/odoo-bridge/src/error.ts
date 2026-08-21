@@ -1,5 +1,7 @@
 import { Schema } from "effect";
 
+import { CatalogRecordReferenceSchema, OdooIntegrationKeySchema } from "./contract";
+
 export class InvalidApiKey extends Schema.TaggedError<InvalidApiKey>()("InvalidApiKey", {}) {
   override get message(): string {
     return "The Odoo API key must not be empty.";
@@ -64,6 +66,19 @@ export class UnexpectedStatus extends Schema.TaggedError<UnexpectedStatus>()("Un
   }
 }
 
+export class OdooRequestRejected extends Schema.TaggedError<OdooRequestRejected>()(
+  "OdooRequestRejected",
+  {
+    exception: Schema.NonEmptyString,
+    reason: Schema.NonEmptyString,
+    status: Schema.Int,
+  },
+) {
+  override get message(): string {
+    return `Odoo rejected the request with ${this.exception}: ${this.reason}`;
+  }
+}
+
 export class RequestTimedOut extends Schema.TaggedError<RequestTimedOut>()("RequestTimedOut", {}) {
   override get message(): string {
     return "The Odoo request exceeded its timeout.";
@@ -82,6 +97,19 @@ export class InvalidCatalogBatchResponse extends Schema.TaggedError<InvalidCatal
 ) {
   override get message(): string {
     return "The Odoo Catalog Batch response does not match its schema.";
+  }
+}
+
+export class AmbiguousCatalogIdentity extends Schema.TaggedError<AmbiguousCatalogIdentity>()(
+  "AmbiguousCatalogIdentity",
+  {
+    integrationKey: OdooIntegrationKeySchema,
+    records: Schema.NonEmptyArray(CatalogRecordReferenceSchema),
+  },
+) {
+  override get message(): string {
+    const records = this.records.map(({ id, model }) => `${model}:${id}`).join(", ");
+    return `Odoo Integration Key ${this.integrationKey} belongs to multiple records: ${records}.`;
   }
 }
 
@@ -165,6 +193,7 @@ export type ConfigurationError =
 
 export type RequestError =
   | AuthenticationFailed
+  | OdooRequestRejected
   | PermissionDenied
   | RequestTimedOut
   | TransportFailed
@@ -176,11 +205,13 @@ export type InvalidResponseError =
   | InvalidModelDocumentationResponse;
 
 export type ReadCatalogBatchError =
+  | AmbiguousCatalogIdentity
   | InvalidCatalogBatchInput
   | InvalidCatalogBatchResponse
   | RequestError;
 
 export type CheckContractError =
+  | AmbiguousCatalogIdentity
   | BridgeContractMissing
   | BridgeContractNotModel
   | BridgeContractNotReadonly
@@ -199,6 +230,7 @@ export type OdooBridgeError =
   | ReadCatalogBatchError;
 
 const OdooBridgeErrorSchema = Schema.Union([
+  AmbiguousCatalogIdentity,
   AuthenticationFailed,
   BridgeContractMissing,
   BridgeContractNotModel,
@@ -213,6 +245,7 @@ const OdooBridgeErrorSchema = Schema.Union([
   InvalidRequestTimeout,
   OdooBridgeCallAborted,
   OdooBridgeClientClosed,
+  OdooRequestRejected,
   PermissionDenied,
   PrivateOdooRouteRequired,
   RequestTimedOut,

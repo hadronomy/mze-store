@@ -3,6 +3,7 @@ import { HttpClient, HttpClientRequest, HttpClientResponse } from "effect/unstab
 
 import {
   AuthenticationFailed,
+  OdooRequestRejected,
   PermissionDenied,
   RequestTimedOut,
   TransportFailed,
@@ -11,6 +12,11 @@ import {
   type RequestError,
 } from "~/error";
 import type { Settings } from "./options";
+
+const OdooErrorResponseSchema = Schema.Struct({
+  message: Schema.NonEmptyString,
+  name: Schema.NonEmptyString,
+});
 
 export function configureHttpClient(
   client: HttpClient.HttpClient,
@@ -46,7 +52,7 @@ export function executeJson<
       .pipe(Effect.mapError(() => new TransportFailed({})));
 
     if (response.status < 200 || response.status >= 300) {
-      return yield* statusError(response.status);
+      return yield* responseError(response);
     }
 
     return yield* HttpClientResponse.schemaBodyJson(responseSchema)(response).pipe(
@@ -58,8 +64,17 @@ export function executeJson<
   );
 }
 
-function statusError(status: number): RequestError {
+function responseError(
+  response: HttpClientResponse.HttpClientResponse,
+): Effect.Effect<never, RequestError> {
+  const status = response.status;
   if (status === 401) return new AuthenticationFailed({ status });
   if (status === 403) return new PermissionDenied({ status });
-  return new UnexpectedStatus({ status });
+
+  return HttpClientResponse.schemaBodyJson(OdooErrorResponseSchema)(response).pipe(
+    Effect.mapError(() => new UnexpectedStatus({ status })),
+    Effect.flatMap(
+      ({ message, name }) => new OdooRequestRejected({ exception: name, reason: message, status }),
+    ),
+  );
 }

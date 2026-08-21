@@ -1,5 +1,6 @@
 export * from "./contract";
 export {
+  AmbiguousCatalogIdentity,
   AuthenticationFailed,
   BridgeContractMissing,
   BridgeContractNotModel,
@@ -12,6 +13,7 @@ export {
   InvalidDocumentationIndexResponse,
   InvalidModelDocumentationResponse,
   InvalidRequestTimeout,
+  OdooRequestRejected,
   PermissionDenied,
   PrivateOdooRouteRequired,
   RequestTimedOut,

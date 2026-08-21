@@ -33,8 +33,16 @@ POST /json/2/mze.medusa.bridge/read_catalog_batch
 The JSON-2 body is a bounded page request. The first check sends
 `{"limit":1,"cursor":null}`. The response must match contract
 `mze.odoo.catalog.v1` and include one normalized Product and Variant fixture.
-The Source Revision cursor advances from the latest Product or Variant
-`write_date`.
+The Source Revision cursor advances from the latest relevant catalog source.
+These sources include the Product, its Variants, attributes, attribute values,
+taxes, the public price list, its rules, active rule boundaries, and its
+currency.
+
+The fixture must include the public price-list identity and currency, tax
+inputs, stable attribute IDs, image references, and resolved Variant prices.
+Archived and unsaleable records remain in the fixture. The gate must fail if
+an Odoo Integration Key is missing, malformed, or used by more than one
+record.
 
 ## Credentials
 
