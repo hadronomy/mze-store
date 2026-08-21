@@ -8,7 +8,7 @@ import {
   ODOO_BRIDGE_METHOD,
   ODOO_BRIDGE_MODEL,
   ODOO_BRIDGE_MODULE,
-  type CatalogBatch,
+  type CatalogBatchEncoded,
 } from "~/contract";
 import { OdooBridge } from "~/effect";
 import type { Options } from "~/index";
@@ -23,75 +23,199 @@ const catalogWire = {
   contract_version: "mze.odoo.catalog.v1",
   items: [
     {
+      source_revision: { id: 352, write_date: "2026-08-09T12:00:00Z" },
       template: {
         active: true,
-        currency: "EUR",
+        attributes: [
+          {
+            id: 11,
+            name: "Colour",
+            values: [
+              { id: 21, name: "Amber", template_value_id: 31 },
+              { id: 22, name: "Clear", template_value_id: 32 },
+            ],
+            variant_creation_mode: "always",
+          },
+          {
+            id: 12,
+            name: "Gift message",
+            values: [{ id: 23, name: "Included", template_value_id: 33 }],
+            variant_creation_mode: "never",
+          },
+        ],
         description: null,
         id: 352,
         integration_key: "3f8c5e48-4aa9-4a77-b4f4-1f9ff22e1182",
+        media: [
+          {
+            field: "image_1920",
+            model: "product.template",
+            record_id: 352,
+            write_date: "2026-08-08T11:40:28Z",
+          },
+        ],
         model: "product.template",
         name: "A-TOPIC GEL",
-        price: "20.75",
         sale_ok: true,
-        tax_ids: [1],
+        taxes: [
+          {
+            amount: "7.0000",
+            amount_type: "percent",
+            id: 1,
+            include_base_amount: false,
+            is_base_affected: true,
+            name: "IGIC 7%",
+            parent_tax_id: null,
+            price_included: true,
+            sequence: 1,
+          },
+        ],
         write_date: "2026-08-08T11:40:28Z",
       },
       variants: [
         {
           active: true,
-          attribute_values: [],
+          attribute_values: [{ attribute_id: 11, value_id: 21 }],
           barcode: "8412345678901",
           default_code: "ATOPIC-001",
           id: 823,
           integration_key: "5aa969c0-8eb2-4a68-a093-8e0f9bd66f52",
+          media: [],
           model: "product.product",
-          name: "A-TOPIC GEL",
+          name: "A-TOPIC GEL (Amber)",
           price: "20.75",
+          price_rule_id: null,
           sale_ok: true,
           write_date: "2026-08-08T11:40:28Z",
+        },
+        {
+          active: false,
+          attribute_values: [{ attribute_id: 11, value_id: 22 }],
+          barcode: null,
+          default_code: "ATOPIC-002",
+          id: 824,
+          integration_key: "a3470647-b7cd-47e4-b038-77f8a4bfe24c",
+          media: [
+            {
+              field: "image_variant_1920",
+              model: "product.product",
+              record_id: 824,
+              write_date: "2026-08-09T12:00:00Z",
+            },
+          ],
+          model: "product.product",
+          name: "A-TOPIC GEL (Clear)",
+          price: "22.50",
+          price_rule_id: 47,
+          sale_ok: false,
+          write_date: "2026-08-09T12:00:00Z",
         },
       ],
     },
   ],
   next_cursor: null,
-} as const;
+  price_list: { currency: "EUR", id: 1, name: "Public Pricelist" },
+  priced_at: "2026-08-10T09:30:00Z",
+} as const satisfies CatalogBatchEncoded;
 
 const catalog = {
   contractVersion: "mze.odoo.catalog.v1",
   items: [
     {
+      sourceRevision: { changedAt: "2026-08-09T12:00:00Z", productId: 352 },
       template: {
         active: true,
-        currency: "EUR",
+        attributes: [
+          {
+            id: 11,
+            name: "Colour",
+            values: [
+              { id: 21, name: "Amber", templateValueId: 31 },
+              { id: 22, name: "Clear", templateValueId: 32 },
+            ],
+            variantCreationMode: "always",
+          },
+          {
+            id: 12,
+            name: "Gift message",
+            values: [{ id: 23, name: "Included", templateValueId: 33 }],
+            variantCreationMode: "never",
+          },
+        ],
         description: null,
         id: 352,
         integrationKey: "3f8c5e48-4aa9-4a77-b4f4-1f9ff22e1182",
+        media: [
+          {
+            field: "image_1920",
+            model: "product.template",
+            recordId: 352,
+            writeDate: "2026-08-08T11:40:28Z",
+          },
+        ],
         model: "product.template",
         name: "A-TOPIC GEL",
-        price: "20.75",
         saleOk: true,
-        taxIds: [1],
+        taxes: [
+          {
+            amount: "7.0000",
+            amountType: "percent",
+            id: 1,
+            includeBaseAmount: false,
+            isBaseAffected: true,
+            name: "IGIC 7%",
+            parentTaxId: null,
+            priceIncluded: true,
+            sequence: 1,
+          },
+        ],
         writeDate: "2026-08-08T11:40:28Z",
       },
       variants: [
         {
           active: true,
-          attributeValues: [],
+          attributeValues: [{ attributeId: 11, valueId: 21 }],
           barcode: "8412345678901",
           id: 823,
           integrationKey: "5aa969c0-8eb2-4a68-a093-8e0f9bd66f52",
           internalReference: "ATOPIC-001",
+          media: [],
           model: "product.product",
-          name: "A-TOPIC GEL",
+          name: "A-TOPIC GEL (Amber)",
           price: "20.75",
+          priceRuleId: null,
           saleOk: true,
           writeDate: "2026-08-08T11:40:28Z",
+        },
+        {
+          active: false,
+          attributeValues: [{ attributeId: 11, valueId: 22 }],
+          barcode: null,
+          id: 824,
+          integrationKey: "a3470647-b7cd-47e4-b038-77f8a4bfe24c",
+          internalReference: "ATOPIC-002",
+          media: [
+            {
+              field: "image_variant_1920",
+              model: "product.product",
+              recordId: 824,
+              writeDate: "2026-08-09T12:00:00Z",
+            },
+          ],
+          model: "product.product",
+          name: "A-TOPIC GEL (Clear)",
+          price: "22.50",
+          priceRuleId: 47,
+          saleOk: false,
+          writeDate: "2026-08-09T12:00:00Z",
         },
       ],
     },
   ],
   nextCursor: null,
-} as const satisfies CatalogBatch;
+  priceList: { currency: "EUR", id: 1, name: "Public Pricelist" },
+  pricedAt: "2026-08-10T09:30:00Z",
+} as const;
 
 type JsonValue =
   | boolean
@@ -259,6 +383,22 @@ describe("Odoo bridge client", () => {
     await expect(queued.calls[1]?.json()).resolves.toEqual({ cursor: null, limit: 100 });
   });
 
+  it("uses an Item Source Revision as the next read cursor", async () => {
+    const { client, queued } = bridge({}, [response(catalogWire), response(catalogWire)]);
+    await using disposable = client;
+
+    const first = Result.getOrThrow(await disposable.readCatalogBatch());
+    const item = first.items[0];
+    if (item === undefined)
+      throw new Error("Expected the Catalog Batch fixture to contain an Item");
+    Result.getOrThrow(await disposable.readCatalogBatch({ cursor: item.sourceRevision }));
+
+    await expect(queued.calls[1]?.json()).resolves.toEqual({
+      cursor: { id: 352, write_date: "2026-08-09T12:00:00Z" },
+      limit: 100,
+    });
+  });
+
   it("rejects an invalid Catalog Batch input before it makes a request", async () => {
     const { client, queued } = bridge({}, []);
     await using disposable = client;
@@ -307,9 +447,8 @@ describe("Odoo bridge client", () => {
   it("rejects an empty catalog fixture", async () => {
     const { client } = bridge({}, [
       ...contractResponses({
-        contract_version: "mze.odoo.catalog.v1",
+        ...catalogWire,
         items: [],
-        next_cursor: null,
       }),
     ]);
     await using disposable = client;
@@ -335,6 +474,32 @@ describe("Odoo bridge client", () => {
     expect(queued.calls).toHaveLength(1);
   });
 
+  it("keeps an actionable Odoo error response", async () => {
+    const { client } = bridge({}, [
+      response(
+        {
+          arguments: ["product.product record 823 has a malformed Odoo Integration Key."],
+          context: {},
+          debug: "omitted from the public error",
+          message: "product.product record 823 has a malformed Odoo Integration Key.",
+          name: "odoo.exceptions.ValidationError",
+        },
+        422,
+      ),
+    ]);
+    await using disposable = client;
+
+    await expect(disposable.readCatalogBatch()).resolves.toMatchObject({
+      _tag: "Failure",
+      failure: {
+        _tag: "OdooRequestRejected",
+        exception: "odoo.exceptions.ValidationError",
+        reason: "product.product record 823 has a malformed Odoo Integration Key.",
+        status: 422,
+      },
+    });
+  });
+
   it("rejects a response that does not match the Bridge Contract", async () => {
     const { client } = bridge({}, [response({ items: [] })]);
     await using disposable = client;
@@ -342,6 +507,37 @@ describe("Odoo bridge client", () => {
     await expect(disposable.readCatalogBatch()).resolves.toMatchObject({
       _tag: "Failure",
       failure: { _tag: "InvalidCatalogBatchResponse" },
+    });
+  });
+
+  it("reports an Odoo Integration Key used by two Variants", async () => {
+    const firstVariant = catalogWire.items[0].variants[0];
+    const secondVariant = catalogWire.items[0].variants[1];
+    const ambiguousCatalog = {
+      ...catalogWire,
+      items: [
+        {
+          ...catalogWire.items[0],
+          variants: [
+            firstVariant,
+            { ...secondVariant, integration_key: firstVariant.integration_key },
+          ],
+        },
+      ],
+    };
+    const { client } = bridge({}, [response(ambiguousCatalog)]);
+    await using disposable = client;
+
+    await expect(disposable.readCatalogBatch()).resolves.toMatchObject({
+      _tag: "Failure",
+      failure: {
+        _tag: "AmbiguousCatalogIdentity",
+        integrationKey: firstVariant.integration_key,
+        records: [
+          { id: firstVariant.id, model: "product.product" },
+          { id: secondVariant.id, model: "product.product" },
+        ],
+      },
     });
   });
 

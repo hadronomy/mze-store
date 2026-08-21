@@ -21,12 +21,27 @@ export {
 } from "./contract";
 export type {
   BridgeContractCheck,
+  CatalogAttribute,
   CatalogAttributeValue,
   CatalogBatch,
   CatalogBatchInput,
   CatalogItem,
+  CatalogMediaReference,
+  CatalogPriceList,
+  CatalogRecordReference,
   CatalogTemplate,
+  CatalogTax,
   CatalogVariant,
+  CatalogVariantAttributeValue,
+  OdooAttributeId,
+  OdooAttributeValueId,
+  OdooIntegrationKey,
+  OdooPriceListId,
+  OdooPriceRuleId,
+  OdooProductId,
+  OdooTaxId,
+  OdooTemplateAttributeValueId,
+  OdooVariantId,
   SourceRevision,
 } from "./contract";
 export * from "./error";

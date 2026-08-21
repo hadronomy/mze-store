@@ -108,7 +108,7 @@ The typed request and response for one Odoo JSON-2 method. The first contract is
 _Avoid_: generic RPC, raw Odoo record, integration payload
 
 **Source Revision**:
-The latest Odoo Product or Variant `write_date` plus Product ID used as the cursor for a Catalog Batch. It lets Medusa continue a read when either record changes without changing Odoo records.
+The latest relevant catalog source change plus Product ID. It includes Product, Variant, attribute, tax, currency, price-list rule, and active price-list boundary changes. Medusa uses it as the cursor for a Catalog Batch without changing Odoo records.
 _Avoid_: sync token, checkpoint token, version number
 
 **Private Odoo Route**:

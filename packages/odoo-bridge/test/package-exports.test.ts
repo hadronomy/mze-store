@@ -27,6 +27,19 @@ for (const moduleType of ["module", "commonjs"] as const) {
               const root = await import(rootPath);
               const effect = await import(effectPath);
               const contract = await import(contractPath);
+              const EffectRuntime = await import("effect");
+              const nativeResult = EffectRuntime.Effect.runSync(
+                EffectRuntime.Effect.result(effect.OdooBridge.make({
+                  apiKey: EffectRuntime.Redacted.make(""),
+                  baseUrl: "https://odoo.eden.mizonaecologica.es",
+                  database: "odoo",
+                })),
+              );
+              const clientResult = root.createOdooBridge({
+                apiKey: "",
+                baseUrl: "https://odoo.eden.mizonaecologica.es",
+                database: "odoo",
+              });
               let promiseAvailable = true;
               try {
                 import.meta.resolve("@mze-store/odoo-bridge/promise");
@@ -41,6 +54,8 @@ for (const moduleType of ["module", "commonjs"] as const) {
                 errorType: typeof root.TransportFailed,
                 effectType: typeof effect.OdooBridge,
                 contractType: typeof contract.CatalogBatchSchema,
+                clientErrorTag: clientResult.failure?._tag,
+                nativeErrorTag: nativeResult.failure?._tag,
                 promiseAvailable,
                 resultType: typeof root.Result,
               }));
@@ -52,6 +67,19 @@ for (const moduleType of ["module", "commonjs"] as const) {
               const root = require(rootPath);
               const effect = require(effectPath);
               const contract = require(contractPath);
+              const EffectRuntime = require("effect");
+              const nativeResult = EffectRuntime.Effect.runSync(
+                EffectRuntime.Effect.result(effect.OdooBridge.make({
+                  apiKey: EffectRuntime.Redacted.make(""),
+                  baseUrl: "https://odoo.eden.mizonaecologica.es",
+                  database: "odoo",
+                })),
+              );
+              const clientResult = root.createOdooBridge({
+                apiKey: "",
+                baseUrl: "https://odoo.eden.mizonaecologica.es",
+                database: "odoo",
+              });
               let promiseAvailable = true;
               try {
                 require.resolve("@mze-store/odoo-bridge/promise");
@@ -66,12 +94,15 @@ for (const moduleType of ["module", "commonjs"] as const) {
                 errorType: typeof root.TransportFailed,
                 effectType: typeof effect.OdooBridge,
                 contractType: typeof contract.CatalogBatchSchema,
+                clientErrorTag: clientResult.failure?._tag,
+                nativeErrorTag: nativeResult.failure?._tag,
                 promiseAvailable,
                 resultType: typeof root.Result,
               }));
             `,
       ),
     ).toMatchObject({
+      clientErrorTag: "InvalidApiKey",
       clientType: "function",
       contractPath: expect.stringMatching(
         new RegExp(`/dist/contract\\.${moduleType === "module" ? "mjs" : "cjs"}$`),
@@ -82,6 +113,7 @@ for (const moduleType of ["module", "commonjs"] as const) {
         new RegExp(`/dist/effect\\.${moduleType === "module" ? "mjs" : "cjs"}$`),
       ),
       effectType: "object",
+      nativeErrorTag: "InvalidApiKey",
       promiseAvailable: false,
       resultType: "object",
       rootPath: expect.stringMatching(
