@@ -55,7 +55,6 @@ export default class CatalogSyncModuleService extends MedusaService({
 }) {
   readonly #options: CatalogSyncModuleOptions;
   #source: CatalogSource | undefined;
-  #sourcePromise: Promise<CatalogSource> | undefined;
   #ownedSource: CatalogSource | undefined;
 
   constructor(container: MedusaContainer, options: CatalogSyncModuleOptions) {
@@ -75,8 +74,7 @@ export default class CatalogSyncModuleService extends MedusaService({
     limit: 1;
     signal?: AbortSignal;
   }): Promise<ReadCatalogBatchResult> {
-    const source = await this.#resolveSource();
-    return source.readCatalogBatch(options);
+    return this.#resolveSource().readCatalogBatch(options);
   }
 
   async beginImport(input: BeginCatalogImportInput): Promise<BeginCatalogImportResult> {
@@ -696,20 +694,15 @@ export default class CatalogSyncModuleService extends MedusaService({
     return record;
   }
 
-  async #resolveSource(): Promise<CatalogSource> {
+  #resolveSource(): CatalogSource {
     if (this.#source) {
       return this.#source;
     }
-    if (this.#sourcePromise) {
-      return this.#sourcePromise;
-    }
 
-    this.#sourcePromise = createOdooCatalogSource(this.#options.odoo).then((source) => {
-      this.#ownedSource = source;
-      this.#source = source;
-      return source;
-    });
-    return this.#sourcePromise;
+    const source = createOdooCatalogSource(this.#options.odoo);
+    this.#ownedSource = source;
+    this.#source = source;
+    return source;
   }
 }
 

@@ -1,10 +1,13 @@
 import { MedusaError } from "@medusajs/framework/utils";
-import type { Options as OdooBridgeOptions } from "@mze-store/odoo-bridge";
+import {
+  createOdooBridge,
+  decodeSourceRevision,
+  type Options as OdooBridgeOptions,
+} from "@mze-store/odoo-bridge";
 import type { CatalogSource } from "./types";
 
-export async function createOdooCatalogSource(options: OdooBridgeOptions): Promise<CatalogSource> {
-  const bridge = await loadOdooBridge();
-  const result = bridge.createOdooBridge(options);
+export function createOdooCatalogSource(options: OdooBridgeOptions): CatalogSource {
+  const result = createOdooBridge(options);
   if (result._tag === "Failure") {
     throw new MedusaError(
       MedusaError.Types.INVALID_ARGUMENT,
@@ -19,7 +22,7 @@ export async function createOdooCatalogSource(options: OdooBridgeOptions): Promi
     readCatalogBatch: ({ cursor, limit, signal }) =>
       client.readCatalogBatch({
         cursor: cursor
-          ? bridge.decodeSourceRevision({
+          ? decodeSourceRevision({
               write_date: cursor.changedAt,
               id: cursor.productId,
             })
@@ -28,10 +31,4 @@ export async function createOdooCatalogSource(options: OdooBridgeOptions): Promi
         signal,
       }),
   };
-}
-
-function loadOdooBridge(): Promise<typeof import("@mze-store/odoo-bridge")> {
-  // Medusa and Jest load this Adapter as CommonJS, while Effect is ESM-only.
-  // Keep that interop detail at this boundary instead of spreading imports through the module.
-  return import("@mze-store/odoo-bridge");
 }
