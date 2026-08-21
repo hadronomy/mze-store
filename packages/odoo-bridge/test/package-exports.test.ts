@@ -4,55 +4,88 @@ import { expect, test } from "vite-plus/test";
 
 const packageDirectory = fileURLToPath(new URL("../", import.meta.url));
 
-function runNode(moduleType: "module" | "commonjs", source: string) {
+function runNode(moduleType: "module" | "commonjs", source: string): unknown {
   const output = execFileSync(process.execPath, [`--input-type=${moduleType}`, "--eval", source], {
     cwd: packageDirectory,
     encoding: "utf8",
     stdio: ["ignore", "pipe", "pipe"],
   });
 
-  return JSON.parse(output) as Record<string, string>;
+  return JSON.parse(output);
 }
 
 for (const moduleType of ["module", "commonjs"] as const) {
-  test(`the ${moduleType} package edges load from packed output`, () => {
+  test(`the ${moduleType} package entries load from packed output`, () => {
     expect(
       runNode(
         moduleType,
         moduleType === "module"
           ? `
               const rootPath = import.meta.resolve("@mze-store/odoo-bridge");
-              const promisePath = import.meta.resolve("@mze-store/odoo-bridge/promise");
+              const effectPath = import.meta.resolve("@mze-store/odoo-bridge/effect");
+              const contractPath = import.meta.resolve("@mze-store/odoo-bridge/contract");
               const root = await import(rootPath);
-              const promise = await import(promisePath);
+              const effect = await import(effectPath);
+              const contract = await import(contractPath);
+              let promiseAvailable = true;
+              try {
+                import.meta.resolve("@mze-store/odoo-bridge/promise");
+              } catch {
+                promiseAvailable = false;
+              }
               process.stdout.write(JSON.stringify({
                 rootPath,
-                promisePath,
-                bridgeType: typeof root.OdooBridge,
-                promiseType: typeof promise.createPromiseBridge,
+                effectPath,
+                contractPath,
+                clientType: typeof root.createOdooBridge,
+                errorType: typeof root.TransportFailed,
+                effectType: typeof effect.OdooBridge,
+                contractType: typeof contract.CatalogBatchSchema,
+                promiseAvailable,
+                resultType: typeof root.Result,
               }));
             `
           : `
               const rootPath = require.resolve("@mze-store/odoo-bridge");
-              const promisePath = require.resolve("@mze-store/odoo-bridge/promise");
+              const effectPath = require.resolve("@mze-store/odoo-bridge/effect");
+              const contractPath = require.resolve("@mze-store/odoo-bridge/contract");
               const root = require(rootPath);
-              const promise = require(promisePath);
+              const effect = require(effectPath);
+              const contract = require(contractPath);
+              let promiseAvailable = true;
+              try {
+                require.resolve("@mze-store/odoo-bridge/promise");
+              } catch {
+                promiseAvailable = false;
+              }
               process.stdout.write(JSON.stringify({
                 rootPath,
-                promisePath,
-                bridgeType: typeof root.OdooBridge,
-                promiseType: typeof promise.createPromiseBridge,
+                effectPath,
+                contractPath,
+                clientType: typeof root.createOdooBridge,
+                errorType: typeof root.TransportFailed,
+                effectType: typeof effect.OdooBridge,
+                contractType: typeof contract.CatalogBatchSchema,
+                promiseAvailable,
+                resultType: typeof root.Result,
               }));
             `,
       ),
     ).toMatchObject({
-      bridgeType: "function",
-      promiseType: "function",
+      clientType: "function",
+      contractPath: expect.stringMatching(
+        new RegExp(`/dist/contract\\.${moduleType === "module" ? "mjs" : "cjs"}$`),
+      ),
+      contractType: "function",
+      errorType: "function",
+      effectPath: expect.stringMatching(
+        new RegExp(`/dist/effect\\.${moduleType === "module" ? "mjs" : "cjs"}$`),
+      ),
+      effectType: "object",
+      promiseAvailable: false,
+      resultType: "object",
       rootPath: expect.stringMatching(
         new RegExp(`/dist/index\\.${moduleType === "module" ? "mjs" : "cjs"}$`),
-      ),
-      promisePath: expect.stringMatching(
-        new RegExp(`/dist/promise\\.${moduleType === "module" ? "mjs" : "cjs"}$`),
       ),
     });
   });

@@ -27,6 +27,8 @@ The Medusa package:
 - requires `ODOO_BASE_URL` to be the private Odoo route or an in-cluster Odoo service;
 - sends `Authorization: bearer <service-user-api-key>` and `X-Odoo-Database`;
 - validates the machine documentation before it reads one catalog item;
+- exposes a native Effect service and a Result client over the same service;
+- gives each operation an exact union of schema-backed tagged failures;
 - fails with `ODOO_ROLLOUT_BLOCKER` when the private route, documented method, authentication, or response contract is unavailable.
 
 The API key belongs to a dedicated Odoo Service User with the bridge documentation and read access only. OpenBao is the source of truth for the key. The public customer hostname, an Operator password, and a database password are not valid credentials for this link.

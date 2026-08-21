@@ -1,27 +1,25 @@
+import { Effect, Layer, Redacted, Result, Schema } from "effect";
+import { FetchHttpClient } from "effect/unstable/http";
 import { describe, expect, it } from "vite-plus/test";
 
+import { createOdooBridge } from "~/client";
 import {
+  CatalogBatchSchema,
   ODOO_BRIDGE_METHOD,
   ODOO_BRIDGE_MODEL,
-  OdooBridgeError,
-  isPrivateOdooEndpoint,
-} from "~/index";
-import { createPromiseBridge, type OdooPromiseBridgeOptions } from "~/promise";
-import type { OdooRequest } from "~/effect";
-import type { OdooCatalogBatch } from "~/contract";
+  ODOO_BRIDGE_MODULE,
+  type CatalogBatch,
+} from "~/contract";
+import { OdooBridge } from "~/effect";
+import type { Options } from "~/index";
 
-const config = {
+const options = {
   apiKey: "odoo-test-api-key",
   baseUrl: "https://odoo.eden.mizonaecologica.es",
   database: "odoo",
-} as const;
+} as const satisfies Options;
 
-const cursor = {
-  id: 824,
-  write_date: "2026-08-08T11:40:28Z",
-} as const;
-
-const catalog = {
+const catalogWire = {
   contract_version: "mze.odoo.catalog.v1",
   items: [
     {
@@ -58,6 +56,51 @@ const catalog = {
   next_cursor: null,
 } as const;
 
+const catalog = {
+  contractVersion: "mze.odoo.catalog.v1",
+  items: [
+    {
+      template: {
+        active: true,
+        currency: "EUR",
+        description: null,
+        id: 352,
+        integrationKey: "3f8c5e48-4aa9-4a77-b4f4-1f9ff22e1182",
+        model: "product.template",
+        name: "A-TOPIC GEL",
+        price: "20.75",
+        saleOk: true,
+        taxIds: [1],
+        writeDate: "2026-08-08T11:40:28Z",
+      },
+      variants: [
+        {
+          active: true,
+          attributeValues: [],
+          barcode: "8412345678901",
+          id: 823,
+          integrationKey: "5aa969c0-8eb2-4a68-a093-8e0f9bd66f52",
+          internalReference: "ATOPIC-001",
+          model: "product.product",
+          name: "A-TOPIC GEL",
+          price: "20.75",
+          saleOk: true,
+          writeDate: "2026-08-08T11:40:28Z",
+        },
+      ],
+    },
+  ],
+  nextCursor: null,
+} as const satisfies CatalogBatch;
+
+type JsonValue =
+  | boolean
+  | null
+  | number
+  | string
+  | ReadonlyArray<JsonValue>
+  | { readonly [key: string]: JsonValue };
+
 function response<T>(body: T, status = 200): Response {
   return new Response(JSON.stringify(body), {
     headers: { "Content-Type": "application/json" },
@@ -65,64 +108,125 @@ function response<T>(body: T, status = 200): Response {
   });
 }
 
-function requestQueue(responses: Response[]) {
-  const calls: Request[] = [];
-  const request: OdooRequest = async (input, init) => {
+function requestQueue(responses: ReadonlyArray<Response>) {
+  const calls: Array<Request> = [];
+  const remaining = [...responses];
+  const fetch: typeof globalThis.fetch = async (input, init) => {
     calls.push(new Request(input, init));
-    const next = responses.shift();
-    if (!next) throw new Error("Unexpected Odoo request");
+    const next = remaining.shift();
+    if (next === undefined) throw new Error("Unexpected Odoo request");
     return next;
   };
-  return { calls, request };
+  return { calls, fetch };
 }
 
-function verifiedResponses(fixture: OdooCatalogBatch = catalog): Response[] {
+function documentationIndexResponse(): Response {
+  return response({
+    models: [{ methods: [ODOO_BRIDGE_METHOD], model: ODOO_BRIDGE_MODEL }],
+    modules: ["api_doc", ODOO_BRIDGE_MODULE],
+  });
+}
+
+function contractResponses(fixture: JsonValue = catalogWire): Array<Response> {
   return [
+    documentationIndexResponse(),
     response({
-      models: [{ model: ODOO_BRIDGE_MODEL, methods: [ODOO_BRIDGE_METHOD] }],
-      modules: ["api_doc", "mze_medusa_bridge"],
-    }),
-    response({
-      model: ODOO_BRIDGE_MODEL,
       methods: { [ODOO_BRIDGE_METHOD]: { api: ["model", "readonly"] } },
+      model: ODOO_BRIDGE_MODEL,
     }),
     response(fixture),
   ];
 }
 
 function bridge(
-  options: Partial<OdooPromiseBridgeOptions> = {},
-  responses: Response[] = verifiedResponses(),
+  overrides: Partial<Options> = {},
+  responses: ReadonlyArray<Response> = contractResponses(),
 ) {
   const queued = requestQueue(responses);
   return {
-    client: createPromiseBridge({ ...config, ...options, request: queued.request }),
+    client: Result.getOrThrow(createOdooBridge({ ...options, ...overrides, fetch: queued.fetch })),
     queued,
   };
 }
 
-describe("Promise bridge", () => {
-  it("allows only the known private Odoo endpoints", () => {
-    expect(isPrivateOdooEndpoint("https://odoo.eden.mizonaecologica.es")).toBe(true);
-    expect(isPrivateOdooEndpoint("http://odoo.odoo.svc.cluster.local:8069")).toBe(true);
-    expect(isPrivateOdooEndpoint("https://other.odoo.svc.cluster.local")).toBe(false);
-    expect(isPrivateOdooEndpoint("https://odoo.eden.mizonaecologica.es:8443")).toBe(false);
+describe("Bridge Contract codecs", () => {
+  it("decodes Odoo keys and encodes the exact Bridge Contract", async () => {
+    const decoded = await Schema.decodeUnknownPromise(CatalogBatchSchema)(catalogWire);
+    expect(decoded).toEqual(catalog);
+    await expect(Schema.encodePromise(CatalogBatchSchema)(decoded)).resolves.toEqual(catalogWire);
   });
+});
 
-  it("rejects a public customer hostname before making a request", () => {
-    expect(() =>
-      createPromiseBridge({ ...config, baseUrl: "https://clientes.mizonaecologica.es" }),
-    ).toThrowError(
-      expect.objectContaining<Partial<OdooBridgeError>>({ code: "private_endpoint_required" }),
+describe("Odoo bridge client", () => {
+  it("composes as a native Effect service and layer", async () => {
+    const queued = requestQueue([response(catalogWire)]);
+    const bridgeLayer = OdooBridge.layer({
+      apiKey: Redacted.make(options.apiKey),
+      baseUrl: options.baseUrl,
+      database: options.database,
+    }).pipe(Layer.provide(FetchHttpClient.layer));
+    const program = OdooBridge.readCatalogBatch({ limit: 1 }).pipe(
+      Effect.provide(bridgeLayer),
+      Effect.provideService(FetchHttpClient.Fetch, queued.fetch),
     );
+
+    await expect(Effect.runPromise(program)).resolves.toEqual(catalog);
+    expect(queued.calls).toHaveLength(1);
   });
 
-  it("checks documentation before reading the normalized catalog", async () => {
-    const { client, queued } = bridge();
+  it("supports direct tagged-error recovery in the native API", async () => {
+    const queued = requestQueue([]);
+    const bridgeLayer = OdooBridge.layer({
+      apiKey: Redacted.make(options.apiKey),
+      baseUrl: options.baseUrl,
+      database: options.database,
+    }).pipe(Layer.provide(FetchHttpClient.layer));
+    const program = OdooBridge.readCatalogBatch({ limit: 101 }).pipe(
+      Effect.catchTag("InvalidCatalogBatchInput", () => Effect.succeed(catalog)),
+      Effect.provide(bridgeLayer),
+      Effect.provideService(FetchHttpClient.Fetch, queued.fetch),
+    );
 
-    await expect(client.verify()).resolves.toMatchObject({
-      catalog,
-      method: `${ODOO_BRIDGE_MODEL}/${ODOO_BRIDGE_METHOD}`,
+    await expect(Effect.runPromise(program)).resolves.toEqual(catalog);
+    expect(queued.calls).toHaveLength(0);
+  });
+
+  it.each([
+    { expectedTag: "InvalidApiKey", overrides: { apiKey: "" } },
+    { expectedTag: "InvalidDatabase", overrides: { database: "" } },
+    { expectedTag: "InvalidRequestTimeout", overrides: { requestTimeoutMs: 0 } },
+  ])("validates client options as $expectedTag", ({ expectedTag, overrides }) => {
+    expect(createOdooBridge({ ...options, ...overrides })).toMatchObject({
+      _tag: "Failure",
+      failure: { _tag: expectedTag },
+    });
+  });
+
+  it("rejects a public hostname before it makes a request", async () => {
+    const queued = requestQueue([]);
+    const created = createOdooBridge({
+      ...options,
+      baseUrl: "https://clientes.mizonaecologica.es",
+      fetch: queued.fetch,
+    });
+
+    expect(created).toMatchObject({
+      _tag: "Failure",
+      failure: { _tag: "PrivateOdooRouteRequired" },
+    });
+    expect(queued.calls).toHaveLength(0);
+  });
+
+  it("checks the documented method and returns a normalized fixture", async () => {
+    const { client, queued } = bridge();
+    await using disposable = client;
+
+    const checked = Result.getOrThrow(await disposable.checkContract());
+    expect(checked).toEqual({
+      contractVersion: "mze.odoo.catalog.v1",
+      fixture: catalog,
+      method: ODOO_BRIDGE_METHOD,
+      model: ODOO_BRIDGE_MODEL,
     });
     expect(queued.calls.map((call) => call.url)).toEqual([
       "https://odoo.eden.mizonaecologica.es/doc-bearer/index.json",
@@ -131,139 +235,233 @@ describe("Promise bridge", () => {
     ]);
   });
 
-  it("injects AbortSignal and sends the JSON-2 headers", async () => {
-    const { client, queued } = bridge({}, [...verifiedResponses(), response(catalog)]);
-    const controller = new AbortController();
+  it("reads one Catalog Batch without a documentation request", async () => {
+    const { client, queued } = bridge({}, [response(catalogWire)]);
+    await using disposable = client;
 
-    await expect(
-      client.readCatalogBatch({ limit: 1 }, { signal: controller.signal }),
-    ).resolves.toEqual(catalog);
-    expect(queued.calls).toHaveLength(4);
-    expect(queued.calls[3]?.method).toBe("POST");
-    expect(queued.calls[3]?.headers.get("authorization")).toBe("bearer odoo-test-api-key");
-    expect(queued.calls[3]?.headers.get("x-odoo-database")).toBe("odoo");
-    await expect(queued.calls[3]?.json()).resolves.toEqual({ limit: 1, cursor: null });
+    expect(Result.getOrThrow(await disposable.readCatalogBatch({ limit: 1 }))).toEqual(catalog);
+    expect(queued.calls).toHaveLength(1);
+    expect(queued.calls[0]?.method).toBe("POST");
+    expect(queued.calls[0]?.headers.get("authorization")).toBe("Bearer odoo-test-api-key");
+    expect(queued.calls[0]?.headers.get("x-odoo-database")).toBe("odoo");
+    await expect(queued.calls[0]?.json()).resolves.toEqual({ cursor: null, limit: 1 });
   });
 
-  it("reuses the verified fixture as the first page and follows cursors", async () => {
-    const firstPage = { ...catalog, next_cursor: cursor };
-    const secondPage = { ...catalog, items: [], next_cursor: null };
-    const { client, queued } = bridge({}, [...verifiedResponses(firstPage), response(secondPage)]);
+  it("uses one managed client for repeated calls", async () => {
+    const { client, queued } = bridge({}, [response(catalogWire), response(catalogWire)]);
+    await using disposable = client;
 
-    const pages = [];
-    for await (const page of client.readCatalogPages({ pageSize: 100 })) pages.push(page);
+    Result.getOrThrow(await disposable.readCatalogBatch());
+    Result.getOrThrow(await disposable.readCatalogBatch());
 
-    expect(pages).toHaveLength(2);
-    expect(pages[0]).toMatchObject({ requestCursor: null, sequence: 1, batch: firstPage });
-    expect(pages[1]).toMatchObject({ requestCursor: cursor, sequence: 2, batch: secondPage });
-    expect(queued.calls).toHaveLength(4);
-    await expect(queued.calls[3]?.json()).resolves.toEqual({ limit: 100, cursor });
+    expect(queued.calls).toHaveLength(2);
+    await expect(queued.calls[0]?.json()).resolves.toEqual({ cursor: null, limit: 100 });
+    await expect(queued.calls[1]?.json()).resolves.toEqual({ cursor: null, limit: 100 });
   });
 
-  it("blocks a bridge method that is not marked read-only", async () => {
-    const responses = [
+  it("rejects an invalid Catalog Batch input before it makes a request", async () => {
+    const { client, queued } = bridge({}, []);
+    await using disposable = client;
+
+    await expect(disposable.readCatalogBatch({ limit: 101 })).resolves.toMatchObject({
+      _tag: "Failure",
+      failure: { _tag: "InvalidCatalogBatchInput" },
+    });
+    expect(queued.calls).toHaveLength(0);
+  });
+
+  it("requires the bridge module", async () => {
+    const { client } = bridge({}, [
       response({
-        models: [{ model: ODOO_BRIDGE_MODEL, methods: [ODOO_BRIDGE_METHOD] }],
+        models: [{ methods: [ODOO_BRIDGE_METHOD], model: ODOO_BRIDGE_MODEL }],
         modules: ["api_doc"],
       }),
-      response({ model: ODOO_BRIDGE_MODEL, methods: { [ODOO_BRIDGE_METHOD]: { api: ["model"] } } }),
-    ];
-    const { client, queued } = bridge({ maxAttempts: 1 }, responses);
-
-    await expect(client.verify()).rejects.toMatchObject({ code: "bridge_method_not_readonly" });
-    expect(queued.calls).toHaveLength(2);
-  });
-
-  it("blocks an empty catalog fixture", async () => {
-    const { client, queued } = bridge(
-      { maxAttempts: 1 },
-      verifiedResponses({ contract_version: "mze.odoo.catalog.v1", items: [], next_cursor: null }),
-    );
-
-    await expect(client.verify()).rejects.toMatchObject({ code: "catalog_fixture_missing" });
-    expect(queued.calls).toHaveLength(3);
-  });
-
-  it("redacts the API key from transport errors", async () => {
-    const request: OdooRequest = async () => {
-      throw new Error(`request failed for ${config.apiKey}`);
-    };
-    const client = createPromiseBridge({ ...config, maxAttempts: 1, request });
-
-    await expect(client.verify()).rejects.toMatchObject({
-      code: "documentation_unavailable",
-      message: "Odoo documentation.index request failed. request failed for [redacted]",
-    });
-  });
-
-  it("retries transient HTTP failures within the configured bound", async () => {
-    const { client, queued } = bridge({ maxAttempts: 3 }, [
-      response({}, 503),
-      response({}, 503),
-      ...verifiedResponses(),
     ]);
+    await using disposable = client;
 
-    await expect(client.verify()).resolves.toMatchObject({
-      method: `${ODOO_BRIDGE_MODEL}/${ODOO_BRIDGE_METHOD}`,
+    await expect(disposable.checkContract()).resolves.toMatchObject({
+      _tag: "Failure",
+      failure: { _tag: "BridgeContractMissing", part: "module" },
     });
-    expect(queued.calls).toHaveLength(5);
   });
 
-  it("converts a request timeout to a typed bridge error", async () => {
-    const request: OdooRequest = (_input, init) =>
-      new Promise<Response>((_resolve, reject) => {
-        init.signal?.addEventListener(
-          "abort",
-          () => reject(new DOMException("Aborted", "AbortError")),
-          {
-            once: true,
-          },
-        );
-      });
-    const client = createPromiseBridge({
-      ...config,
-      maxAttempts: 1,
-      requestTimeoutMs: 10,
-      request,
+  it.each([
+    { api: ["readonly"], code: "BridgeContractNotModel" },
+    { api: ["model"], code: "BridgeContractNotReadonly" },
+  ])("rejects an invalid method marker: $code", async ({ api, code }) => {
+    const { client } = bridge({}, [
+      documentationIndexResponse(),
+      response({
+        methods: { [ODOO_BRIDGE_METHOD]: { api } },
+        model: ODOO_BRIDGE_MODEL,
+      }),
+    ]);
+    await using disposable = client;
+
+    await expect(disposable.checkContract()).resolves.toMatchObject({
+      _tag: "Failure",
+      failure: { _tag: code },
     });
-
-    await expect(client.verify()).rejects.toMatchObject({ code: "timeout" });
   });
 
-  it("stops a request when the caller aborts", async () => {
-    const controller = new AbortController();
-    const request: OdooRequest = (_input, init) =>
-      new Promise<Response>((_resolve, reject) => {
-        init.signal?.addEventListener(
-          "abort",
-          () => reject(new DOMException("Aborted", "AbortError")),
-          {
-            once: true,
-          },
-        );
-      });
-    const client = createPromiseBridge({ ...config, maxAttempts: 1, request });
-    const pending = client.verify({ signal: controller.signal });
-    controller.abort();
+  it("rejects an empty catalog fixture", async () => {
+    const { client } = bridge({}, [
+      ...contractResponses({
+        contract_version: "mze.odoo.catalog.v1",
+        items: [],
+        next_cursor: null,
+      }),
+    ]);
+    await using disposable = client;
 
-    await expect(pending).rejects.toMatchObject({ code: "cancelled" });
+    await expect(disposable.checkContract()).resolves.toMatchObject({
+      _tag: "Failure",
+      failure: { _tag: "CatalogFixtureEmpty" },
+    });
   });
 
-  it("aborts the active catalog iterator when its total timeout expires", async () => {
-    const signals: AbortSignal[] = [];
-    const request: OdooRequest = (_input, init) =>
+  it.each([
+    { code: "AuthenticationFailed", status: 401 },
+    { code: "PermissionDenied", status: 403 },
+    { code: "UnexpectedStatus", status: 503 },
+  ])("classifies HTTP $status as $code", async ({ code, status }) => {
+    const { client, queued } = bridge({}, [response({}, status), response(catalogWire)]);
+    await using disposable = client;
+
+    await expect(disposable.readCatalogBatch()).resolves.toMatchObject({
+      _tag: "Failure",
+      failure: { _tag: code },
+    });
+    expect(queued.calls).toHaveLength(1);
+  });
+
+  it("rejects a response that does not match the Bridge Contract", async () => {
+    const { client } = bridge({}, [response({ items: [] })]);
+    await using disposable = client;
+
+    await expect(disposable.readCatalogBatch()).resolves.toMatchObject({
+      _tag: "Failure",
+      failure: { _tag: "InvalidCatalogBatchResponse" },
+    });
+  });
+
+  it("does not include the API key in a transport error", async () => {
+    const fetch: typeof globalThis.fetch = async () => {
+      throw new Error(`request failed for ${options.apiKey}`);
+    };
+    const client = Result.getOrThrow(createOdooBridge({ ...options, fetch }));
+    await using disposable = client;
+
+    const result = await disposable.readCatalogBatch();
+    expect(result).toMatchObject({
+      _tag: "Failure",
+      failure: { _tag: "TransportFailed" },
+    });
+    expect(JSON.stringify(result)).not.toContain(options.apiKey);
+    expect(String(result)).not.toContain(options.apiKey);
+  });
+
+  it("rejects the Promise when the Effect dies with a defect", async () => {
+    const defect = new Error("broken Response implementation");
+    const invalidResponse = new Proxy(new Response(), {
+      get(target, property, receiver) {
+        if (property === "status") throw defect;
+        return Reflect.get(target, property, receiver);
+      },
+    });
+    const fetch: typeof globalThis.fetch = async () => invalidResponse;
+    const client = Result.getOrThrow(createOdooBridge({ ...options, fetch }));
+    await using disposable = client;
+
+    await expect(disposable.readCatalogBatch()).rejects.toBe(defect);
+  });
+
+  it("interrupts an active request with the caller signal", async () => {
+    let requestSignal: AbortSignal | undefined;
+    let markStarted: (() => void) | undefined;
+    const started = new Promise<void>((resolve) => {
+      markStarted = resolve;
+    });
+    const fetch: typeof globalThis.fetch = (_input, init) =>
       new Promise<Response>((_resolve, reject) => {
-        const signal = init.signal;
-        if (!signal) return;
-        signals.push(signal);
-        signal.addEventListener("abort", () => reject(new DOMException("Aborted", "AbortError")), {
+        requestSignal = init?.signal ?? undefined;
+        markStarted?.();
+        requestSignal?.addEventListener("abort", () => reject(requestSignal?.reason), {
           once: true,
         });
       });
-    const client = createPromiseBridge({ ...config, maxAttempts: 1, request });
-    const iterator = client.readCatalogPages({ timeoutMs: 10 })[Symbol.asyncIterator]();
+    const client = Result.getOrThrow(createOdooBridge({ ...options, fetch }));
+    await using disposable = client;
+    const controller = new AbortController();
+    const pending = disposable.readCatalogBatch({ signal: controller.signal });
+    await started;
 
-    await expect(iterator.next()).rejects.toMatchObject({ code: "timeout" });
-    expect(signals[0]?.aborted).toBe(true);
+    controller.abort();
+
+    await expect(pending).resolves.toMatchObject({
+      _tag: "Failure",
+      failure: { _tag: "OdooBridgeCallAborted" },
+    });
+    expect(requestSignal?.aborted).toBe(true);
+  });
+
+  it("maps a request timeout to a bridge error", async () => {
+    const fetch: typeof globalThis.fetch = (_input, init) =>
+      new Promise<Response>((_resolve, reject) => {
+        init?.signal?.addEventListener("abort", () => reject(init.signal?.reason), { once: true });
+      });
+    const client = Result.getOrThrow(createOdooBridge({ ...options, fetch, requestTimeoutMs: 1 }));
+    await using disposable = client;
+
+    await expect(disposable.readCatalogBatch()).resolves.toMatchObject({
+      _tag: "Failure",
+      failure: { _tag: "RequestTimedOut" },
+    });
+  });
+
+  it("keeps the request timeout active while it reads the response body", async () => {
+    const fetch: typeof globalThis.fetch = async () =>
+      new Response(new ReadableStream<Uint8Array>({ start() {} }), {
+        headers: { "Content-Type": "application/json" },
+      });
+    const client = Result.getOrThrow(createOdooBridge({ ...options, fetch, requestTimeoutMs: 1 }));
+    await using disposable = client;
+
+    await expect(disposable.readCatalogBatch()).resolves.toMatchObject({
+      _tag: "Failure",
+      failure: { _tag: "RequestTimedOut" },
+    });
+  });
+
+  it("interrupts active calls and rejects new calls after close", async () => {
+    let requestSignal: AbortSignal | undefined;
+    let markStarted: (() => void) | undefined;
+    const started = new Promise<void>((resolve) => {
+      markStarted = resolve;
+    });
+    const fetch: typeof globalThis.fetch = (_input, init) =>
+      new Promise<Response>((_resolve, reject) => {
+        requestSignal = init?.signal ?? undefined;
+        markStarted?.();
+        requestSignal?.addEventListener("abort", () => reject(requestSignal?.reason), {
+          once: true,
+        });
+      });
+    const client = Result.getOrThrow(createOdooBridge({ ...options, fetch }));
+    const pending = client.readCatalogBatch();
+    await started;
+
+    await client.close();
+
+    await expect(pending).resolves.toMatchObject({
+      _tag: "Failure",
+      failure: { _tag: "OdooBridgeClientClosed" },
+    });
+    await expect(client.readCatalogBatch()).resolves.toMatchObject({
+      _tag: "Failure",
+      failure: { _tag: "OdooBridgeClientClosed" },
+    });
+    expect(requestSignal?.aborted).toBe(true);
+    await expect(client.close()).resolves.toBeUndefined();
   });
 });

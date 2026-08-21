@@ -2,6 +2,7 @@ import { Schema } from "effect";
 
 export const ODOO_BRIDGE_MODEL = "mze.medusa.bridge" as const;
 export const ODOO_BRIDGE_METHOD = "read_catalog_batch" as const;
+export const ODOO_BRIDGE_MODULE = "mze_medusa_bridge" as const;
 export const ODOO_CATALOG_CONTRACT_VERSION = "mze.odoo.catalog.v1" as const;
 
 const OdooDateTime = Schema.String.check(
@@ -10,109 +11,122 @@ const OdooDateTime = Schema.String.check(
 const Decimal = Schema.String.check(Schema.isPattern(/^\d+(?:\.\d{1,6})?$/u));
 const IntegrationKey = Schema.String.check(Schema.isUUID());
 const NonEmptyString = Schema.String.check(Schema.isMinLength(1));
+const PositiveInt = Schema.Int.check(Schema.isGreaterThan(0));
 
-export const OdooBridgeConfigSchema = Schema.Struct({
-  apiKey: NonEmptyString,
-  baseUrl: NonEmptyString,
-  database: NonEmptyString,
+export const SourceRevisionSchema = Schema.Struct({
+  changedAt: OdooDateTime,
+  productId: PositiveInt,
+}).pipe(
+  Schema.encodeKeys({
+    changedAt: "write_date",
+    productId: "id",
+  }),
+);
+
+export type SourceRevision = Schema.Schema.Type<typeof SourceRevisionSchema>;
+
+const CatalogBatchLimit = Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 100 }));
+
+export const CatalogBatchInputSchema = Schema.Struct({
+  cursor: Schema.optionalKey(Schema.NullOr(SourceRevisionSchema)),
+  limit: Schema.optionalKey(CatalogBatchLimit),
 });
 
-export type OdooBridgeConfig = Schema.Schema.Type<typeof OdooBridgeConfigSchema>;
+export type CatalogBatchInput = Schema.Schema.Type<typeof CatalogBatchInputSchema>;
 
-export const OdooCatalogCursorSchema = Schema.Struct({
-  id: Schema.Int.check(Schema.isGreaterThan(0)),
-  write_date: OdooDateTime,
+export const CatalogBatchRequestSchema = Schema.Struct({
+  cursor: Schema.NullOr(SourceRevisionSchema),
+  limit: CatalogBatchLimit,
 });
 
-export type OdooCatalogCursor = Schema.Schema.Type<typeof OdooCatalogCursorSchema>;
+export type CatalogBatchRequest = Schema.Schema.Type<typeof CatalogBatchRequestSchema>;
 
-export const OdooCatalogBatchRequestSchema = Schema.Struct({
-  cursor: Schema.NullOr(OdooCatalogCursorSchema),
-  limit: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 100 })),
-});
-
-export type OdooCatalogBatchRequest = Schema.Schema.Type<typeof OdooCatalogBatchRequestSchema>;
-
-export type OdooCatalogBatchRequestInput = {
-  readonly cursor?: OdooCatalogCursor | null;
-  readonly limit?: number;
-};
-
-const OdooAttributeValueSchema = Schema.Struct({
-  attribute_id: Schema.Int.check(Schema.isGreaterThan(0)),
-  attribute_name: NonEmptyString,
-  id: Schema.Int.check(Schema.isGreaterThan(0)),
+export const CatalogAttributeValueSchema = Schema.Struct({
+  attributeId: PositiveInt,
+  attributeName: NonEmptyString,
+  id: PositiveInt,
   name: NonEmptyString,
-});
+}).pipe(
+  Schema.encodeKeys({
+    attributeId: "attribute_id",
+    attributeName: "attribute_name",
+  }),
+);
 
-const OdooVariantSchema = Schema.Struct({
+export type CatalogAttributeValue = Schema.Schema.Type<typeof CatalogAttributeValueSchema>;
+
+export const CatalogVariantSchema = Schema.Struct({
   active: Schema.Boolean,
-  attribute_values: Schema.Array(OdooAttributeValueSchema),
+  attributeValues: Schema.Array(CatalogAttributeValueSchema),
   barcode: Schema.NullOr(NonEmptyString),
-  default_code: Schema.NullOr(NonEmptyString),
-  id: Schema.Int.check(Schema.isGreaterThan(0)),
-  integration_key: IntegrationKey,
+  id: PositiveInt,
+  integrationKey: IntegrationKey,
+  internalReference: Schema.NullOr(NonEmptyString),
   model: Schema.Literal("product.product"),
   name: NonEmptyString,
   price: Decimal,
-  sale_ok: Schema.Boolean,
-  write_date: OdooDateTime,
-});
+  saleOk: Schema.Boolean,
+  writeDate: OdooDateTime,
+}).pipe(
+  Schema.encodeKeys({
+    attributeValues: "attribute_values",
+    integrationKey: "integration_key",
+    internalReference: "default_code",
+    saleOk: "sale_ok",
+    writeDate: "write_date",
+  }),
+);
 
-export const OdooCatalogVariantSchema = OdooVariantSchema;
-export type OdooCatalogVariant = Schema.Schema.Type<typeof OdooVariantSchema>;
+export type CatalogVariant = Schema.Schema.Type<typeof CatalogVariantSchema>;
 
-const OdooTemplateSchema = Schema.Struct({
+export const CatalogTemplateSchema = Schema.Struct({
   active: Schema.Boolean,
   currency: Schema.String.check(Schema.isPattern(/^[A-Z]{3}$/u)),
   description: Schema.NullOr(Schema.String),
-  id: Schema.Int.check(Schema.isGreaterThan(0)),
-  integration_key: IntegrationKey,
+  id: PositiveInt,
+  integrationKey: IntegrationKey,
   model: Schema.Literal("product.template"),
   name: NonEmptyString,
   price: Decimal,
-  sale_ok: Schema.Boolean,
-  tax_ids: Schema.Array(Schema.Int.check(Schema.isGreaterThan(0))),
-  write_date: OdooDateTime,
+  saleOk: Schema.Boolean,
+  taxIds: Schema.Array(PositiveInt),
+  writeDate: OdooDateTime,
+}).pipe(
+  Schema.encodeKeys({
+    integrationKey: "integration_key",
+    saleOk: "sale_ok",
+    taxIds: "tax_ids",
+    writeDate: "write_date",
+  }),
+);
+
+export type CatalogTemplate = Schema.Schema.Type<typeof CatalogTemplateSchema>;
+
+export const CatalogItemSchema = Schema.Struct({
+  template: CatalogTemplateSchema,
+  variants: Schema.Array(CatalogVariantSchema).check(Schema.isMinLength(1)),
 });
 
-export const OdooCatalogTemplateSchema = OdooTemplateSchema;
-export type OdooCatalogTemplate = Schema.Schema.Type<typeof OdooTemplateSchema>;
+export type CatalogItem = Schema.Schema.Type<typeof CatalogItemSchema>;
 
-export const OdooCatalogItemSchema = Schema.Struct({
-  template: OdooTemplateSchema,
-  variants: Schema.Array(OdooVariantSchema).check(Schema.isMinLength(1)),
+export const CatalogBatchSchema = Schema.Struct({
+  contractVersion: Schema.Literal(ODOO_CATALOG_CONTRACT_VERSION),
+  items: Schema.Array(CatalogItemSchema).check(Schema.isMaxLength(100)),
+  nextCursor: Schema.NullOr(SourceRevisionSchema),
+}).pipe(
+  Schema.encodeKeys({
+    contractVersion: "contract_version",
+    nextCursor: "next_cursor",
+  }),
+);
+
+export type CatalogBatch = Schema.Schema.Type<typeof CatalogBatchSchema>;
+
+export const BridgeContractCheckSchema = Schema.Struct({
+  contractVersion: Schema.Literal(ODOO_CATALOG_CONTRACT_VERSION),
+  fixture: CatalogBatchSchema,
+  method: Schema.Literal(ODOO_BRIDGE_METHOD),
+  model: Schema.Literal(ODOO_BRIDGE_MODEL),
 });
 
-export type OdooCatalogItem = Schema.Schema.Type<typeof OdooCatalogItemSchema>;
-
-export const OdooCatalogBatchSchema = Schema.Struct({
-  contract_version: Schema.Literal(ODOO_CATALOG_CONTRACT_VERSION),
-  items: Schema.Array(OdooCatalogItemSchema).check(Schema.isMaxLength(100)),
-  next_cursor: Schema.NullOr(OdooCatalogCursorSchema),
-});
-
-export type OdooCatalogBatch = Schema.Schema.Type<typeof OdooCatalogBatchSchema>;
-
-const OdooDocumentationModelSchema = Schema.Struct({
-  model: NonEmptyString,
-  methods: Schema.Array(NonEmptyString),
-});
-
-export const OdooDocumentationIndexSchema = Schema.Struct({
-  models: Schema.Array(OdooDocumentationModelSchema),
-  modules: Schema.Array(NonEmptyString),
-});
-
-export type OdooDocumentationIndex = Schema.Schema.Type<typeof OdooDocumentationIndexSchema>;
-
-const OdooMethodDocumentationSchema = Schema.Struct({
-  api: Schema.optionalKey(Schema.Array(NonEmptyString)),
-});
-
-export const OdooModelDocumentationSchema = Schema.Struct({
-  methods: Schema.Record(Schema.String, OdooMethodDocumentationSchema),
-  model: NonEmptyString,
-});
-
-export type OdooModelDocumentation = Schema.Schema.Type<typeof OdooModelDocumentationSchema>;
+export type BridgeContractCheck = Schema.Schema.Type<typeof BridgeContractCheckSchema>;

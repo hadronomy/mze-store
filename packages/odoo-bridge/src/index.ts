@@ -1,27 +1,32 @@
-export {
-  ODOO_BRIDGE_ERROR_CODES,
-  OdooBridge,
-  OdooBridgeError,
-  OdooTransport,
-  isPrivateOdooEndpoint,
-  layer,
-  layerWithTransport,
-  normalizeSettings,
-  transportLayer,
-} from "./effect";
+export { Result } from "effect";
+
+export { createOdooBridge } from "./client";
 export type {
-  OdooBridgeErrorCode,
-  OdooBridgeSettings,
-  OdooBridgeContract,
-  OdooCallOptions,
-  OdooCatalogPage,
-  OdooCatalogReadOptions,
-  OdooCatalogSession,
-  OdooReadOnlyContract,
-  OdooRequest,
-  OdooTransportRequest,
-  OdooTransportResponse,
-  OdooTransportContract,
-  OdooJsonValue,
-} from "./effect";
-export * from "./contract";
+  CallOptions,
+  CheckContractResult,
+  CreateOdooBridgeResult,
+  OdooBridgeAsyncResult,
+  OdooBridgeClient,
+  OdooBridgeGateway,
+  OdooBridgeResult,
+  Options,
+  ReadCatalogBatchOptions,
+  ReadCatalogBatchResult,
+} from "./client";
+export {
+  ODOO_BRIDGE_METHOD,
+  ODOO_BRIDGE_MODEL,
+  ODOO_BRIDGE_MODULE,
+  ODOO_CATALOG_CONTRACT_VERSION,
+} from "./contract";
+export type {
+  BridgeContractCheck,
+  CatalogAttributeValue,
+  CatalogBatch,
+  CatalogBatchInput,
+  CatalogItem,
+  CatalogTemplate,
+  CatalogVariant,
+  SourceRevision,
+} from "./contract";
+export * from "./error";

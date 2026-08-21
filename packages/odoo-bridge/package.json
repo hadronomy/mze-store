@@ -24,16 +24,6 @@
         "default": "./dist/effect.cjs"
       }
     },
-    "./promise": {
-      "import": {
-        "types": "./dist/promise.d.mts",
-        "default": "./dist/promise.mjs"
-      },
-      "require": {
-        "types": "./dist/promise.d.cts",
-        "default": "./dist/promise.cjs"
-      }
-    },
     "./contract": {
       "import": {
         "types": "./dist/contract.d.mts",

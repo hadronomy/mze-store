@@ -5,7 +5,6 @@ const entries = {
   index: "src/index.ts",
   contract: "src/contract.ts",
   effect: "src/effect.ts",
-  promise: "src/promise.ts",
 };
 
 export default defineConfig({

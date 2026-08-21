@@ -131,15 +131,19 @@ Veri\*Factu becomes mandatory in 2027 (January for corporations, July otherwise)
 
 ## Catalog bridge
 
-The first Odoo link is a read-only gate. Medusa reaches Odoo only through the private route and the typed `@mze-store/odoo-bridge` Promise edge:
+The first Odoo link is a read-only gate. Medusa reaches Odoo only through the private route and the typed `@mze-store/odoo-bridge` Result edge:
 
 ```
 Odoo Product and Variant
   └─ mze_medusa_bridge/read_catalog_batch
-       └─ private JSON-2 ──► OdooBridge /promise ──► normalized Catalog Batch
+       └─ private JSON-2 ──► OdooBridge Result client ──► normalized Catalog Batch
 ```
 
 The Odoo addon owns the Integration Keys and the normalized source shape. Medusa reads the Bridge Contract but does not write Odoo records. The service API key comes from OpenBao and belongs to a dedicated read-only Service User. The public customer hostname is not an allowed `ODOO_BASE_URL`.
+
+The root client returns Effect `Result` values for configuration, remote,
+cancellation, and closure failures. Unknown defects reject the Promise. The
+`/effect` entry exposes the same operations with exact Effect error channels.
 
 The rollout gate checks the machine documentation, the documented bridge method, and one catalog item in that order. If any check fails, it exits with an `ODOO_ROLLOUT_BLOCKER` and no write path is available. See [`docs/runbooks/odoo-json2-gate.md`](./runbooks/odoo-json2-gate.md) and ADR-0030.
 
