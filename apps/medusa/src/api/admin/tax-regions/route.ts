@@ -1,7 +1,8 @@
 import type { AuthenticatedMedusaRequest, MedusaResponse } from "@medusajs/framework/http";
 import type { CreateTaxRegionDTO, HttpTypes } from "@medusajs/framework/types";
 import { ContainerRegistrationKeys, remoteQueryObjectFromString } from "@medusajs/framework/utils";
-import { operationIdFromRequest, refetchTaxRegion } from "~/api/admin/tax-rate-audit";
+import { operationIdFromRequest } from "~/api/admin/idempotency";
+import { refetchTaxRegion } from "~/api/admin/tax-rate-audit";
 import { createTaxRegionWithAudit } from "~/workflows/tax-rate-audit-operations";
 
 export async function POST(

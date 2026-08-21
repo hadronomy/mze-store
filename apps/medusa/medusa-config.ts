@@ -90,5 +90,15 @@ export default defineConfig({
     {
       resolve: "./src/modules/tax-rate-audit",
     },
+    {
+      resolve: "./src/modules/catalog-sync",
+      options: {
+        odoo: {
+          apiKey: ENV.ODOO_API_KEY,
+          baseUrl: ENV.ODOO_BASE_URL,
+          database: ENV.ODOO_DATABASE,
+        },
+      },
+    },
   ],
 });

@@ -69,6 +69,12 @@ export const SourceRevisionSchema = Schema.Struct({
 );
 
 export type SourceRevision = Schema.Schema.Type<typeof SourceRevisionSchema>;
+export type SourceRevisionEncoded = Schema.Codec.Encoded<typeof SourceRevisionSchema>;
+
+/** Decode a Source Revision at a CommonJS or ESM application boundary. */
+export function decodeSourceRevision(input: SourceRevisionEncoded): SourceRevision {
+  return Schema.decodeUnknownSync(SourceRevisionSchema)(input);
+}
 
 const CatalogBatchLimit = Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 100 }));
 

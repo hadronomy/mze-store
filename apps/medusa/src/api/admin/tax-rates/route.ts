@@ -2,7 +2,8 @@ import type { AuthenticatedMedusaRequest, MedusaResponse } from "@medusajs/frame
 import type { CreateTaxRateDTO, HttpTypes } from "@medusajs/framework/types";
 import { ContainerRegistrationKeys, remoteQueryObjectFromString } from "@medusajs/framework/utils";
 import { createTaxRateWithAudit } from "~/workflows/tax-rate-audit-operations";
-import { operationIdFromRequest, refetchTaxRate } from "~/api/admin/tax-rate-audit";
+import { operationIdFromRequest } from "~/api/admin/idempotency";
+import { refetchTaxRate } from "~/api/admin/tax-rate-audit";
 
 export async function POST(
   req: AuthenticatedMedusaRequest<HttpTypes.AdminCreateTaxRate, HttpTypes.SelectParams>,
