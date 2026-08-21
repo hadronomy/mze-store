@@ -6,7 +6,8 @@ import {
   MedusaError,
   MedusaService,
 } from "@medusajs/framework/utils";
-import type { OdooBridgeGateway, ReadCatalogBatchResult } from "@mze-store/odoo-bridge";
+import type { ReadCatalogBatchResult } from "@mze-store/odoo-bridge";
+import { createOdooCatalogSource } from "./catalog-source";
 import CatalogAttributeMapping from "~/modules/catalog-sync/models/catalog-attribute-mapping";
 import CatalogAttributeValueMapping from "~/modules/catalog-sync/models/catalog-attribute-value-mapping";
 import CatalogMapping from "~/modules/catalog-sync/models/catalog-mapping";
@@ -17,10 +18,10 @@ import type {
   CatalogImportFailure,
   CatalogImportSource,
   CatalogCursor,
+  CatalogSource,
   CatalogSyncModuleOptions,
   CompleteCatalogImportInput,
   CreateCatalogProjectionInput,
-  OwnedOdooBridgeClient,
 } from "./types";
 
 const OPERATION_ID_INDEX = "IDX_sync_record_operation_id_unique";
@@ -53,19 +54,19 @@ export default class CatalogSyncModuleService extends MedusaService({
   SyncRecord,
 }) {
   readonly #options: CatalogSyncModuleOptions;
-  #gateway: OdooBridgeGateway | undefined;
-  #gatewayPromise: Promise<OdooBridgeGateway> | undefined;
-  #ownedClient: OwnedOdooBridgeClient;
+  #source: CatalogSource | undefined;
+  #sourcePromise: Promise<CatalogSource> | undefined;
+  #ownedSource: CatalogSource | undefined;
 
   constructor(container: MedusaContainer, options: CatalogSyncModuleOptions) {
     super(container);
     this.#options = options;
-    this.#gateway = options.gateway;
+    this.#source = options.source;
   }
 
   readonly __hooks = {
     onApplicationShutdown: async (): Promise<void> => {
-      await this.#ownedClient?.close();
+      await this.#ownedSource?.close();
     },
   };
 
@@ -74,15 +75,8 @@ export default class CatalogSyncModuleService extends MedusaService({
     limit: 1;
     signal?: AbortSignal;
   }): Promise<ReadCatalogBatchResult> {
-    const gateway = await this.#resolveGateway();
-    const cursor = options.cursor
-      ? (await import("@mze-store/odoo-bridge")).decodeSourceRevision({
-          write_date: options.cursor.changedAt,
-          id: options.cursor.productId,
-        })
-      : null;
-
-    return gateway.readCatalogBatch({ cursor, limit: options.limit, signal: options.signal });
+    const source = await this.#resolveSource();
+    return source.readCatalogBatch(options);
   }
 
   async beginImport(input: BeginCatalogImportInput): Promise<BeginCatalogImportResult> {
@@ -702,30 +696,20 @@ export default class CatalogSyncModuleService extends MedusaService({
     return record;
   }
 
-  async #resolveGateway(): Promise<OdooBridgeGateway> {
-    if (this.#gateway) {
-      return this.#gateway;
+  async #resolveSource(): Promise<CatalogSource> {
+    if (this.#source) {
+      return this.#source;
     }
-    if (this.#gatewayPromise) {
-      return this.#gatewayPromise;
+    if (this.#sourcePromise) {
+      return this.#sourcePromise;
     }
 
-    this.#gatewayPromise = import("@mze-store/odoo-bridge").then((bridge) => {
-      const client = bridge.createOdooBridge(this.#options.odoo);
-      if (client._tag === "Failure") {
-        throw new MedusaError(
-          MedusaError.Types.INVALID_ARGUMENT,
-          client.failure.message,
-          "catalog_bridge_configuration_invalid",
-        );
-      }
-
-      this.#ownedClient = client.success;
-      this.#gateway = client.success;
-      return client.success;
+    this.#sourcePromise = createOdooCatalogSource(this.#options.odoo).then((source) => {
+      this.#ownedSource = source;
+      this.#source = source;
+      return source;
     });
-
-    return this.#gatewayPromise;
+    return this.#sourcePromise;
   }
 }
 

@@ -478,7 +478,7 @@ read port.
 
 ## Highest-seam integration tests
 
-Use a fake `OdooBridgeGateway` and real Medusa module services. Test the
+Use a fake `CatalogSource` and real Medusa module services. Test the
 authenticated Admin route or the public Catalog command that the route calls.
 Do not test only pure helpers or the ORM service.
 

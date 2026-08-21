@@ -1,7 +1,5 @@
 import type {
   CatalogBatch,
-  OdooBridgeClient,
-  OdooBridgeGateway,
   Options as OdooBridgeOptions,
   ReadCatalogBatchResult,
 } from "@mze-store/odoo-bridge";
@@ -29,9 +27,18 @@ export type CatalogCursor = Readonly<{
   productId: number;
 }>;
 
+export type CatalogSource = Readonly<{
+  readCatalogBatch: (options: {
+    cursor?: CatalogCursor | null;
+    limit: 1;
+    signal?: AbortSignal;
+  }) => Promise<ReadCatalogBatchResult>;
+  close: () => Promise<void>;
+}>;
+
 export type CatalogSyncModuleOptions = Readonly<{
   odoo: OdooBridgeOptions;
-  gateway?: OdooBridgeGateway;
+  source?: CatalogSource;
 }>;
 
 export type BeginCatalogImportInput = Readonly<{
@@ -133,5 +140,4 @@ export type ReadCatalogBatch = (
   }>,
 ) => Promise<ReadCatalogBatchResult>;
 
-export type OwnedOdooBridgeClient = OdooBridgeClient | undefined;
 export type CatalogImportBatch = CatalogBatch;

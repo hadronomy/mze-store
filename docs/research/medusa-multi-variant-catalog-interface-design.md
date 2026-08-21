@@ -149,7 +149,7 @@ The command hides two local paths:
 ```text
 synchronizeCatalogItem
   -> operation lock and durable Sync Record
-  -> OdooBridgeGateway
+  -> CatalogSource
   -> source validation
   -> Product Integration Key lock
   -> mapping lookup and pure reconciliation plan
@@ -163,8 +163,9 @@ Odoo-owned Variant fields and prices. Catalog Mapping writes use compensating cu
 Sync Record stays outside compensation so an Operator can inspect the outcome.
 
 The Medusa module service is the persistence seam. A second repository interface would repeat its
-CRUD surface without hiding policy. The Odoo bridge remains the only remote Adapter and the normal
-module options remain its test replacement seam.
+CRUD surface without hiding policy. `CatalogSource` is the application port. Its production Adapter
+owns the CommonJS-to-ESM bridge boundary and delegates to `OdooBridgeGateway`. Module options accept
+a test source through the same port.
 
 ## Compared designs
 
