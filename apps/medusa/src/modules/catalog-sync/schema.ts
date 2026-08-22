@@ -25,6 +25,7 @@ export const CatalogSynchronizationResultSchema = z.object({
   syncRecordId: z.string(),
   productId: z.string(),
   templateCatalogMappingId: z.string(),
+  templateIntegrationKey: z.string().uuid(),
   variants: z.array(
     z.object({
       integrationKey: z.string().uuid(),
@@ -38,3 +39,5 @@ export const CatalogSynchronizationResultSchema = z.object({
   sourceRevision: CatalogCursorSchema,
   nextCursor: CatalogCursorSchema.nullable(),
 });
+
+export type CatalogSynchronizationResult = z.infer<typeof CatalogSynchronizationResultSchema>;

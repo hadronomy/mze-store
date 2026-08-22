@@ -5,18 +5,21 @@ import type {
   CatalogAttribute,
   CatalogBatch,
   CatalogItem,
-  OdooBridgeError,
+  CatalogTemplate,
+  CatalogVariant,
+  SourceRevision,
 } from "@mze-store/odoo-bridge";
+import { decodeSourceRevision } from "@mze-store/odoo-bridge";
 import stringify from "fast-json-stable-stringify";
 import { createHash } from "node:crypto";
-import { CATALOG_SYNC_MODULE } from "~/modules/catalog-sync";
-import { CatalogSynchronizationResultSchema } from "~/modules/catalog-sync/schema";
-import type {
-  CatalogProjectionRecords,
-  CatalogSyncModule,
-  SyncRecordRecord,
-} from "~/modules/catalog-sync/service";
-import type { CatalogCursor, CatalogSynchronizationResult } from "~/modules/catalog-sync/types";
+import {
+  CATALOG_SYNC_MODULE,
+  catalogError,
+  type CatalogIdentity,
+  type CatalogSyncModule,
+} from "~/modules/catalog-sync";
+import type { CatalogSynchronizationResult } from "~/modules/catalog-sync";
+import type { CatalogProjectionRecords } from "~/modules/catalog-sync/service";
 import {
   createCatalogProductWorkflow,
   type PreparedCatalogImport,
@@ -29,7 +32,7 @@ import { isCatalogTemplateUnavailable, isCatalogVariantUnavailable } from "./cat
 
 export type SynchronizeCatalogItemInput = Readonly<{
   operationId: string;
-  cursor?: CatalogCursor | null;
+  cursor?: Readonly<{ changedAt: string; productId: number }> | null;
   signal?: AbortSignal;
 }>;
 
@@ -39,7 +42,7 @@ export type SynchronizeCatalogItemResult = CatalogSynchronizationResult &
 type CatalogFingerprintInput =
   | Readonly<{
       operation: "catalog.synchronize";
-      cursor: CatalogCursor | null;
+      cursor: SourceRevision | null;
     }>
   | Readonly<{
       contractVersion: CatalogBatch["contractVersion"];
@@ -57,9 +60,17 @@ export async function synchronizeCatalogItem(
   container: MedusaContainer,
   input: SynchronizeCatalogItemInput,
 ): Promise<SynchronizeCatalogItemResult> {
+  // The cursor is untrusted request input; decode it once at this boundary so
+  // every downstream consumer receives the bridge's validated Source Revision.
+  const cursor = input.cursor
+    ? decodeSourceRevision({
+        write_date: input.cursor.changedAt,
+        id: input.cursor.productId,
+      })
+    : null;
   const requestFingerprint = fingerprint({
     operation: "catalog.synchronize",
-    cursor: input.cursor ?? null,
+    cursor,
   });
   const locking = container.resolve<ILockingModule>(Modules.LOCKING);
 
@@ -67,74 +78,56 @@ export async function synchronizeCatalogItem(
     `catalog-import:${input.operationId}`,
     async () => {
       const catalogSync = container.resolve<CatalogSyncModule>(CATALOG_SYNC_MODULE);
-      const begun = await catalogSync.beginImport({
+      const begun = await catalogSync.startSync({
         operationId: input.operationId,
         requestFingerprint,
       });
-
-      if (!begun.created) {
-        return replayCatalogSynchronization(begun.record);
+      if (begun.tag === "replayed") {
+        return { ...begun.result, disposition: "replayed" as const };
       }
+      const syncRecordId = begun.syncRecordId;
 
-      const inProgress = await catalogSync.markImportInProgress(begun.record);
       try {
-        const batchResult = await catalogSync.readCatalogBatch({
-          cursor: input.cursor ?? null,
-          limit: 1,
-          signal: input.signal,
-        });
-
-        if (batchResult._tag === "Failure") {
-          throw bridgeFailureError(batchResult.failure);
-        }
-
-        const prepared = prepareCatalogSynchronization(inProgress.id, batchResult.success);
-        await catalogSync.recordImportSource(inProgress.id, toImportSource(prepared));
+        const batch = await catalogSync.readNextCatalogItem({ cursor, signal: input.signal });
+        const prepared = prepareCatalogSynchronization(syncRecordId, batch);
+        await catalogSync.recordSyncSource(syncRecordId, toImportSource(prepared));
 
         return await locking.execute(
           `catalog-product:${prepared.item.template.integrationKey}`,
           async () => {
             const identities = [
-              {
-                odooModel: prepared.item.template.model,
-                odooIntegrationKey: prepared.item.template.integrationKey,
-                odooDatabaseId: prepared.item.template.id,
-              },
-              ...prepared.item.variants.map((variant) => ({
-                odooModel: variant.model,
-                odooIntegrationKey: variant.integrationKey,
-                odooDatabaseId: variant.id,
-              })),
-            ] as const;
+              toIdentity(prepared.item.template),
+              ...prepared.item.variants.map(toIdentity),
+            ];
             const existing = await catalogSync.findCatalogProjection({
               templateIntegrationKey: prepared.item.template.integrationKey,
               templateDatabaseId: prepared.item.template.id,
             });
+
             if (existing) {
-              await catalogSync.assertCatalogIdentitiesCompatible(
-                identities,
-                existing.mappings.map(({ id }) => id),
-              );
+              await catalogSync.assertCatalogIdentities(identities, {
+                allowedMappingIds: existing.mappings.map(({ id }) => id),
+              });
               validateExistingProjection(prepared.item, existing);
+
               if (
                 existing.template.source_fingerprint === prepared.sourceFingerprint &&
                 catalogSourceSnapshotMatches(prepared.item, existing)
               ) {
-                const result = unchangedCatalogSynchronization(prepared, existing);
-                await catalogSync.completeUnchangedImport({
-                  ...toImportSource(prepared),
-                  syncRecordId: prepared.syncRecordId,
-                  result,
-                  projection: {
-                    mappingIds: existing.mappings.map(({ id }) => id),
-                    attributeIds: existing.attributes.map(({ id }) => id),
-                    valueIds: existing.values.map(({ id }) => id),
-                    selectionIds: existing.selections.map(({ id }) => id),
-                  },
+                await catalogSync.commitProjection({
+                  tag: "touch",
+                  syncRecordId,
+                  mappingIds: existing.mappings.map(({ id }) => id),
+                  attributeIds: existing.attributes.map(({ id }) => id),
+                  valueIds: existing.values.map(({ id }) => id),
+                  selectionIds: existing.selections.map(({ id }) => id),
                 });
+                const result = unchangedCatalogSynchronization(prepared, existing);
+                await finishSucceeded(catalogSync, prepared, result);
 
-                return { ...result, disposition: "unchanged" };
+                return { ...result, disposition: "unchanged" as const };
               }
+
               const product = await fetchCurrentCatalogProduct(
                 container,
                 existing.template.medusa_product_id,
@@ -143,17 +136,19 @@ export async function synchronizeCatalogItem(
                 input: { ...prepared, existing, product },
                 context: { transactionId: input.operationId },
               });
+              await finishSucceeded(catalogSync, prepared, result);
 
-              return { ...result, disposition: "updated" };
+              return { ...result, disposition: "updated" as const };
             }
 
-            await catalogSync.assertCatalogIdentitiesAvailable(identities);
+            await catalogSync.assertCatalogIdentities(identities);
             const { result } = await createCatalogProductWorkflow(container).run({
               input: prepared,
               context: { transactionId: input.operationId },
             });
+            await finishSucceeded(catalogSync, prepared, result);
 
-            return { ...result, disposition: "created" };
+            return { ...result, disposition: "created" as const };
           },
           { timeout: 30 },
         );
@@ -171,12 +166,32 @@ export async function synchronizeCatalogItem(
                   )
                 : new Error(serializedError.data.message)
               : new Error("The Catalog synchronization threw a value that was not an Error.");
-        await recordFailure(container, catalogSync, inProgress.id, error);
+        await recordFailure(container, catalogSync, syncRecordId, error);
         throw error;
       }
     },
     { timeout: 30 },
   );
+}
+
+function toIdentity(source: CatalogTemplate | CatalogVariant): CatalogIdentity {
+  return {
+    odooModel: source.model,
+    odooDatabaseId: source.id,
+    odooIntegrationKey: source.integrationKey,
+  };
+}
+
+async function finishSucceeded(
+  catalogSync: CatalogSyncModule,
+  prepared: PreparedCatalogImport,
+  result: CatalogSynchronizationResult,
+): Promise<void> {
+  await catalogSync.finishSync(prepared.syncRecordId, {
+    tag: "succeeded",
+    sourceFingerprint: prepared.sourceFingerprint,
+    result,
+  });
 }
 
 function validateExistingProjection(item: CatalogItem, existing: CatalogProjectionRecords): void {
@@ -196,10 +211,9 @@ function validateExistingProjection(item: CatalogItem, existing: CatalogProjecti
       !incomingVariantKeys.has(mapping.odoo_integration_key),
   );
   if (missingVariant) {
-    throw new MedusaError(
-      MedusaError.Types.CONFLICT,
-      `Odoo omitted mapped Variant ${missingVariant.odoo_database_id} from a complete Catalog Item.`,
+    throw catalogError(
       "catalog_source_missing_variant",
+      `Odoo omitted mapped Variant ${missingVariant.odoo_database_id} from a complete Catalog Item.`,
     );
   }
 
@@ -331,10 +345,9 @@ function unchangedCatalogSynchronization(
   const variants = prepared.item.variants.map((variant) => {
     const mapping = variantMappingByKey.get(variant.integrationKey);
     if (!mapping?.medusa_variant_id) {
-      throw new MedusaError(
-        MedusaError.Types.UNEXPECTED_STATE,
-        `Mapped Odoo Variant ${variant.id} has no Medusa Variant identity.`,
+      throw catalogError(
         "catalog_projection_result_invalid",
+        `Mapped Odoo Variant ${variant.id} has no Medusa Variant identity.`,
       );
     }
 
@@ -352,6 +365,7 @@ function unchangedCatalogSynchronization(
     syncRecordId: prepared.syncRecordId,
     productId: existing.template.medusa_product_id,
     templateCatalogMappingId: existing.template.id,
+    templateIntegrationKey: prepared.item.template.integrationKey,
     variants,
     sourceRevision: prepared.item.sourceRevision,
     nextCursor: prepared.nextCursor,
@@ -370,10 +384,9 @@ async function fetchCurrentCatalogProduct(
   });
   const [product] = data as CurrentCatalogProduct[];
   if (!product) {
-    throw new MedusaError(
-      MedusaError.Types.UNEXPECTED_STATE,
-      `Mapped Product ${productId} could not be loaded.`,
+    throw catalogError(
       "catalog_projection_result_invalid",
+      `Mapped Product ${productId} could not be loaded.`,
     );
   }
 
@@ -385,11 +398,7 @@ function prepareCatalogSynchronization(
   batch: CatalogBatch,
 ): PreparedCatalogImport {
   if (batch.items.length === 0) {
-    throw new MedusaError(
-      MedusaError.Types.INVALID_DATA,
-      "Odoo returned no Catalog Item for this cursor.",
-      "catalog_source_empty",
-    );
+    throw catalogError("catalog_source_empty", "Odoo returned no Catalog Item for this cursor.");
   }
   if (batch.items.length !== 1) {
     throw sourceRejected("Odoo returned more than one Catalog Item for a limit of one.");
@@ -527,75 +536,23 @@ function toImportSource(prepared: PreparedCatalogImport) {
   };
 }
 
-function replayCatalogSynchronization(record: SyncRecordRecord): SynchronizeCatalogItemResult {
-  if (record.state === "failed" || record.state === "dead_letter") {
-    throw recordedFailure(record);
-  }
-  if (record.state !== "succeeded") {
-    throw new MedusaError(
-      MedusaError.Types.CONFLICT,
-      `Catalog synchronization operation ${record.operation_id} is already ${record.state}.`,
-      "catalog_operation_in_progress",
-    );
-  }
-
-  const decoded = CatalogSynchronizationResultSchema.safeParse(record.result);
-  if (!decoded.success) {
-    throw new MedusaError(
-      MedusaError.Types.UNEXPECTED_STATE,
-      `Catalog synchronization operation ${record.operation_id} has an invalid stored result.`,
-      "catalog_result_invalid",
-    );
-  }
-
-  return { ...decoded.data, disposition: "replayed" };
-}
-
-function bridgeFailureError(error: OdooBridgeError): MedusaError {
-  switch (error._tag) {
-    case "OdooBridgeCallAborted":
-      return new MedusaError(
-        MedusaError.Types.INVALID_DATA,
-        "The Catalog synchronization was cancelled during the Odoo read.",
-        "catalog_import_cancelled",
-      );
-    case "AmbiguousCatalogIdentity":
-    case "InvalidCatalogBatchInput":
-    case "InvalidCatalogBatchResponse":
-      return sourceRejected(error.message);
-    default:
-      return new MedusaError(
-        MedusaError.Types.UNEXPECTED_STATE,
-        "The Odoo Catalog source is unavailable.",
-        "catalog_source_unavailable",
-      );
-  }
-}
-
-function sourceRejected(message: string): MedusaError {
-  return new MedusaError(MedusaError.Types.INVALID_DATA, message, "catalog_source_rejected");
-}
-
-function structureConflict(message: string): MedusaError {
-  return new MedusaError(MedusaError.Types.CONFLICT, message, "catalog_structure_conflict");
-}
-
 async function recordFailure(
   container: MedusaContainer,
   catalogSync: CatalogSyncModule,
   syncRecordId: string,
   error: Error,
 ): Promise<void> {
-  const failure = MedusaError.isMedusaError(error)
-    ? { type: error.type, code: error.code ?? null, message: error.message }
-    : {
-        type: MedusaError.Types.UNEXPECTED_STATE,
-        code: "catalog_import_failed",
-        message: "The Catalog synchronization failed because of an internal error.",
-      };
-
   try {
-    await catalogSync.failImport(syncRecordId, failure);
+    await catalogSync.finishSync(syncRecordId, {
+      tag: "failed",
+      failure: MedusaError.isMedusaError(error)
+        ? { type: error.type, code: error.code ?? null, message: error.message }
+        : {
+            type: MedusaError.Types.UNEXPECTED_STATE,
+            code: "catalog_import_failed",
+            message: "The Catalog synchronization failed because of an internal error.",
+          },
+    });
   } catch (recordError) {
     const logger = container.resolve<Logger>(ContainerRegistrationKeys.LOGGER);
     const message =
@@ -606,16 +563,12 @@ async function recordFailure(
   }
 }
 
-function recordedFailure(record: SyncRecordRecord): MedusaError {
-  if (!record.error_type || !record.error_message) {
-    return new MedusaError(
-      MedusaError.Types.UNEXPECTED_STATE,
-      `Failed Catalog synchronization operation ${record.operation_id} has no stored error.`,
-      "catalog_failure_record_invalid",
-    );
-  }
+function sourceRejected(message: string): MedusaError {
+  return catalogError("catalog_source_rejected", message);
+}
 
-  return new MedusaError(record.error_type, record.error_message, record.error_code ?? undefined);
+function structureConflict(message: string): MedusaError {
+  return catalogError("catalog_structure_conflict", message);
 }
 
 function fingerprint(value: CatalogFingerprintInput): string {

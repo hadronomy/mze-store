@@ -10,7 +10,7 @@ import {
   when,
   type WorkflowData,
 } from "@medusajs/framework/workflows-sdk";
-import type { CatalogAttribute, CatalogItem } from "@mze-store/odoo-bridge";
+import type { CatalogAttribute, CatalogItem, SourceRevision } from "@mze-store/odoo-bridge";
 import {
   createProductsWorkflow,
   createRemoteLinkStep,
@@ -20,26 +20,22 @@ import {
   isCatalogTemplateUnavailable,
   isCatalogVariantUnavailable,
 } from "~/catalog/catalog-projection";
-import { CATALOG_SYNC_MODULE } from "~/modules/catalog-sync";
-import type {
-  CatalogMappingRecord,
-  CatalogSyncModule,
-  CreatedCatalogProjection,
-  CreatedCatalogProjectionIds,
-} from "~/modules/catalog-sync/service";
-import type {
-  CatalogCursor,
-  CatalogSynchronizationResult,
-  CreateCatalogAttributeInput,
-  CreateCatalogMappingInput,
-} from "~/modules/catalog-sync/types";
+import {
+  CATALOG_SYNC_MODULE,
+  catalogError,
+  type CatalogMappingSeed,
+  type CatalogProjectionMappingRef,
+  type CatalogProjectionReceipt,
+  type CatalogSyncModule,
+} from "~/modules/catalog-sync";
+import type { CatalogSynchronizationResult } from "~/modules/catalog-sync";
 
 export type PreparedCatalogImport = Readonly<{
   syncRecordId: string;
   item: CatalogItem;
   currencyCode: string;
   sourceFingerprint: string;
-  nextCursor: CatalogCursor | null;
+  nextCursor: SourceRevision | null;
 }>;
 
 export type CreatedCatalogProduct = CatalogSynchronizationResult;
@@ -65,7 +61,7 @@ type CreateProjectionStepInput = Readonly<{
 
 type CompleteImportStepInput = CreateProjectionStepInput &
   Readonly<{
-    projection: CreatedCatalogProjection;
+    mappings: readonly CatalogProjectionMappingRef[];
     links: LinkDefinition[];
   }>;
 
@@ -142,23 +138,25 @@ function toVariantOptions(
   );
 }
 
-async function createCatalogProjection(
+async function createProjection(
   { prepared, products }: CreateProjectionStepInput,
   { container }: StepExecutionContext,
-): Promise<StepResponse<CreatedCatalogProjection, CreatedCatalogProjectionIds>> {
+): Promise<StepResponse<readonly CatalogProjectionMappingRef[], CatalogProjectionReceipt>> {
   const product = requireOnlyProduct(products);
   const productVariants = requireProductVariants(product, prepared.item.variants.length);
-  const templateInput = toTemplateMappingInput(prepared, product.id);
-  const variantInputs = prepared.item.variants.map((variant, index) =>
-    toVariantMappingInput(prepared, product.id, productVariants[index]!.id, variant),
-  );
-  const attributes = toCatalogAttributes(prepared.item, product);
   const catalogSync = container.resolve<CatalogSyncModule>(CATALOG_SYNC_MODULE);
-  const projection = await catalogSync.createCatalogProjection({
-    mappings: [templateInput, ...variantInputs],
-    attributes,
-    variantSelections: prepared.item.variants.map((variant) => ({
-      variantIntegrationKey: variant.integrationKey,
+  const commit = await catalogSync.commitProjection({
+    tag: "create",
+    syncRecordId: prepared.syncRecordId,
+    sourceFingerprint: prepared.sourceFingerprint,
+    sourceRevision: prepared.item.sourceRevision,
+    template: toTemplateSeed(prepared, product.id),
+    variants: prepared.item.variants.map((variant, index) =>
+      toVariantSeed(prepared, product.id, productVariants[index]!.id, variant),
+    ),
+    attributes: toAttributeSeeds(prepared.item, product),
+    variantSelections: prepared.item.variants.map((variant, index) => ({
+      variantIndex: index,
       selections: variant.attributeValues.map(({ attributeId, valueId }) => ({
         odooAttributeId: attributeId,
         odooAttributeValueId: valueId,
@@ -166,75 +164,55 @@ async function createCatalogProjection(
     })),
   });
 
-  return new StepResponse(projection, {
-    mappingIds: projection.mappings.map(({ id }) => id),
-    attributeIds: projection.attributes.map(({ id }) => id),
-    valueIds: projection.values.map(({ id }) => id),
-    selectionIds: projection.selections.map(({ id }) => id),
-  });
+  return new StepResponse(commit.mappings, commit.receipt);
 }
 
-async function compensateCatalogProjection(
-  ids: CreatedCatalogProjectionIds | undefined,
+async function revertProjection(
+  receipt: CatalogProjectionReceipt | undefined,
   { container }: StepExecutionContext,
 ): Promise<void> {
-  if (!ids) {
+  if (!receipt) {
     return;
   }
 
   const catalogSync = container.resolve<CatalogSyncModule>(CATALOG_SYNC_MODULE);
-  await catalogSync.deleteCatalogProjection(ids);
+  await catalogSync.revertProjection(receipt);
 }
 
-function toTemplateMappingInput(
-  prepared: PreparedCatalogImport,
-  productId: string,
-): CreateCatalogMappingInput {
+function toTemplateSeed(prepared: PreparedCatalogImport, productId: string): CatalogMappingSeed {
   return {
-    ...mappingCommon(prepared, productId),
     odooModel: prepared.item.template.model,
     odooDatabaseId: prepared.item.template.id,
     odooIntegrationKey: prepared.item.template.integrationKey,
     sourceLabel: prepared.item.template.name,
     sourceInternalReference: null,
     sourceBarcode: null,
+    medusaProductId: productId,
     medusaVariantId: null,
     archived: isCatalogTemplateUnavailable(prepared.item.template),
   };
 }
 
-function toVariantMappingInput(
+function toVariantSeed(
   prepared: PreparedCatalogImport,
   productId: string,
   variantId: string,
   variant: CatalogItem["variants"][number],
-): CreateCatalogMappingInput {
+): CatalogMappingSeed {
   return {
-    ...mappingCommon(prepared, productId),
     odooModel: variant.model,
     odooDatabaseId: variant.id,
     odooIntegrationKey: variant.integrationKey,
     sourceLabel: variant.name,
     sourceInternalReference: variant.internalReference,
     sourceBarcode: variant.barcode,
+    medusaProductId: productId,
     medusaVariantId: variantId,
     archived: isCatalogVariantUnavailable(prepared.item, variant),
   };
 }
 
-function mappingCommon(prepared: PreparedCatalogImport, productId: string) {
-  return {
-    sourceRevision: prepared.item.sourceRevision,
-    sourceFingerprint: prepared.sourceFingerprint,
-    medusaProductId: productId,
-    syncRecordId: prepared.syncRecordId,
-  } as const;
-}
-
-function toCatalogAttributes(
-  item: CatalogItem,
-  product: CreatedProduct,
-): CreateCatalogAttributeInput[] {
+function toAttributeSeeds(item: CatalogItem, product: CreatedProduct) {
   return item.template.attributes.map((attribute) => {
     if (attribute.variantCreationMode === "never") {
       return {
@@ -310,66 +288,26 @@ function toHiddenOptionIds(input: {
   return (product.options ?? []).filter(({ title }) => hiddenTitles.has(title)).map(({ id }) => id);
 }
 
-function toLinkDefinitions(input: { projection: CreatedCatalogProjection }): LinkDefinition[] {
-  return input.projection.mappings.map((mapping) =>
-    mapping.odoo_model === "product.template"
-      ? {
-          [Modules.PRODUCT]: { product_id: mapping.medusa_product_id },
-          [CATALOG_SYNC_MODULE]: { catalog_mapping_id: mapping.id },
-        }
-      : {
-          [Modules.PRODUCT]: { product_variant_id: mapping.medusa_variant_id! },
-          [CATALOG_SYNC_MODULE]: { catalog_mapping_id: mapping.id },
-        },
-  );
-}
-
-async function completeCatalogImport(
-  { prepared, products, projection }: CompleteImportStepInput,
-  { container }: StepExecutionContext,
-): Promise<StepResponse<CreatedCatalogProduct>> {
-  const product = requireOnlyProduct(products);
-  const variantMappings = projection.mappings.filter(
-    (mapping) => mapping.odoo_model === "product.product",
-  );
-  const mappingByIntegrationKey = new Map(
-    variantMappings.map((mapping) => [mapping.odoo_integration_key, mapping]),
-  );
-  const result: CreatedCatalogProduct = {
-    syncRecordId: prepared.syncRecordId,
-    productId: product.id,
-    templateCatalogMappingId: requireTemplateMapping(projection.mappings).id,
-    variants: prepared.item.variants.map((variant) => {
-      const mapping = mappingByIntegrationKey.get(variant.integrationKey);
-      if (!mapping?.medusa_variant_id) {
-        throw invalidResult(`The Catalog Mapping is missing Odoo Variant ${variant.id}.`);
-      }
-
+function toLinkDefinitions(input: {
+  mappings: readonly CatalogProjectionMappingRef[];
+}): LinkDefinition[] {
+  return input.mappings.map((mapping) => {
+    if (mapping.odooModel === "product.template") {
       return {
-        integrationKey: variant.integrationKey,
-        odooVariantId: variant.id,
-        medusaVariantId: mapping.medusa_variant_id,
-        catalogMappingId: mapping.id,
-        disposition: "created",
-        availability: isCatalogVariantUnavailable(prepared.item, variant)
-          ? "unavailable"
-          : "available",
+        [Modules.PRODUCT]: { product_id: mapping.medusaProductId },
+        [CATALOG_SYNC_MODULE]: { catalog_mapping_id: mapping.id },
       };
-    }),
-    sourceRevision: prepared.item.sourceRevision,
-    nextCursor: prepared.nextCursor,
-  };
-  const catalogSync = container.resolve<CatalogSyncModule>(CATALOG_SYNC_MODULE);
-  await catalogSync.completeImport({
-    syncRecordId: prepared.syncRecordId,
-    templateIntegrationKey: prepared.item.template.integrationKey,
-    sourceFingerprint: prepared.sourceFingerprint,
-    sourceRevision: prepared.item.sourceRevision,
-    nextCursor: prepared.nextCursor,
-    result,
-  });
+    }
 
-  return new StepResponse(result);
+    if (!mapping.medusaVariantId) {
+      throw invalidResult(`The Catalog Mapping for Odoo Variant is missing its Medusa Variant.`);
+    }
+
+    return {
+      [Modules.PRODUCT]: { product_variant_id: mapping.medusaVariantId },
+      [CATALOG_SYNC_MODULE]: { catalog_mapping_id: mapping.id },
+    };
+  });
 }
 
 function composeCatalogProductImport(input: WorkflowData<PreparedCatalogImport>) {
@@ -388,19 +326,63 @@ function composeCatalogProductImport(input: WorkflowData<PreparedCatalogImport>)
       },
     });
   });
-  const projection = createCatalogProjectionStep({ prepared: input, products });
-  const links = transform({ projection }, toLinkDefinitions);
+  const mappings = createProjectionStep({ prepared: input, products });
+  const links = transform({ mappings }, toLinkDefinitions);
   const createdLinks = createRemoteLinkStep(links).config({
     name: "create-catalog-product-mapping-links",
   });
-  const completed = completeCatalogImportStep({
+  const completed = completeImportStep({
     prepared: input,
     products,
-    projection,
+    mappings,
     links: createdLinks,
   });
 
   return new WorkflowResponse(completed);
+}
+
+async function completeImport({
+  prepared,
+  products,
+  mappings,
+}: CompleteImportStepInput): Promise<StepResponse<CreatedCatalogProduct>> {
+  const product = requireOnlyProduct(products);
+  const templateRef = requireRow(
+    mappings.find(({ odooModel }) => odooModel === "product.template"),
+  );
+  const variantRefByKey = new Map(
+    mappings
+      .filter(({ odooModel }) => odooModel === "product.product")
+      .map((ref) => [ref.odooIntegrationKey, ref]),
+  );
+
+  const result: CreatedCatalogProduct = {
+    syncRecordId: prepared.syncRecordId,
+    productId: product.id,
+    templateCatalogMappingId: templateRef.id,
+    templateIntegrationKey: prepared.item.template.integrationKey,
+    variants: prepared.item.variants.map((variant) => {
+      const ref = requireRow(variantRefByKey.get(variant.integrationKey));
+      const medusaVariantId = requireRow(ref.medusaVariantId);
+
+      return {
+        integrationKey: variant.integrationKey,
+        odooVariantId: variant.id,
+        medusaVariantId,
+        catalogMappingId: ref.id,
+        disposition: "created" as const,
+        availability: isCatalogVariantUnavailable(prepared.item, variant)
+          ? ("unavailable" as const)
+          : ("available" as const),
+      };
+    }),
+    sourceRevision: prepared.item.sourceRevision,
+    nextCursor: prepared.nextCursor,
+  };
+
+  // The orchestrator owns the Sync Record lifecycle; this step only produces
+  // the durable result it will store.
+  return new StepResponse(result);
 }
 
 function getProjectedAttributes(item: CatalogItem): readonly CatalogAttribute[] {
@@ -430,34 +412,29 @@ function requireProductVariants(
   return variants;
 }
 
-function requireTemplateMapping(mappings: readonly CatalogMappingRecord[]): CatalogMappingRecord {
-  const mapping = mappings.find(({ odoo_model }) => odoo_model === "product.template");
-  if (!mapping) {
-    throw invalidResult("The Catalog template mapping result is missing.");
+function requireRow<Value>(value: Value | undefined | null, message?: string): Value {
+  if (!value) {
+    throw invalidResult(message ?? "The Catalog projection result is incomplete.");
   }
 
-  return mapping;
+  return value;
 }
 
 function invalidResult(message: string): MedusaError {
-  return new MedusaError(
-    MedusaError.Types.UNEXPECTED_STATE,
-    message,
-    "catalog_projection_result_invalid",
-  );
+  return catalogError("catalog_projection_result_invalid", message);
 }
 
 function sourceRejected(message: string): MedusaError {
-  return new MedusaError(MedusaError.Types.INVALID_DATA, message, "catalog_source_rejected");
+  return catalogError("catalog_source_rejected", message);
 }
 
-const createCatalogProjectionStep = createStep(
+const createProjectionStep = createStep(
   "create-catalog-projection",
-  createCatalogProjection,
-  compensateCatalogProjection,
+  createProjection,
+  revertProjection,
 );
 
-const completeCatalogImportStep = createStep("complete-catalog-import", completeCatalogImport);
+const completeImportStep = createStep("complete-catalog-import", completeImport);
 
 export const createCatalogProductWorkflow = createWorkflow(
   "create-catalog-product",
