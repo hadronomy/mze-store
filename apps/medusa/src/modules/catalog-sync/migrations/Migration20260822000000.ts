@@ -2,9 +2,6 @@ import { Migration } from "@medusajs/framework/mikro-orm/migrations";
 
 export class Migration20260822000000 extends Migration {
   async up(): Promise<void> {
-    this.addSql('alter table "sync_record" drop column if exists "next_attempt_at";');
-    this.addSql('drop index if exists "IDX_sync_record_state_next_attempt_at";');
-
     // Fold the template Integration Key into the stored result before the
     // column goes away, so every stored result carries one contract.
     this.addSql(`
@@ -22,31 +19,43 @@ export class Migration20260822000000 extends Migration {
       'alter table "sync_record" drop column if exists "source_template_integration_key";',
     );
 
-    // Normalize states that no longer exist before tightening the checks.
+    // Real foreign keys for the projection graph. Cascades cover hard
+    // deletes; soft-delete compensation still removes children explicitly
+    // and in order, so history policy stays explicit.
     this.addSql(
-      `update "sync_record" set "state" = 'failed' where "state" in ('pending', 'dead_letter');`,
-    );
-    this.addSql(`update "sync_record" set "state" = 'succeeded' where "state" = 'archived';`);
-    this.addSql(
-      `update "catalog_mapping" set "sync_state" = 'failed' where "sync_state" in ('pending', 'dead_letter');`,
+      'alter table "catalog_attribute_mapping" add constraint "fk_catalog_attribute_mapping_template" foreign key ("template_catalog_mapping_id") references "catalog_mapping" ("id") on delete cascade;',
     );
     this.addSql(
-      `update "catalog_mapping" set "sync_state" = 'succeeded' where "sync_state" = 'archived';`,
-    );
-
-    this.addSql('alter table "sync_record" drop constraint if exists "sync_record_state_check";');
-    this.addSql(
-      `alter table "sync_record" add constraint "sync_record_state_check" check ("state" in ('in_progress', 'succeeded', 'failed'));`,
+      'alter table "catalog_attribute_value_mapping" add constraint "fk_catalog_attribute_value_mapping_attribute" foreign key ("catalog_attribute_mapping_id") references "catalog_attribute_mapping" ("id") on delete cascade;',
     );
     this.addSql(
-      'alter table "catalog_mapping" drop constraint if exists "catalog_mapping_sync_state_check";',
+      'alter table "catalog_variant_attribute_value" add constraint "fk_catalog_variant_attribute_value_variant" foreign key ("variant_catalog_mapping_id") references "catalog_mapping" ("id") on delete cascade;',
     );
     this.addSql(
-      `alter table "catalog_mapping" add constraint "catalog_mapping_sync_state_check" check ("sync_state" in ('in_progress', 'succeeded', 'failed'));`,
+      'alter table "catalog_variant_attribute_value" add constraint "fk_catalog_variant_attribute_value_attribute" foreign key ("catalog_attribute_mapping_id") references "catalog_attribute_mapping" ("id") on delete cascade;',
+    );
+    this.addSql(
+      'alter table "catalog_variant_attribute_value" add constraint "fk_catalog_variant_attribute_value_value" foreign key ("catalog_attribute_value_mapping_id") references "catalog_attribute_value_mapping" ("id") on delete cascade;',
     );
   }
 
   async down(): Promise<void> {
+    this.addSql(
+      'alter table "catalog_variant_attribute_value" drop constraint if exists "fk_catalog_variant_attribute_value_value";',
+    );
+    this.addSql(
+      'alter table "catalog_variant_attribute_value" drop constraint if exists "fk_catalog_variant_attribute_value_attribute";',
+    );
+    this.addSql(
+      'alter table "catalog_variant_attribute_value" drop constraint if exists "fk_catalog_variant_attribute_value_variant";',
+    );
+    this.addSql(
+      'alter table "catalog_attribute_value_mapping" drop constraint if exists "fk_catalog_attribute_value_mapping_attribute";',
+    );
+    this.addSql(
+      'alter table "catalog_attribute_mapping" drop constraint if exists "fk_catalog_attribute_mapping_template";',
+    );
+
     this.addSql(
       'alter table "sync_record" add column "source_template_integration_key" text null;',
     );
@@ -55,20 +64,5 @@ export class Migration20260822000000 extends Migration {
       set "source_template_integration_key" = "result" #>> '{templateIntegrationKey}'
       where "result" is not null;
     `);
-    this.addSql('alter table "sync_record" add column "next_attempt_at" timestamptz null;');
-    this.addSql(
-      'CREATE INDEX IF NOT EXISTS "IDX_sync_record_state_next_attempt_at" ON "sync_record" ("state", "next_attempt_at") WHERE deleted_at IS NULL;',
-    );
-
-    this.addSql('alter table "sync_record" drop constraint if exists "sync_record_state_check";');
-    this.addSql(
-      `alter table "sync_record" add constraint "sync_record_state_check" check ("state" in ('pending', 'in_progress', 'succeeded', 'failed', 'dead_letter', 'archived'));`,
-    );
-    this.addSql(
-      'alter table "catalog_mapping" drop constraint if exists "catalog_mapping_sync_state_check";',
-    );
-    this.addSql(
-      `alter table "catalog_mapping" add constraint "catalog_mapping_sync_state_check" check ("sync_state" in ('pending', 'in_progress', 'succeeded', 'failed', 'dead_letter', 'archived'));`,
-    );
   }
 }

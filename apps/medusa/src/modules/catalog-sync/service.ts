@@ -754,7 +754,7 @@ function resumeStart(
     default:
       throw catalogError(
         "catalog_operation_in_progress",
-        `Catalog synchronization operation ${record.operation_id} is already in progress.`,
+        `Catalog synchronization operation ${record.operation_id} is already ${record.state}.`,
       );
   }
 }

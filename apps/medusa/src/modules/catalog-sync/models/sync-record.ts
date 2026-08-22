@@ -20,12 +20,18 @@ const SyncRecord = model
     error_message: model.text().nullable(),
     started_at: model.dateTime().nullable(),
     finished_at: model.dateTime().nullable(),
+    next_attempt_at: model.dateTime().nullable(),
   })
   .indexes([
     {
       name: "IDX_sync_record_operation_id_unique",
       on: ["operation_id"],
       unique: true,
+      where: "deleted_at IS NULL",
+    },
+    {
+      name: "IDX_sync_record_state_next_attempt_at",
+      on: ["state", "next_attempt_at"],
       where: "deleted_at IS NULL",
     },
   ]);

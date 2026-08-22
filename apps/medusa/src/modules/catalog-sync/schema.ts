@@ -3,7 +3,7 @@ import { z } from "@medusajs/framework/zod";
 const SourceRevisionRequestSchema = z
   .object({
     id: z.number().int().positive(),
-    write_date: z.string().datetime({ offset: true }),
+    write_date: z.iso.datetime({ offset: true }),
   })
   .transform((revision) => ({
     changedAt: revision.write_date,
@@ -17,7 +17,7 @@ export const CatalogImportRequestSchema = z.object({
 export type CatalogImportRequest = z.infer<typeof CatalogImportRequestSchema>;
 
 const CatalogCursorSchema = z.object({
-  changedAt: z.string().datetime({ offset: true }),
+  changedAt: z.iso.datetime({ offset: true }),
   productId: z.number().int().positive(),
 });
 
@@ -25,10 +25,10 @@ export const CatalogSynchronizationResultSchema = z.object({
   syncRecordId: z.string(),
   productId: z.string(),
   templateCatalogMappingId: z.string(),
-  templateIntegrationKey: z.string().uuid(),
+  templateIntegrationKey: z.uuid(),
   variants: z.array(
     z.object({
-      integrationKey: z.string().uuid(),
+      integrationKey: z.uuid(),
       odooVariantId: z.number().int().positive(),
       medusaVariantId: z.string(),
       catalogMappingId: z.string(),

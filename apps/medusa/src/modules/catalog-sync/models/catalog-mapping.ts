@@ -1,5 +1,7 @@
 import { model } from "@medusajs/framework/utils";
 import { CATALOG_SYNC_STATES, ODOO_CATALOG_MODELS } from "~/modules/catalog-sync/types";
+import CatalogAttributeMapping from "./catalog-attribute-mapping";
+import CatalogVariantAttributeValue from "./catalog-variant-attribute-value";
 
 const CatalogMapping = model
   .define("catalog_mapping", {
@@ -19,6 +21,17 @@ const CatalogMapping = model
     sync_state: model.enum([...CATALOG_SYNC_STATES]),
     archived: model.boolean().default(false),
     last_synced_at: model.dateTime(),
+    catalog_attribute_mappings: model.hasMany(() => CatalogAttributeMapping, {
+      mappedBy: "template_catalog_mapping",
+    }),
+    catalog_variant_attribute_values: model.hasMany(() => CatalogVariantAttributeValue, {
+      mappedBy: "variant_catalog_mapping",
+    }),
+  })
+  .cascades({
+    // Hard deletes take the child rows with them. Soft-delete compensation
+    // still deletes children explicitly and in order.
+    delete: ["catalog_attribute_mappings", "catalog_variant_attribute_values"],
   })
   .indexes([
     {

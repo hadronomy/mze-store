@@ -66,7 +66,7 @@ const CatalogImportResponseSchema = z.object({
     }),
     variants: z.array(
       z.object({
-        integration_key: z.string().uuid(),
+        integration_key: z.uuid(),
         odoo_variant_id: z.number().int().positive(),
         medusa_variant_id: z.string(),
         catalog_mapping_id: z.string(),
@@ -76,12 +76,12 @@ const CatalogImportResponseSchema = z.object({
     ),
     source_revision: z.object({
       id: z.number().int().positive(),
-      write_date: z.string().datetime({ offset: true }),
+      write_date: z.iso.datetime({ offset: true }),
     }),
     next_cursor: z
       .object({
         id: z.number().int().positive(),
-        write_date: z.string().datetime({ offset: true }),
+        write_date: z.iso.datetime({ offset: true }),
       })
       .nullable(),
   }),
