@@ -97,5 +97,8 @@ export default defineConfig({
         },
       },
     },
+    {
+      resolve: "./src/modules/product-authoring",
+    },
   ],
 });

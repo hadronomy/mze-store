@@ -1,5 +1,10 @@
 import type { IProductModuleService, LinkDefinition } from "@medusajs/framework/types";
-import { MedusaError, Modules } from "@medusajs/framework/utils";
+import {
+  ContainerRegistrationKeys,
+  MedusaError,
+  Modules,
+  ProductStatus,
+} from "@medusajs/framework/utils";
 import type { StepExecutionContext } from "@medusajs/framework/workflows-sdk";
 import {
   StepResponse,
@@ -27,6 +32,10 @@ import {
   type UpdateCatalogProjectionChange,
   type UpdateCatalogValueChange,
 } from "~/modules/catalog-sync";
+import {
+  PRODUCT_AUTHORING_MODULE,
+  type ProductAuthoringModuleService,
+} from "~/modules/product-authoring";
 import type {
   CatalogProjectionRecords,
   CatalogSynchronizationResult,
@@ -592,9 +601,66 @@ function composeCatalogProductUpdate(input: WorkflowData<PreparedCatalogUpdate>)
     synchronized,
     links: createdLinks,
   });
+  projectAvailabilityStep(completed);
 
   return new WorkflowResponse(completed);
 }
+
+// The Authoring State records intent; Product status is its availability
+// projection. A published Product goes offline while Odoo archives it and
+// returns when the source recovers — the editorial draft never moves.
+const projectAvailabilityStep = createStep(
+  "project-authoring-availability",
+  async (
+    { productId }: { productId: string },
+    { container },
+  ): Promise<StepResponse<void, { productId: string; previousStatus: string }>> => {
+    const authoring = container.resolve<ProductAuthoringModuleService>(PRODUCT_AUTHORING_MODULE);
+    const catalogSync = container.resolve<CatalogSyncModule>(CATALOG_SYNC_MODULE);
+
+    await authoring.ensureAuthoring([productId]);
+    const [record] = await authoring.listAuthoring([productId]);
+    const projection = await catalogSync.getCatalogProjectionStatus(productId);
+    const templateArchived = projection.templateArchived ?? true;
+
+    const query = container.resolve(ContainerRegistrationKeys.QUERY);
+    const { data } = await query.graph({
+      entity: "product",
+      fields: ["id", "status"],
+      filters: { id: productId },
+    });
+    const previousStatus = String(data[0]?.status ?? ProductStatus.DRAFT);
+    const desired =
+      record?.state === "published" && !templateArchived
+        ? ProductStatus.PUBLISHED
+        : ProductStatus.DRAFT;
+
+    if (desired !== previousStatus) {
+      const productModule = container.resolve<IProductModuleService>(Modules.PRODUCT);
+      await productModule.updateProducts(productId, { status: desired });
+    }
+
+    return new StepResponse(undefined, { productId, previousStatus });
+  },
+  async (compensationData, { container }) => {
+    if (!compensationData) {
+      return;
+    }
+
+    const { productId, previousStatus } = compensationData;
+    const productModule = container.resolve<IProductModuleService>(Modules.PRODUCT);
+    await productModule.updateProducts(productId, {
+      status:
+        previousStatus === "published"
+          ? ProductStatus.PUBLISHED
+          : previousStatus === "rejected"
+            ? ProductStatus.REJECTED
+            : previousStatus === "proposed"
+              ? ProductStatus.PROPOSED
+              : ProductStatus.DRAFT,
+    });
+  },
+);
 
 function variantMappingByIntegrationKey(existing: CatalogProjectionRecords) {
   return new Map(

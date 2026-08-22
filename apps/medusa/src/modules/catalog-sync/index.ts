@@ -24,6 +24,7 @@ export type {
   CatalogProjectionCommit,
   CatalogProjectionMappingRef,
   CatalogProjectionReceipt,
+  CatalogProjectionStatus,
   CatalogSelectionInput,
   CatalogSource,
   CatalogSyncFailure,
