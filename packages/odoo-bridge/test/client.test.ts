@@ -279,6 +279,96 @@ describe("Bridge Contract codecs", () => {
     expect(decoded).toEqual(catalog);
     await expect(Schema.encodePromise(CatalogBatchSchema)(decoded)).resolves.toEqual(catalogWire);
   });
+
+  it.each([
+    {
+      name: "a variant-less Product",
+      wire: {
+        ...catalogWire,
+        items: [
+          {
+            ...catalogWire.items[0],
+            template: { ...catalogWire.items[0].template, attributes: [] },
+            variants: [{ ...catalogWire.items[0].variants[0], attribute_values: [] }],
+          },
+        ],
+      },
+    },
+    {
+      name: "one always attribute with several Values",
+      wire: {
+        ...catalogWire,
+        items: [
+          {
+            ...catalogWire.items[0],
+            template: {
+              ...catalogWire.items[0].template,
+              attributes: [catalogWire.items[0].template.attributes[0]],
+            },
+          },
+        ],
+      },
+    },
+    {
+      name: "several Variant-producing attributes",
+      wire: {
+        ...catalogWire,
+        items: [
+          {
+            ...catalogWire.items[0],
+            template: {
+              ...catalogWire.items[0].template,
+              attributes: [
+                catalogWire.items[0].template.attributes[0],
+                {
+                  ...catalogWire.items[0].template.attributes[1],
+                  name: "Packaging",
+                  variant_creation_mode: "always",
+                },
+              ],
+            },
+            variants: catalogWire.items[0].variants.map((variant) => ({
+              ...variant,
+              attribute_values: [...variant.attribute_values, { attribute_id: 12, value_id: 23 }],
+            })),
+          },
+        ],
+      },
+    },
+    {
+      name: "dynamic and never attributes with availability and identity fields",
+      wire: {
+        ...catalogWire,
+        items: [
+          {
+            ...catalogWire.items[0],
+            template: {
+              ...catalogWire.items[0].template,
+              attributes: [
+                {
+                  ...catalogWire.items[0].template.attributes[0],
+                  variant_creation_mode: "dynamic",
+                },
+                catalogWire.items[0].template.attributes[1],
+              ],
+            },
+            variants: [
+              {
+                ...catalogWire.items[0].variants[0],
+                barcode: "8412345678999",
+                default_code: "ATOPIC-RENAMED",
+                name: "A-TOPIC GEL SOURCE LABEL",
+              },
+              { ...catalogWire.items[0].variants[1], active: true, sale_ok: true },
+            ],
+          },
+        ],
+      },
+    },
+  ])("round-trips $name", async ({ wire }) => {
+    const decoded = await Schema.decodeUnknownPromise(CatalogBatchSchema)(wire);
+    await expect(Schema.encodePromise(CatalogBatchSchema)(decoded)).resolves.toEqual(wire);
+  });
 });
 
 describe("Odoo bridge client", () => {
