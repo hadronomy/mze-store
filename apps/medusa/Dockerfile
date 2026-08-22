@@ -40,10 +40,11 @@ COPY package.json bun.lock vite.config.ts tsconfig.json ./
 # node_modules out, which is what makes the recursive glob safe.
 COPY --parents **/package.json ./
 # A flat production tree avoids race-dependent links in Bun's isolated store.
+# One filter covers the whole workspace dependency closure of the app
+# transitively, so a new workspace package needs no edit here.
 RUN --mount=type=cache,id=bun-install-cache,target=/root/.bun/install/cache \
   bun install --frozen-lockfile --omit dev --linker=hoisted --backend=copyfile \
-    --filter medusa \
-    --filter '@mze-store/territory'
+    --filter medusa
 
 # Cached packages can retain broader write bits from an earlier extraction.
 # Remove those bits before BuildKit records the runtime dependency layer.
@@ -77,8 +78,14 @@ RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx
 COPY --from=production-deps --chown=node:node /app/node_modules ./node_modules
 COPY --from=build --chown=node:node /app/package.json ./package.json
 COPY --from=build --chown=node:node /app/apps/medusa/package.json ./apps/medusa/package.json
-COPY --from=build --chown=node:node /app/packages/territory/package.json ./packages/territory/package.json
-COPY --from=build --chown=node:node /app/packages/territory/dist ./packages/territory/dist
+# Workspace packages stay symlinks under the hoisted linker, so every link
+# target's manifest and built output must exist here. The globs carry all of
+# them, which keeps new packages edit-free. --parents mirrors the source
+# stage's /app prefix onto /, so the copies land at /app/packages/*/.
+COPY --parents --from=build --chown=node:node \
+  /app/packages/*/package.json \
+  /app/packages/*/dist \
+  /
 COPY --from=build --chown=node:node /app/apps/medusa/.medusa/server ./apps/medusa/.medusa/server
 COPY --from=build --chown=node:node /app/apps/medusa/.env-flat/ ./apps/medusa/.medusa/server/
 
