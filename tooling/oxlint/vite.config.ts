@@ -1,7 +1,7 @@
 import { defineConfig } from "vite-plus";
 import { packageBuildTask, packageTypecheckTask } from "../vite/package-tasks";
 
-const checkTypes = packageTypecheckTask();
+const checkTypes = packageTypecheckTask(["packages/test"]);
 
 export default defineConfig({
   resolve: {
@@ -21,7 +21,7 @@ export default defineConfig({
       build: packageBuildTask("vp pack"),
       "check-types": {
         ...checkTypes,
-        dependsOn: ["@mze-store/oxlint#build"],
+        dependsOn: [...checkTypes.dependsOn, "@mze-store/oxlint#build"],
       },
     },
   },

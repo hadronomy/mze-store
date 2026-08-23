@@ -87,6 +87,13 @@ confirmation, verifies Node, Bun, and Docker, and installs the Vite+ Git hooks:
 bun run mze setup
 ```
 
+Install the private source-fixture extension for syntax colors and language
+features inside `src.*` test fixtures:
+
+```sh
+bun run editor:install
+```
+
 Set a Stripe test secret in `apps/medusa/.env`. Install the pinned Portless
 version, then start development:
 

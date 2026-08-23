@@ -2,6 +2,8 @@ import { expect, it } from "@effect/vitest";
 import { NodeServices } from "@effect/platform-node";
 import { Effect, Fiber, FileSystem, Layer, Path, Schedule } from "effect";
 
+import { src } from "@mze-store/test";
+
 import { ChildCommand } from "./child-command.ts";
 import { Output } from "./output.ts";
 
@@ -86,17 +88,17 @@ it.live("sends SIGTERM when output paths contain code separators and replacement
       const directory = yield* fs.makeTempDirectoryScoped({ prefix: "mze-process-test-" });
       const pidFile = path.join(directory, `grandchild-;'"$&.pid`);
       const signalFile = path.join(directory, `signal-;'"$&.txt`);
-      const script = [
-        'const { spawn } = require("node:child_process")',
-        'const { writeFileSync } = require("node:fs")',
-        "const pidFile = process.env.MZE_PID_FILE",
-        "const signalFile = process.env.MZE_SIGNAL_FILE",
-        'if (!pidFile || !signalFile) throw new Error("Missing child process paths")',
-        `const child = spawn(process.execPath, ["-e", "setInterval(() => {}, 1000)"], { stdio: "ignore" })`,
-        'process.on("SIGTERM", () => { writeFileSync(signalFile, "SIGTERM"); process.exit(0) })',
-        "writeFileSync(pidFile, String(child.pid))",
-        "setInterval(() => {}, 1000)",
-      ].join(";");
+      const script = src.js`
+        const { spawn } = require("node:child_process")
+        const { writeFileSync } = require("node:fs")
+        const pidFile = process.env.MZE_PID_FILE
+        const signalFile = process.env.MZE_SIGNAL_FILE
+        if (!pidFile || !signalFile) throw new Error("Missing child process paths")
+        const child = spawn(process.execPath, ["-e", "setInterval(() => {}, 1000)"], { stdio: "ignore" })
+        process.on("SIGTERM", () => { writeFileSync(signalFile, "SIGTERM"); process.exit(0) })
+        writeFileSync(pidFile, String(child.pid))
+        setInterval(() => {}, 1000)
+      `;
       const fiber = yield* commands
         .run({
           executable: process.execPath,

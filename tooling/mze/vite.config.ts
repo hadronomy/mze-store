@@ -7,7 +7,7 @@ import { packageTypecheckTask } from "../vite/package-tasks";
 export default defineConfig({
   run: {
     tasks: {
-      "check-types": packageTypecheckTask(),
+      "check-types": packageTypecheckTask(["packages/test"]),
     },
   },
 });

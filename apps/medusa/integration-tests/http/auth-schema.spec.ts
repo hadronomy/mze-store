@@ -3,6 +3,8 @@ import { drizzle } from "drizzle-orm/node-postgres";
 import { migrate } from "drizzle-orm/node-postgres/migrator";
 import { resolve } from "node:path";
 
+import { src } from "@mze-store/test";
+
 jest.setTimeout(60 * 1000);
 
 type AccountOrOperatorTable = {
@@ -28,7 +30,7 @@ medusaIntegrationTestRunner({
 
     describe("Account and Operator tables", () => {
       it("keeps the Account table separate from the Operator table", async () => {
-        const { rows } = await dbConnection.raw(`
+        const { rows } = await dbConnection.raw(src.sql`
           SELECT namespace.nspname AS schema_name, table_class.oid::text AS table_oid
           FROM pg_class AS table_class
           JOIN pg_namespace AS namespace ON namespace.oid = table_class.relnamespace

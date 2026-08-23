@@ -48,35 +48,41 @@ export const build = (cwd: string): Phase.Graph => {
     "oxlint plugin",
     vpRun(cwd, ["--filter", "@mze-store/oxlint", "build"]),
   );
+  const sourceEditor = Phase.make(
+    "source editor",
+    vpRun(cwd, ["--filter", "mze-source-editor", "build"]),
+  );
   const packages = Phase.make("packages", vpRun(cwd, ["--filter", "./packages/*", "build"]));
   const apps = Phase.make("apps", vpRun(cwd, ["--filter", "./apps/*", "build"])).pipe(
     Phase.after(packages),
   );
 
-  return Phase.all(oxlintPlugin, packages, apps);
+  return Phase.all(oxlintPlugin, sourceEditor, packages, apps);
 };
 
 /**
  * `oxlint plugin`'s own `check-types` task depends on its own `build` task
  * (declared in `tooling/oxlint/vite.config.ts`), so Vite+'s graph builds it
- * before `format and lint` needs the built plugin — this command never has to
- * ask for that build directly.
+ * before `format and lint` needs the built plugin.
  *
  * `format and lint` reads source through the built plugin, not through any
- * package's `dist/`, so it depends only on `oxlint plugin`. `package types`
- * and `app types` read declarations, so they depend only on `packages`.
- * `tooling types` and `packages` share no dependency with anything else here
- * and run alongside whatever else is ready.
+ * package's `dist/`, so it depends only on `oxlint plugin`. The two tooling
+ * type checks and the application and package type checks read declarations
+ * from `@mze-store/test`, so they wait for `packages`.
  */
 export const check = (cwd: string): Phase.Graph => {
+  const packages = Phase.make("packages", vpRun(cwd, ["--filter", "./packages/*", "build"]));
   const oxlintPlugin = Phase.make(
     "oxlint plugin",
     vpRun(cwd, ["--filter", "@mze-store/oxlint", "check-types"]),
-  );
-  const packages = Phase.make("packages", vpRun(cwd, ["--filter", "./packages/*", "build"]));
+  ).pipe(Phase.after(packages));
   const toolingTypes = Phase.make(
     "tooling types",
     vpRun(cwd, ["--filter", "@mze-store/mze", "check-types"]),
+  ).pipe(Phase.after(packages));
+  const sourceEditor = Phase.make(
+    "source editor",
+    vpRun(cwd, ["--filter", "mze-source-editor", "check-types"]),
   );
   const formatAndLint = Phase.make("format and lint", vp(cwd, ["check"])).pipe(
     Phase.after(oxlintPlugin),
@@ -90,7 +96,15 @@ export const check = (cwd: string): Phase.Graph => {
     vpRun(cwd, ["--filter", "./apps/*", "check-types"]),
   ).pipe(Phase.after(packages));
 
-  return Phase.all(oxlintPlugin, packages, toolingTypes, formatAndLint, packageTypes, appTypes);
+  return Phase.all(
+    oxlintPlugin,
+    packages,
+    toolingTypes,
+    sourceEditor,
+    formatAndLint,
+    packageTypes,
+    appTypes,
+  );
 };
 
 /**

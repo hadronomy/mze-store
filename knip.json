@@ -50,6 +50,10 @@
       "entry": ["src/**/*.ts"],
       "project": ["*.ts", "src/**/*.ts"]
     },
+    "packages/test": {
+      "entry": ["src/**/*.ts", "test/**/*.ts"],
+      "project": ["*.ts", "src/**/*.ts", "test/**/*.ts"]
+    },
     "packages/ui": {
       "entry": ["postcss.config.mjs", "src/**/*.{ts,tsx}"],
       "project": ["*.mjs", "src/**/*.{ts,tsx}"]
@@ -62,6 +66,15 @@
     "tooling/oxlint": {
       "entry": ["vite.config.ts", "src/**/*.ts", "test/**/*.ts"],
       "project": ["*.{json,ts}", "src/**/*.ts", "test/**/*.ts"]
+    },
+    "tooling/source-editor": {
+      "entry": [
+        "vite.config.ts",
+        "src/extension/extension.ts",
+        "src/server/server.ts",
+        "test/**/*.ts"
+      ],
+      "project": ["*.ts", "src/**/*.ts", "test/**/*.ts"]
     }
   }
 }

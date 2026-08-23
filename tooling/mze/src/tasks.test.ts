@@ -54,11 +54,17 @@ function recordingChildCommand(fail: (spec: ChildCommand.Spec) => boolean = () =
 }
 
 it("names every phase before any of them run", () => {
-  expect(Phase.names(Tasks.build("/repo"))).toEqual(["oxlint plugin", "packages", "apps"]);
-  expect(Phase.names(Tasks.check("/repo"))).toEqual([
+  expect(Phase.names(Tasks.build("/repo"))).toEqual([
     "oxlint plugin",
+    "source editor",
     "packages",
+    "apps",
+  ]);
+  expect(Phase.names(Tasks.check("/repo"))).toEqual([
+    "packages",
+    "oxlint plugin",
     "tooling types",
+    "source editor",
     "format and lint",
     "package types",
     "app types",
@@ -69,6 +75,15 @@ it("names every phase before any of them run", () => {
 it("apps depends only on packages, not on oxlint plugin", () => {
   const apps = Tasks.build("/repo").nodes.find((node) => node.name === "apps");
   expect(apps?.dependencies.map((dependency) => dependency.name)).toEqual(["packages"]);
+});
+
+it("builds package declarations before tooling type checks", () => {
+  const graph = Tasks.check("/repo");
+
+  for (const name of ["oxlint plugin", "tooling types"] as const) {
+    const phase = graph.nodes.find((node) => node.name === name);
+    expect(phase?.dependencies.map((dependency) => dependency.name)).toEqual(["packages"]);
+  }
 });
 
 it.effect("buffers every Vite+ task run so a failure log reads in order", () => {
@@ -112,19 +127,19 @@ it.effect("stops at the first failed phase and never starts the rest", () => {
       .filter(({ event }) => event === "phase-started")
       .map(({ data }) => data.phase);
 
-    // `oxlint plugin` and `packages` have no dependency on each other, so a
-    // real scheduler runs them concurrently — their relative start order is
-    // not guaranteed, only that both start and `apps` never does.
+    // These phases have no dependency on each other, so a real scheduler runs
+    // them concurrently. Only `apps`, which needs `packages`, stays pending.
     expect(started.toSorted((a, b) => (a ?? "").localeCompare(b ?? ""))).toEqual([
       "oxlint plugin",
       "packages",
+      "source editor",
     ]);
     expect(events.filter(({ event }) => event === "phase-failed").map(({ data }) => data.phase)) //
       .toEqual(["packages"]);
     expect(events.filter(({ event }) => event === "phase-skipped").map(({ data }) => data.phase)) //
       .toEqual(["apps"]);
     expect(events.find(({ event }) => event === "phase-plan")?.data).toEqual({
-      phases: ["oxlint plugin", "packages", "apps"],
+      phases: ["oxlint plugin", "source editor", "packages", "apps"],
     });
   }).pipe(Effect.provide(Layer.provide(Output.layer("json"), capture.layer)));
 });

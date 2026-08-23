@@ -17,11 +17,13 @@ mze-store/
 │   ├── db/                    Drizzle — better-auth tables only, `auth` schema
 │   ├── design-tokens/         pure-TS design tokens; CSS generated from them
 │   ├── territory/             Province identity data and input schemas
+│   ├── test/                  source-fixture tags for repository tests
 │   ├── ui/                    shadcn primitives
 │   ├── env/                   validated environment
 │   └── config/                shared tsconfig base
 └── tooling/
-    └── oxlint/                private Effect-based Oxlint plugin package
+    ├── oxlint/                private Effect-based Oxlint plugin package
+    └── source-editor/         private VS Code extension and language server
 ```
 
 **The two apps cannot share a tsconfig.** Medusa needs CJS, `Node16` resolution, and decorators; the storefront needs ESM and `Bundler`. `packages/config` carries only the strictness flags they agree on; each app overrides module resolution. Unifying these is the most likely way to break the workspace — and it has been tested, not assumed. See ADR-0012.
@@ -37,6 +39,7 @@ Three surfaces use Vite+ / rolldown. Medusa admin and backend use separate toolc
 | Storefront                | Vite+ / rolldown                   | bundled ESM                             |
 | `packages/*`              | Vite+ / rolldown                   | ESM, plus CJS if the backend imports it |
 | Oxlint plugin             | Vite+ / rolldown                   | ESM plugin with declarations            |
+| Source editor             | Vite+ / rolldown                   | bundled CommonJS VS Code extension      |
 | Medusa admin + extensions | `@medusajs/admin-bundler` (Vite 5) | bundled                                 |
 | Medusa backend            | TypeScript compiler API            | **unbundled, file-per-file CJS**        |
 
