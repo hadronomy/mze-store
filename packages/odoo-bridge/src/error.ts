@@ -253,4 +253,5 @@ const OdooBridgeErrorSchema = Schema.Union([
   UnexpectedStatus,
 ]);
 
-export const isOdooBridgeError = Schema.is(OdooBridgeErrorSchema);
+export const isOdooBridgeError: <I>(input: I) => input is I & OdooBridgeError =
+  Schema.is(OdooBridgeErrorSchema);
