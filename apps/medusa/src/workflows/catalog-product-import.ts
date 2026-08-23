@@ -32,6 +32,7 @@ import {
   PRODUCT_AUTHORING_MODULE,
   type ProductAuthoringModuleService,
 } from "~/modules/product-authoring";
+import { recordCatalogStepFailure } from "~/catalog/record-catalog-step-failure";
 import type { CatalogSynchronizationResult } from "~/modules/catalog-sync";
 
 export type PreparedCatalogImport = Readonly<{
@@ -151,9 +152,11 @@ async function createProjection(
   const catalogSync = container.resolve<CatalogSyncModule>(CATALOG_SYNC_MODULE);
   const commit = await catalogSync.commitProjection({
     tag: "create",
-    syncRecordId: prepared.syncRecordId,
-    sourceFingerprint: prepared.sourceFingerprint,
-    sourceRevision: prepared.item.sourceRevision,
+    sync: {
+      recordId: prepared.syncRecordId,
+      sourceFingerprint: prepared.sourceFingerprint,
+      sourceRevision: prepared.item.sourceRevision,
+    },
     template: toTemplateSeed(prepared, product.id),
     variants: prepared.item.variants.map((variant, index) =>
       toVariantSeed(prepared, product.id, productVariants[index]!.id, variant),
@@ -193,7 +196,7 @@ function toTemplateSeed(prepared: PreparedCatalogImport, productId: string): Cat
     sourceBarcode: null,
     medusaProductId: productId,
     medusaVariantId: null,
-    archived: isCatalogTemplateUnavailable(prepared.item.template),
+    sourceAvailable: !isCatalogTemplateUnavailable(prepared.item.template),
   };
 }
 
@@ -212,7 +215,7 @@ function toVariantSeed(
     sourceBarcode: variant.barcode,
     medusaProductId: productId,
     medusaVariantId: variantId,
-    archived: isCatalogVariantUnavailable(prepared.item, variant),
+    sourceAvailable: !isCatalogVariantUnavailable(prepared.item, variant),
   };
 }
 
@@ -341,18 +344,58 @@ function composeCatalogProductImport(input: WorkflowData<PreparedCatalogImport>)
     mappings,
     links: createdLinks,
   });
-  ensureAuthoringStep(completed);
+  const ensuredAuthoring = ensureAuthoringStep(
+    transform({ completed, prepared: input }, ({ completed, prepared }) => ({
+      productId: completed.productId,
+      syncRecordId: prepared.syncRecordId,
+      initialState: "imported" as const,
+    })),
+  );
 
-  return new WorkflowResponse(completed);
+  return new WorkflowResponse(
+    transform({ completed, ensuredAuthoring }, ({ completed }) => completed),
+  );
 }
 
-const ensureAuthoringStep = createStep(
+const ensureAuthoringStep = createStep<
+  {
+    productId: string;
+    syncRecordId: string;
+    initialState: "imported" | "published";
+  },
+  void,
+  string | null
+>(
   "ensure-authoring-record",
-  async ({ productId }: { productId: string }, { container }): Promise<StepResponse<void>> => {
+  async (
+    {
+      productId,
+      syncRecordId,
+      initialState,
+    }: { productId: string; syncRecordId: string; initialState: "imported" | "published" },
+    { container },
+  ): Promise<StepResponse<void, string | null>> => {
+    try {
+      const authoring = container.resolve<ProductAuthoringModuleService>(PRODUCT_AUTHORING_MODULE);
+      const existing = await authoring.getAuthoring(productId);
+      await authoring.ensureAuthoring([{ productId, initialState }]);
+      return new StepResponse(void 0, existing ? null : productId);
+    } catch (thrown) {
+      throw await recordCatalogStepFailure(
+        container,
+        syncRecordId,
+        thrown instanceof Error
+          ? thrown
+          : new Error("The Authoring step threw a value that was not an Error."),
+      );
+    }
+  },
+  async (createdProductId, { container }) => {
+    if (!createdProductId) {
+      return;
+    }
     const authoring = container.resolve<ProductAuthoringModuleService>(PRODUCT_AUTHORING_MODULE);
-    await authoring.ensureAuthoring([productId]);
-
-    return new StepResponse(void 0);
+    await authoring.removeAuthoring(createdProductId);
   },
 );
 
@@ -386,9 +429,8 @@ async function completeImport({
         medusaVariantId,
         catalogMappingId: ref.id,
         disposition: "created" as const,
-        availability: isCatalogVariantUnavailable(prepared.item, variant)
-          ? ("unavailable" as const)
-          : ("available" as const),
+        sourceAvailable: !isCatalogVariantUnavailable(prepared.item, variant),
+        approvalState: "pending" as const,
       };
     }),
     sourceRevision: prepared.item.sourceRevision,
@@ -445,13 +487,41 @@ function sourceRejected(message: string): MedusaError {
 
 const createProjectionStep = createStep(
   "create-catalog-projection",
-  createProjection,
+  async (input: CreateProjectionStepInput, context) => {
+    try {
+      return await createProjection(input, context);
+    } catch (thrown) {
+      throw await recordCatalogStepFailure(
+        context.container,
+        input.prepared.syncRecordId,
+        thrown instanceof Error
+          ? thrown
+          : new Error("The Catalog projection step threw a value that was not an Error."),
+      );
+    }
+  },
   revertProjection,
 );
 
-const completeImportStep = createStep("complete-catalog-import", completeImport);
-
-export const createCatalogProductWorkflow = createWorkflow(
-  "create-catalog-product",
-  composeCatalogProductImport,
+const completeImportStep = createStep(
+  "complete-catalog-import",
+  async (input: CompleteImportStepInput, context) => {
+    try {
+      return await completeImport(input);
+    } catch (thrown) {
+      throw await recordCatalogStepFailure(
+        context.container,
+        input.prepared.syncRecordId,
+        thrown instanceof Error
+          ? thrown
+          : new Error("The Catalog result step threw a value that was not an Error."),
+      );
+    }
+  },
 );
+
+export const createCatalogProductWorkflow = createWorkflow<
+  PreparedCatalogImport,
+  CreatedCatalogProduct,
+  []
+>("create-catalog-product", composeCatalogProductImport);

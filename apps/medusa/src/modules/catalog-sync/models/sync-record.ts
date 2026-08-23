@@ -34,6 +34,11 @@ const SyncRecord = model
       on: ["state", "next_attempt_at"],
       where: "deleted_at IS NULL",
     },
+    {
+      name: "IDX_sync_record_product_started_at",
+      on: ["medusa_product_id", "started_at"],
+      where: "medusa_product_id IS NOT NULL AND deleted_at IS NULL",
+    },
   ]);
 
 export default SyncRecord;

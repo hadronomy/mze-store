@@ -1,4 +1,9 @@
 import { z } from "@medusajs/framework/zod";
+import {
+  decodeOdooIntegrationKey,
+  decodeOdooProductId,
+  decodeOdooVariantId,
+} from "@mze-store/odoo-bridge";
 
 const SourceRevisionRequestSchema = z
   .object({
@@ -18,22 +23,23 @@ export type CatalogImportRequest = z.infer<typeof CatalogImportRequestSchema>;
 
 const CatalogCursorSchema = z.object({
   changedAt: z.iso.datetime({ offset: true }),
-  productId: z.number().int().positive(),
+  productId: z.number().int().positive().transform(decodeOdooProductId),
 });
 
 export const CatalogSynchronizationResultSchema = z.object({
   syncRecordId: z.string(),
   productId: z.string(),
   templateCatalogMappingId: z.string(),
-  templateIntegrationKey: z.uuid(),
+  templateIntegrationKey: z.uuid().transform(decodeOdooIntegrationKey),
   variants: z.array(
     z.object({
-      integrationKey: z.uuid(),
-      odooVariantId: z.number().int().positive(),
+      integrationKey: z.uuid().transform(decodeOdooIntegrationKey),
+      odooVariantId: z.number().int().positive().transform(decodeOdooVariantId),
       medusaVariantId: z.string(),
       catalogMappingId: z.string(),
       disposition: z.enum(["created", "updated", "unchanged", "archived", "reactivated"]),
-      availability: z.enum(["available", "unavailable"]),
+      sourceAvailable: z.boolean(),
+      approvalState: z.enum(["pending", "approved"]),
     }),
   ),
   sourceRevision: CatalogCursorSchema,

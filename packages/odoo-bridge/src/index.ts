@@ -14,7 +14,11 @@ export type {
   ReadCatalogBatchResult,
 } from "./client";
 export {
+  decodeCatalogBatch,
   decodeSourceRevision,
+  decodeOdooIntegrationKey,
+  decodeOdooProductId,
+  decodeOdooVariantId,
   ODOO_BRIDGE_METHOD,
   ODOO_BRIDGE_MODEL,
   ODOO_BRIDGE_MODULE,

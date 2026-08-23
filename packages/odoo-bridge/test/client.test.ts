@@ -1,6 +1,7 @@
-import { Effect, Layer, Redacted, Result, Schema } from "effect";
+import { Effect, Fiber, Layer, Redacted, Result, Schema } from "effect";
+import * as TestClock from "effect/testing/TestClock";
 import { FetchHttpClient } from "effect/unstable/http";
-import { describe, expect, it } from "vite-plus/test";
+import { describe, expect, it } from "@effect/vitest";
 
 import { createOdooBridge } from "~/client";
 import {
@@ -8,6 +9,9 @@ import {
   ODOO_BRIDGE_METHOD,
   ODOO_BRIDGE_MODEL,
   ODOO_BRIDGE_MODULE,
+  decodeCatalogBatch,
+  decodeOdooProductId,
+  decodeOdooVariantId,
   type CatalogBatchEncoded,
 } from "~/contract";
 import { OdooBridge } from "~/effect";
@@ -274,6 +278,14 @@ function bridge(
 }
 
 describe("Bridge Contract codecs", () => {
+  it("restores branded Catalog identities at application boundaries", () => {
+    expect(decodeCatalogBatch(catalogWire)).toEqual(catalog);
+    expect(decodeOdooProductId(352)).toEqual(352);
+    expect(decodeOdooVariantId(823)).toEqual(823);
+    expect(() => decodeOdooProductId(0)).toThrow();
+    expect(() => decodeOdooVariantId(-1)).toThrow();
+  });
+
   it("decodes Odoo keys and encodes the exact Bridge Contract", async () => {
     const decoded = await Schema.decodeUnknownPromise(CatalogBatchSchema)(catalogWire);
     expect(decoded).toEqual(catalog);
@@ -556,7 +568,6 @@ describe("Odoo bridge client", () => {
   ])("classifies HTTP $status as $code", async ({ code, status }) => {
     const { client, queued } = bridge({}, [response({}, status), response(catalogWire)]);
     await using disposable = client;
-
     await expect(disposable.readCatalogBatch()).resolves.toMatchObject({
       _tag: "Failure",
       failure: { _tag: code },
@@ -691,32 +702,62 @@ describe("Odoo bridge client", () => {
     expect(requestSignal?.aborted).toBe(true);
   });
 
-  it("maps a request timeout to a bridge error", async () => {
+  it.effect("maps a request timeout to a bridge error", () => {
     const fetch: typeof globalThis.fetch = (_input, init) =>
       new Promise<Response>((_resolve, reject) => {
         init?.signal?.addEventListener("abort", () => reject(init.signal?.reason), { once: true });
       });
-    const client = Result.getOrThrow(createOdooBridge({ ...options, fetch, requestTimeoutMs: 1 }));
-    await using disposable = client;
+    const bridgeLayer = OdooBridge.layer({
+      apiKey: Redacted.make(options.apiKey),
+      baseUrl: options.baseUrl,
+      database: options.database,
+      requestTimeout: "1 millis",
+    }).pipe(Layer.provide(FetchHttpClient.layer));
 
-    await expect(disposable.readCatalogBatch()).resolves.toMatchObject({
-      _tag: "Failure",
-      failure: { _tag: "RequestTimedOut" },
-    });
+    return Effect.gen(function* () {
+      const fiber = yield* OdooBridge.readCatalogBatch().pipe(
+        Effect.provide(bridgeLayer),
+        Effect.provideService(FetchHttpClient.Fetch, fetch),
+        Effect.result,
+        Effect.forkChild,
+      );
+      yield* TestClock.adjust("1 millis");
+      const result = yield* Fiber.join(fiber);
+
+      expect(result).toMatchObject({
+        _tag: "Failure",
+        failure: { _tag: "RequestTimedOut" },
+      });
+    }).pipe(Effect.provide(TestClock.layer()));
   });
 
-  it("keeps the request timeout active while it reads the response body", async () => {
+  it.effect("keeps the request timeout active while it reads the response body", () => {
     const fetch: typeof globalThis.fetch = async () =>
       new Response(new ReadableStream<Uint8Array>({ start() {} }), {
         headers: { "Content-Type": "application/json" },
       });
-    const client = Result.getOrThrow(createOdooBridge({ ...options, fetch, requestTimeoutMs: 1 }));
-    await using disposable = client;
+    const bridgeLayer = OdooBridge.layer({
+      apiKey: Redacted.make(options.apiKey),
+      baseUrl: options.baseUrl,
+      database: options.database,
+      requestTimeout: "1 millis",
+    }).pipe(Layer.provide(FetchHttpClient.layer));
 
-    await expect(disposable.readCatalogBatch()).resolves.toMatchObject({
-      _tag: "Failure",
-      failure: { _tag: "RequestTimedOut" },
-    });
+    return Effect.gen(function* () {
+      const fiber = yield* OdooBridge.readCatalogBatch().pipe(
+        Effect.provide(bridgeLayer),
+        Effect.provideService(FetchHttpClient.Fetch, fetch),
+        Effect.result,
+        Effect.forkChild,
+      );
+      yield* TestClock.adjust("1 millis");
+      const result = yield* Fiber.join(fiber);
+
+      expect(result).toMatchObject({
+        _tag: "Failure",
+        failure: { _tag: "RequestTimedOut" },
+      });
+    }).pipe(Effect.provide(TestClock.layer()));
   });
 
   it("interrupts active calls and rejects new calls after close", async () => {
@@ -749,5 +790,15 @@ describe("Odoo bridge client", () => {
     });
     expect(requestSignal?.aborted).toBe(true);
     await expect(client.close()).resolves.toBeUndefined();
+  });
+
+  it("returns one Promise to concurrent close callers", async () => {
+    const { client } = bridge({}, []);
+
+    const first = client.close();
+    const second = client.close();
+
+    expect(second).toBe(first);
+    await expect(first).resolves.toBeUndefined();
   });
 });

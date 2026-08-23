@@ -154,6 +154,7 @@
         "effect": "4.0.0-rc.109",
       },
       "devDependencies": {
+        "@effect/vitest": "4.0.0-rc.109",
         "@mze-store/config": "workspace:*",
         "@types/node": "catalog:",
         "typescript": "catalog:",

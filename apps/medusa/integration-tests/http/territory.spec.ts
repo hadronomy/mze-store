@@ -1,6 +1,6 @@
 import { medusaIntegrationTestRunner } from "@medusajs/test-utils";
-import { ContainerRegistrationKeys } from "@medusajs/framework/utils";
-import type { MedusaContainer } from "@medusajs/framework/types";
+import { ContainerRegistrationKeys, Modules, ProductStatus } from "@medusajs/framework/utils";
+import type { IProductModuleService, MedusaContainer } from "@medusajs/framework/types";
 import { updateServiceZonesWorkflow } from "@medusajs/medusa/core-flows";
 import {
   provinceCodeSchema,
@@ -268,7 +268,6 @@ medusaIntegrationTestRunner({
             "/admin/products",
             {
               title: "Operator probe",
-              status: "published",
               shipping_profile_id: probe.shippingProfileId,
               sales_channels: [{ id: seeded.salesChannelId }],
               options: [{ title: PROBE_OPTION.title, values: [PROBE_OPTION.value] }],
@@ -285,6 +284,11 @@ medusaIntegrationTestRunner({
           );
 
           const productId = created.data.product.id;
+
+          // This suite isolates territory pricing. Publish its local probe
+          // directly so Catalog authoring policy stays in its own suite.
+          const productModule = getContainer().resolve<IProductModuleService>(Modules.PRODUCT);
+          await productModule.updateProducts(productId, { status: ProductStatus.PUBLISHED });
 
           // The admin shows an Operator one stored price, without tax. The
           // Store API computes the two prices that a Shopper sees, and the two

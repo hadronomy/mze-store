@@ -6,6 +6,12 @@ const CATALOG_ERROR_TYPES = {
   catalog_import_cancelled: MedusaError.Types.INVALID_DATA,
   catalog_source_unavailable: MedusaError.Types.UNEXPECTED_STATE,
   catalog_source_rejected: MedusaError.Types.INVALID_DATA,
+  catalog_source_authentication_failed: MedusaError.Types.UNEXPECTED_STATE,
+  catalog_source_permission_denied: MedusaError.Types.UNEXPECTED_STATE,
+  catalog_source_request_rejected: MedusaError.Types.INVALID_DATA,
+  catalog_source_timed_out: MedusaError.Types.UNEXPECTED_STATE,
+  catalog_source_transport_failed: MedusaError.Types.UNEXPECTED_STATE,
+  catalog_source_unexpected_status: MedusaError.Types.UNEXPECTED_STATE,
   catalog_source_empty: MedusaError.Types.INVALID_DATA,
   catalog_source_missing_variant: MedusaError.Types.CONFLICT,
   catalog_identity_conflict: MedusaError.Types.CONFLICT,
@@ -17,6 +23,8 @@ const CATALOG_ERROR_TYPES = {
   catalog_failure_record_invalid: MedusaError.Types.UNEXPECTED_STATE,
   catalog_import_failed: MedusaError.Types.UNEXPECTED_STATE,
   catalog_product_refetch_failed: MedusaError.Types.UNEXPECTED_STATE,
+  catalog_variant_unavailable: MedusaError.Types.INVALID_DATA,
+  catalog_lock_release_failed: MedusaError.Types.UNEXPECTED_STATE,
 } as const satisfies Record<CatalogErrorCode, MedusaErrorType>;
 
 export function catalogError(code: CatalogErrorCode, message: string): MedusaError {

@@ -1,10 +1,5 @@
 import type { IProductModuleService, LinkDefinition } from "@medusajs/framework/types";
-import {
-  ContainerRegistrationKeys,
-  MedusaError,
-  Modules,
-  ProductStatus,
-} from "@medusajs/framework/utils";
+import { MedusaError, Modules, ProductStatus } from "@medusajs/framework/utils";
 import type { StepExecutionContext } from "@medusajs/framework/workflows-sdk";
 import {
   StepResponse,
@@ -32,18 +27,18 @@ import {
   type UpdateCatalogProjectionChange,
   type UpdateCatalogValueChange,
 } from "~/modules/catalog-sync";
+import type { CatalogProjectionRecords } from "~/modules/catalog-sync/types";
+import type { CatalogSynchronizationResult } from "~/modules/catalog-sync";
 import {
   PRODUCT_AUTHORING_MODULE,
   type ProductAuthoringModuleService,
 } from "~/modules/product-authoring";
-import type {
-  CatalogProjectionRecords,
-  CatalogSynchronizationResult,
-} from "~/modules/catalog-sync";
+import { recordCatalogStepFailure } from "~/catalog/record-catalog-step-failure";
 import type { PreparedCatalogImport } from "./catalog-product-import";
 
 export type CurrentCatalogProduct = Readonly<{
   id: string;
+  status: ProductStatus;
   options: readonly Readonly<{
     id: string;
     title: string;
@@ -79,6 +74,16 @@ type ExtendCatalogProductOptionsRollback = Readonly<{
     optionId: string;
     valueIds: readonly string[];
   }>[];
+}>;
+
+type SynchronizeCatalogOptionLabelsRollback = Readonly<{
+  options: readonly Readonly<{ id: string; title: string }>[];
+  values: readonly Readonly<{ id: string; value: string }>[];
+}>;
+
+type ExtendCatalogProductOptionsInput = Readonly<{
+  prepared: PreparedCatalogUpdate;
+  synchronizedLabels: void;
 }>;
 
 type SynchronizeProjectionStepInput = Readonly<{
@@ -163,22 +168,12 @@ function toNewVariantCreates(input: {
 
 function toCurrentVariantOptions(
   prepared: PreparedCatalogUpdate,
-  additions: readonly CatalogOptionValueAddition[],
+  _additions: readonly CatalogOptionValueAddition[],
   selections: PreparedCatalogUpdate["item"]["variants"][number]["attributeValues"],
 ): Record<string, string> {
   const selectionByAttributeId = new Map<number, number>(
     selections.map(({ attributeId, valueId }) => [attributeId, valueId]),
   );
-  const currentOptionById = new Map(prepared.product.options.map((option) => [option.id, option]));
-  const valueMappingsByAttribute = new Map(
-    prepared.existing.attributes.map((attribute) => [
-      attribute.id,
-      prepared.existing.values.filter(
-        ({ catalog_attribute_mapping_id }) => catalog_attribute_mapping_id === attribute.id,
-      ),
-    ]),
-  );
-
   return Object.fromEntries(
     prepared.existing.attributes.flatMap((attribute) => {
       if (attribute.variant_creation_mode === "never") {
@@ -188,31 +183,112 @@ function toCurrentVariantOptions(
         throw projectionInvalid("A projected Catalog attribute has no Product Option mapping.");
       }
 
-      const option = currentOptionById.get(attribute.medusa_product_option_id);
+      const sourceAttribute = prepared.item.template.attributes.find(
+        ({ id }) => id === attribute.odoo_attribute_id,
+      );
       const sourceValueId = selectionByAttributeId.get(attribute.odoo_attribute_id);
-      const valueMapping = valueMappingsByAttribute
-        .get(attribute.id)
-        ?.find(({ odoo_attribute_value_id }) => odoo_attribute_value_id === sourceValueId);
-      const existingValue = option?.values.find(
-        ({ id }) => id === valueMapping?.medusa_product_option_value_id,
-      );
-      const addedValue = additions.find(
-        (addition) =>
-          addition.attributeMappingId === attribute.id &&
-          addition.odooAttributeValueId === sourceValueId,
-      );
-      const value = existingValue?.value ?? addedValue?.optionValue;
-      if (!option || !value) {
+      const sourceValue = sourceAttribute?.values.find(({ id }) => id === sourceValueId);
+      if (!sourceAttribute || !sourceValue) {
         throw projectionInvalid("A projected Catalog value has no Product Option Value mapping.");
       }
 
-      return [[option.title, value]];
+      return [[sourceAttribute.name, sourceValue.name]];
     }),
   );
 }
 
-async function extendCatalogProductOptions(
+async function synchronizeCatalogOptionLabels(
   prepared: PreparedCatalogUpdate,
+  { container }: StepExecutionContext,
+): Promise<StepResponse<void, SynchronizeCatalogOptionLabelsRollback>> {
+  const productModule = container.resolve<IProductModuleService>(Modules.PRODUCT);
+  const previousOptions: { id: string; title: string }[] = [];
+  const previousValues: { id: string; value: string }[] = [];
+
+  try {
+    for (const sourceAttribute of prepared.item.template.attributes) {
+      if (sourceAttribute.variantCreationMode === "never") {
+        continue;
+      }
+      const attributeMapping = prepared.existing.attributes.find(
+        ({ odoo_attribute_id }) => odoo_attribute_id === sourceAttribute.id,
+      );
+      if (!attributeMapping?.medusa_product_option_id) {
+        throw projectionInvalid("A projected Catalog attribute has no Product Option mapping.");
+      }
+      const option = prepared.product.options.find(
+        ({ id }) => id === attributeMapping.medusa_product_option_id,
+      );
+      if (!option) {
+        throw projectionInvalid("A projected Catalog Product Option could not be loaded.");
+      }
+      if (option.title !== sourceAttribute.name) {
+        previousOptions.push({ id: option.id, title: option.title });
+        await productModule.updateProductOptions(option.id, { title: sourceAttribute.name });
+      }
+
+      for (const sourceValue of sourceAttribute.values) {
+        const valueMapping = prepared.existing.values.find(
+          (candidate) =>
+            candidate.catalog_attribute_mapping_id === attributeMapping.id &&
+            candidate.odoo_attribute_value_id === sourceValue.id,
+        );
+        if (!valueMapping?.medusa_product_option_value_id) {
+          continue;
+        }
+        const optionValue = option.values.find(
+          ({ id }) => id === valueMapping.medusa_product_option_value_id,
+        );
+        if (!optionValue) {
+          throw projectionInvalid("A projected Product Option Value could not be loaded.");
+        }
+        if (optionValue.value !== sourceValue.name) {
+          previousValues.push({ id: optionValue.id, value: optionValue.value });
+          await productModule.updateProductOptionValues(optionValue.id, {
+            value: sourceValue.name,
+          });
+        }
+      }
+    }
+  } catch (thrown) {
+    await restoreCatalogOptionLabels(productModule, {
+      options: previousOptions,
+      values: previousValues,
+    });
+    throw thrown;
+  }
+
+  return new StepResponse(undefined, {
+    options: previousOptions,
+    values: previousValues,
+  });
+}
+
+async function restoreSynchronizedCatalogOptionLabels(
+  rollback: SynchronizeCatalogOptionLabelsRollback | undefined,
+  { container }: StepExecutionContext,
+): Promise<void> {
+  if (!rollback) {
+    return;
+  }
+  const productModule = container.resolve<IProductModuleService>(Modules.PRODUCT);
+  await restoreCatalogOptionLabels(productModule, rollback);
+}
+
+async function restoreCatalogOptionLabels(
+  productModule: IProductModuleService,
+  rollback: SynchronizeCatalogOptionLabelsRollback,
+): Promise<void> {
+  for (const value of [...rollback.values].reverse()) {
+    await productModule.updateProductOptionValues(value.id, { value: value.value });
+  }
+  for (const option of [...rollback.options].reverse()) {
+    await productModule.updateProductOptions(option.id, { title: option.title });
+  }
+}
+
+async function extendCatalogProductOptions(
+  { prepared }: ExtendCatalogProductOptionsInput,
   { container }: StepExecutionContext,
 ): Promise<StepResponse<ExtendCatalogProductOptionsResult, ExtendCatalogProductOptionsRollback>> {
   const productModule = container.resolve<IProductModuleService>(Modules.PRODUCT);
@@ -244,12 +320,10 @@ async function extendCatalogProductOptions(
         continue;
       }
 
-      const option = prepared.product.options.find(
-        ({ id }) => id === attributeMapping.medusa_product_option_id,
+      const option = await productModule.retrieveProductOption(
+        attributeMapping.medusa_product_option_id,
+        { relations: ["values"] },
       );
-      if (!option) {
-        throw projectionInvalid("A projected Catalog Product Option could not be loaded.");
-      }
       const currentLabels = option.values.map(({ value }) => value);
       const currentLabelSet = new Set(currentLabels);
       const conflicting = newSourceValues.find(({ name }) => currentLabelSet.has(name));
@@ -373,7 +447,7 @@ async function synchronizeProjection(
           sourceLabel: variant.name,
           sourceInternalReference: variant.internalReference,
           sourceBarcode: variant.barcode,
-          archived: isCatalogVariantUnavailable(prepared.item, variant),
+          sourceAvailable: !isCatalogVariantUnavailable(prepared.item, variant),
         };
       }
 
@@ -388,7 +462,7 @@ async function synchronizeProjection(
         sourceBarcode: variant.barcode,
         medusaProductId: prepared.existing.template.medusa_product_id,
         medusaVariantId: createdVariantIdByKey.get(variant.integrationKey)!,
-        archived: isCatalogVariantUnavailable(prepared.item, variant),
+        sourceAvailable: !isCatalogVariantUnavailable(prepared.item, variant),
       };
     },
   );
@@ -453,13 +527,15 @@ async function synchronizeProjection(
 
   const change: UpdateCatalogProjectionChange = {
     tag: "update",
-    syncRecordId: prepared.syncRecordId,
-    sourceFingerprint: prepared.sourceFingerprint,
-    sourceRevision: prepared.item.sourceRevision,
+    sync: {
+      recordId: prepared.syncRecordId,
+      sourceFingerprint: prepared.sourceFingerprint,
+      sourceRevision: prepared.item.sourceRevision,
+    },
     template: {
       mappingId: prepared.existing.template.id,
       sourceLabel: prepared.item.template.name,
-      archived: isCatalogTemplateUnavailable(prepared.item.template),
+      sourceAvailable: !isCatalogTemplateUnavailable(prepared.item.template),
     },
     variants,
     attributes,
@@ -538,12 +614,12 @@ async function completeUpdate({
     const medusaVariantId = requireRow(ref.medusaVariantId);
 
     const previous = previousByIntegrationKey.get(variant.integrationKey);
-    const archived = isCatalogVariantUnavailable(prepared.item, variant);
+    const sourceAvailable = !isCatalogVariantUnavailable(prepared.item, variant);
     const disposition = !previous
       ? ("created" as const)
-      : !previous.archived && archived
+      : previous.source_available && !sourceAvailable
         ? ("archived" as const)
-        : previous.archived && !archived
+        : !previous.source_available && sourceAvailable
           ? ("reactivated" as const)
           : ("updated" as const);
 
@@ -553,7 +629,8 @@ async function completeUpdate({
       medusaVariantId,
       catalogMappingId: ref.id,
       disposition,
-      availability: archived ? ("unavailable" as const) : ("available" as const),
+      sourceAvailable,
+      approvalState: previous?.approval_state ?? ("pending" as const),
     };
   });
 
@@ -573,7 +650,11 @@ async function completeUpdate({
 }
 
 function composeCatalogProductUpdate(input: WorkflowData<PreparedCatalogUpdate>) {
-  const extendedOptions = extendCatalogProductOptionsStep(input);
+  const synchronizedLabels = synchronizeCatalogOptionLabelsStep(input);
+  const extendedOptions = extendCatalogProductOptionsStep({
+    prepared: input,
+    synchronizedLabels,
+  });
   const existingVariantUpdates = transform({ prepared: input, extendedOptions }, ({ prepared }) =>
     toExistingVariantUpdates(prepared),
   );
@@ -601,66 +682,27 @@ function composeCatalogProductUpdate(input: WorkflowData<PreparedCatalogUpdate>)
     synchronized,
     links: createdLinks,
   });
-  projectAvailabilityStep(completed);
-
-  return new WorkflowResponse(completed);
+  const ensuredAuthoring = ensureUpdatedCatalogAuthoringStep(
+    transform({ completed, prepared: input }, ({ completed, prepared }) => ({
+      productId: completed.productId,
+      syncRecordId: prepared.syncRecordId,
+      initialState: inferLegacyAuthoringState(prepared),
+    })),
+  );
+  return new WorkflowResponse(
+    transform({ completed, ensuredAuthoring }, ({ completed }) => completed),
+  );
 }
 
-// The Authoring State records intent; Product status is its availability
-// projection. A published Product goes offline while Odoo archives it and
-// returns when the source recovers — the editorial draft never moves.
-const projectAvailabilityStep = createStep(
-  "project-authoring-availability",
-  async (
-    { productId }: { productId: string },
-    { container },
-  ): Promise<StepResponse<void, { productId: string; previousStatus: string }>> => {
-    const authoring = container.resolve<ProductAuthoringModuleService>(PRODUCT_AUTHORING_MODULE);
-    const catalogSync = container.resolve<CatalogSyncModule>(CATALOG_SYNC_MODULE);
-
-    await authoring.ensureAuthoring([productId]);
-    const [record] = await authoring.listAuthoring([productId]);
-    const projection = await catalogSync.getCatalogProjectionStatus(productId);
-    const templateArchived = projection.templateArchived ?? true;
-
-    const query = container.resolve(ContainerRegistrationKeys.QUERY);
-    const { data } = await query.graph({
-      entity: "product",
-      fields: ["id", "status"],
-      filters: { id: productId },
-    });
-    const previousStatus = String(data[0]?.status ?? ProductStatus.DRAFT);
-    const desired =
-      record?.state === "published" && !templateArchived
-        ? ProductStatus.PUBLISHED
-        : ProductStatus.DRAFT;
-
-    if (desired !== previousStatus) {
-      const productModule = container.resolve<IProductModuleService>(Modules.PRODUCT);
-      await productModule.updateProducts(productId, { status: desired });
-    }
-
-    return new StepResponse(undefined, { productId, previousStatus });
-  },
-  async (compensationData, { container }) => {
-    if (!compensationData) {
-      return;
-    }
-
-    const { productId, previousStatus } = compensationData;
-    const productModule = container.resolve<IProductModuleService>(Modules.PRODUCT);
-    await productModule.updateProducts(productId, {
-      status:
-        previousStatus === "published"
-          ? ProductStatus.PUBLISHED
-          : previousStatus === "rejected"
-            ? ProductStatus.REJECTED
-            : previousStatus === "proposed"
-              ? ProductStatus.PROPOSED
-              : ProductStatus.DRAFT,
-    });
-  },
-);
+function inferLegacyAuthoringState(prepared: PreparedCatalogUpdate): "imported" | "published" {
+  const wasPublished =
+    prepared.product.status === ProductStatus.PUBLISHED ||
+    prepared.existing.mappings.some(
+      (mapping) =>
+        mapping.odoo_model === "product.product" && mapping.approval_state === "approved",
+    );
+  return wasPublished ? "published" : "imported";
+}
 
 function variantMappingByIntegrationKey(existing: CatalogProjectionRecords) {
   return new Map(
@@ -688,19 +730,121 @@ function structureConflict(message: string): MedusaError {
 
 const synchronizeProjectionStep = createStep(
   "synchronize-catalog-projection",
-  synchronizeProjection,
+  async (input: SynchronizeProjectionStepInput, context) => {
+    try {
+      return await synchronizeProjection(input, context);
+    } catch (thrown) {
+      throw await recordCatalogStepFailure(
+        context.container,
+        input.prepared.syncRecordId,
+        thrown instanceof Error
+          ? thrown
+          : new Error("The Catalog projection step threw a value that was not an Error."),
+      );
+    }
+  },
   revertSynchronizedProjection,
+);
+
+const synchronizeCatalogOptionLabelsStep = createStep(
+  "synchronize-catalog-option-labels",
+  async (input: PreparedCatalogUpdate, context) => {
+    try {
+      return await synchronizeCatalogOptionLabels(input, context);
+    } catch (thrown) {
+      throw await recordCatalogStepFailure(
+        context.container,
+        input.syncRecordId,
+        thrown instanceof Error
+          ? thrown
+          : new Error("The Product Option step threw a value that was not an Error."),
+      );
+    }
+  },
+  restoreSynchronizedCatalogOptionLabels,
 );
 
 const extendCatalogProductOptionsStep = createStep(
   "extend-catalog-product-options",
-  extendCatalogProductOptions,
+  async (input: ExtendCatalogProductOptionsInput, context) => {
+    try {
+      return await extendCatalogProductOptions(input, context);
+    } catch (thrown) {
+      throw await recordCatalogStepFailure(
+        context.container,
+        input.prepared.syncRecordId,
+        thrown instanceof Error
+          ? thrown
+          : new Error("The Product Option Value step threw a value that was not an Error."),
+      );
+    }
+  },
   restoreCatalogProductOptions,
 );
 
-const completeUpdateStep = createStep("complete-catalog-update", completeUpdate);
-
-export const updateCatalogProductWorkflow = createWorkflow(
-  "update-catalog-product",
-  composeCatalogProductUpdate,
+const completeUpdateStep = createStep(
+  "complete-catalog-update",
+  async (input: CompleteUpdateStepInput, context) => {
+    try {
+      return await completeUpdate(input);
+    } catch (thrown) {
+      throw await recordCatalogStepFailure(
+        context.container,
+        input.prepared.syncRecordId,
+        thrown instanceof Error
+          ? thrown
+          : new Error("The Catalog result step threw a value that was not an Error."),
+      );
+    }
+  },
 );
+
+const ensureUpdatedCatalogAuthoringStep = createStep<
+  Readonly<{
+    productId: string;
+    syncRecordId: string;
+    initialState: "imported" | "published";
+  }>,
+  void,
+  string | null
+>(
+  "ensure-updated-catalog-authoring",
+  async (
+    input: Readonly<{
+      productId: string;
+      syncRecordId: string;
+      initialState: "imported" | "published";
+    }>,
+    { container },
+  ): Promise<StepResponse<void, string | null>> => {
+    try {
+      const authoring = container.resolve<ProductAuthoringModuleService>(PRODUCT_AUTHORING_MODULE);
+      const existing = await authoring.getAuthoring(input.productId);
+      await authoring.ensureAuthoring([
+        { productId: input.productId, initialState: input.initialState },
+      ]);
+      return new StepResponse(void 0, existing ? null : input.productId);
+    } catch (thrown) {
+      throw await recordCatalogStepFailure(
+        container,
+        input.syncRecordId,
+        thrown instanceof Error
+          ? thrown
+          : new Error("The Authoring step threw a value that was not an Error."),
+      );
+    }
+  },
+  async (createdProductId, { container }) => {
+    if (!createdProductId) {
+      return;
+    }
+    const authoring = container.resolve<ProductAuthoringModuleService>(PRODUCT_AUTHORING_MODULE);
+    await authoring.removeAuthoring(createdProductId);
+  },
+);
+
+export const updateCatalogProductWorkflow = createWorkflow<
+  PreparedCatalogUpdate,
+  CatalogSynchronizationResult,
+  []
+>("update-catalog-product", composeCatalogProductUpdate);

@@ -9,10 +9,11 @@ export type {
   AuthoringErrorCode,
   AuthoringState,
   EditAuthoringInput,
+  EnsureAuthoringInput,
   OperatorAuthoringState,
   ProductAuthoringRecordView,
 } from "./types";
-export type { ProductAuthoringRecord, default as ProductAuthoringModuleService } from "./service";
+export type { default as ProductAuthoringModuleService } from "./service";
 
 export default Module(PRODUCT_AUTHORING_MODULE, {
   service: ProductAuthoringModuleService,
