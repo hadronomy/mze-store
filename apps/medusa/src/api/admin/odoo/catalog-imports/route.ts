@@ -1,7 +1,7 @@
 import type { AuthenticatedMedusaRequest, MedusaResponse } from "@medusajs/framework/http";
 import { ContainerRegistrationKeys, MedusaError } from "@medusajs/framework/utils";
 import { operationIdFromRequest } from "~/api/admin/idempotency";
-import { importCatalogItem } from "~/catalog/import-catalog-item";
+import { synchronizeCatalogItem } from "~/catalog/synchronize-catalog-item";
 import type { CatalogImportRequest } from "~/modules/catalog-sync/schema";
 
 const PRODUCT_FIELDS = [
@@ -33,7 +33,7 @@ export async function POST(
   const abort = () => disconnect.abort();
   req.once("aborted", abort);
   res.once("close", abort);
-  const imported = await importCatalogItem(req.scope, {
+  const imported = await synchronizeCatalogItem(req.scope, {
     operationId,
     cursor: req.validatedBody.cursor ?? null,
     signal: disconnect.signal,
@@ -63,7 +63,18 @@ export async function POST(
       disposition: imported.disposition,
       operation_id: operationId,
       sync_record_id: imported.syncRecordId,
-      catalog_mapping_ids: imported.catalogMappingIds,
+      catalog_mapping_ids: {
+        template: imported.templateCatalogMappingId,
+        variants: imported.variants.map(({ catalogMappingId }) => catalogMappingId),
+      },
+      variants: imported.variants.map((variant) => ({
+        integration_key: variant.integrationKey,
+        odoo_variant_id: variant.odooVariantId,
+        medusa_variant_id: variant.medusaVariantId,
+        catalog_mapping_id: variant.catalogMappingId,
+        disposition: variant.disposition,
+        availability: variant.availability,
+      })),
       source_revision: toSourceRevisionResponse(imported.sourceRevision),
       next_cursor:
         imported.nextCursor === null ? null : toSourceRevisionResponse(imported.nextCursor),

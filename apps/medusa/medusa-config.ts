@@ -5,12 +5,9 @@ import { adminFavicon } from "~/admin/favicon";
 import { STRIPE_MODULE_ID } from "~/payment/stripe";
 import type { CoercedEnvSchema } from "./env";
 
-// The value comes from `varlock/init-server`, which is CommonJS, and the type
-// comes from the generated module, which is not. Jest refuses to `require()`
-// any package marked `"type": "module"`, so importing the generated module for
-// its value would break every integration test — node 24 bridges that with
-// `require(esm)` and jest's own module system does not. `import type` erases,
-// so this file never loads the ESM half. See ADR-0012.
+// Runtime initialization belongs to `varlock/init-server`. The generated
+// module supplies only the type here, so keep this dependency type-only and
+// avoid a second runtime initialization path. See ADR-0012.
 const ENV = RESOLVED as Readonly<CoercedEnvSchema>;
 
 const redisUrl = ENV.REDIS_URL;

@@ -154,9 +154,25 @@ Medusa workflow:
 POST /admin/odoo/catalog-imports
   └─ durable Sync Record
        └─ Odoo Catalog Batch read (limit 1)
-            └─ draft Product + Variant + hidden Configuration option
-                 └─ template and Variant Catalog Mappings + module links
+            └─ draft Product + complete Odoo Variant set + structural options
+                 └─ normalized source mappings + Product module links
 ```
+
+Odoo Integration Keys and database IDs identify Product templates and
+Variants. Odoo attribute, value, and template-value IDs identify the Variant
+structure. Names, barcodes, internal references, and labels never identify a
+mapping. `always` attributes become visible Product Options. `dynamic`
+attributes become hidden structural Product Options. `never` attributes stay
+in Catalog sidecars. A Product without a projected attribute keeps the hidden
+`Configuration = Default` option. Source-generated Product Options are
+exclusive to each Product, so common source labels do not create global title
+conflicts.
+
+Resync updates source-owned SKU, barcode, price, labels, revision, and
+availability snapshots. It keeps Medusa-owned presentation and all stable
+Medusa IDs. An archived or unsaleable Variant remains mapped for Order history.
+Imported Products remain Medusa drafts. The authoring and Storefront
+availability projection belongs to the next Catalog layer in issue #136.
 
 The operation ID and request fingerprint control replay. A completed operation
 returns its existing IDs without another Odoo call. A failed operation returns

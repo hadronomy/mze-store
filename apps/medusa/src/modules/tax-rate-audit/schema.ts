@@ -17,7 +17,7 @@ function toDate(value: string): Date {
   return new Date(value);
 }
 
-const DateTimeQuerySchema = z.string().datetime({ offset: true }).transform(toDate);
+const DateTimeQuerySchema = z.iso.datetime({ offset: true }).transform(toDate);
 
 export const TaxRateChangeListQuerySchema = z
   .object({
@@ -52,7 +52,7 @@ export const TaxRateChangeResponseSchema = z.object({
   actor_kind: z.enum(TAX_RATE_AUDIT_ACTOR_KINDS),
   actor_id: z.string(),
   actor_email: z.string().nullable(),
-  occurred_at: z.string().datetime({ offset: true }),
+  occurred_at: z.iso.datetime({ offset: true }),
 });
 
 export const TaxRateChangesResponseSchema = z.object({

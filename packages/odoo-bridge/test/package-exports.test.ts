@@ -1,4 +1,5 @@
 import { execFileSync } from "node:child_process";
+import { readdirSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { expect, test } from "vite-plus/test";
 
@@ -122,3 +123,20 @@ for (const moduleType of ["module", "commonjs"] as const) {
     });
   });
 }
+
+test("the packed declarations preserve the named error predicate", () => {
+  const declarationDirectory = new URL("../dist/", import.meta.url);
+  const errorDeclarations = readdirSync(declarationDirectory).filter((fileName) =>
+    /^error-.+\.d\.(?:c|m)ts$/.test(fileName),
+  );
+
+  expect(errorDeclarations).toHaveLength(2);
+
+  for (const fileName of errorDeclarations) {
+    const declaration = readFileSync(new URL(fileName, declarationDirectory), "utf8");
+
+    expect(declaration).toContain(
+      "declare const isOdooBridgeError: <I>(input: I) => input is I & OdooBridgeError;",
+    );
+  }
+});
