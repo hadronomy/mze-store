@@ -262,6 +262,12 @@ export type CatalogProjectionCommit = Readonly<{
   mappings: readonly CatalogProjectionMappingRef[];
 }>;
 
+export type CatalogProjectionStatus = Readonly<{
+  mapped: boolean;
+  templateArchived: boolean | null;
+  allSyncsSucceeded: boolean;
+}>;
+
 export type CatalogVariantDisposition =
   | "created"
   | "updated"

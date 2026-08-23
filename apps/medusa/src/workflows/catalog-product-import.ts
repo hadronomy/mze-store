@@ -28,6 +28,10 @@ import {
   type CatalogProjectionReceipt,
   type CatalogSyncModule,
 } from "~/modules/catalog-sync";
+import {
+  PRODUCT_AUTHORING_MODULE,
+  type ProductAuthoringModuleService,
+} from "~/modules/product-authoring";
 import type { CatalogSynchronizationResult } from "~/modules/catalog-sync";
 
 export type PreparedCatalogImport = Readonly<{
@@ -337,9 +341,20 @@ function composeCatalogProductImport(input: WorkflowData<PreparedCatalogImport>)
     mappings,
     links: createdLinks,
   });
+  ensureAuthoringStep(completed);
 
   return new WorkflowResponse(completed);
 }
+
+const ensureAuthoringStep = createStep(
+  "ensure-authoring-record",
+  async ({ productId }: { productId: string }, { container }): Promise<StepResponse<void>> => {
+    const authoring = container.resolve<ProductAuthoringModuleService>(PRODUCT_AUTHORING_MODULE);
+    await authoring.ensureAuthoring([productId]);
+
+    return new StepResponse(void 0);
+  },
+);
 
 async function completeImport({
   prepared,

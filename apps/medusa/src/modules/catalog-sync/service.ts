@@ -36,6 +36,7 @@ import type {
   CatalogSyncSource,
   CatalogSyncStart,
   CatalogValueSnapshot,
+  CatalogProjectionStatus,
   MedusaErrorType,
 } from "./types";
 
@@ -272,6 +273,21 @@ export default class CatalogSyncModuleService extends MedusaService({
         sharedContext,
       );
     }
+  }
+
+  // Answers the three catalog questions a promotion gate needs in one read:
+  // is the Product mapped, is its source archived, and did every mapping's
+  // last sync succeed?
+  async getCatalogProjectionStatus(productId: string): Promise<CatalogProjectionStatus> {
+    const mappings = await this.listCatalogMappings({ medusa_product_id: productId });
+    const template = mappings.find(({ odoo_model }) => odoo_model === "product.template");
+
+    return {
+      mapped: Boolean(template),
+      templateArchived: template?.archived ?? null,
+      allSyncsSucceeded:
+        mappings.length > 0 && mappings.every(({ sync_state }) => sync_state === "succeeded"),
+    };
   }
 
   async findCatalogProjection(input: {
@@ -945,6 +961,7 @@ export type CatalogSyncModule = Pick<
   | "commitProjection"
   | "findCatalogProjection"
   | "finishSync"
+  | "getCatalogProjectionStatus"
   | "readNextCatalogItem"
   | "revertProjection"
   | "recordSyncSource"
