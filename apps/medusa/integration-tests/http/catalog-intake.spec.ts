@@ -2,8 +2,10 @@ import type { IProductModuleService } from "@medusajs/framework/types";
 import { ContainerRegistrationKeys, Modules } from "@medusajs/framework/utils";
 import { z } from "@medusajs/framework/zod";
 import { medusaIntegrationTestRunner } from "@medusajs/test-utils";
+import { linkProductsToSalesChannelWorkflow } from "@medusajs/medusa/core-flows";
 import type { CatalogBatchEncoded } from "@mze-store/odoo-bridge/contract";
-import { CATALOG_SYNC_MODULE, type CatalogSyncModuleService } from "~/modules/catalog-sync";
+import { CATALOG_SYNC_MODULE } from "~/modules/catalog-sync";
+import type CatalogSyncModuleService from "~/modules/catalog-sync/service";
 import { seedTerritoryProbe, type SeededProbe } from "~/territory/probe";
 import { seedTerritory, type SeededTerritory } from "~/territory/seed";
 import { SPAIN_DECLARATION } from "~/territory/spain";
@@ -71,7 +73,9 @@ const CatalogImportResponseSchema = z.object({
         medusa_variant_id: z.string(),
         catalog_mapping_id: z.string(),
         disposition: z.enum(["created", "updated", "unchanged", "archived", "reactivated"]),
-        availability: z.enum(["available", "unavailable"]),
+        source_available: z.boolean(),
+        approval_state: z.enum(["pending", "approved"]),
+        storefront_available: z.boolean(),
       }),
     ),
     source_revision: z.object({
@@ -568,8 +572,9 @@ medusaIntegrationTestRunner({
           medusa_variant_id: first.product.variants[0]!.id,
           source_revision_changed_at: "2026-08-09T12:00:00Z",
           source_revision_product_id: 352,
-          sync_state: "succeeded",
-          archived: false,
+          source_available: true,
+          approval_state: "pending",
+          storefront_available: false,
         }),
         expect.objectContaining({
           odoo_database_id: 352,
@@ -579,8 +584,9 @@ medusaIntegrationTestRunner({
           medusa_variant_id: null,
           source_revision_changed_at: "2026-08-09T12:00:00Z",
           source_revision_product_id: 352,
-          sync_state: "succeeded",
-          archived: false,
+          source_available: true,
+          approval_state: "pending",
+          storefront_available: false,
         }),
       ]);
       expect(new Set(mappings.map(({ source_fingerprint }) => source_fingerprint)).size).toEqual(1);
@@ -645,14 +651,18 @@ medusaIntegrationTestRunner({
           odoo_variant_id: 901,
           medusa_variant_id: variantBySku.get("BODY-WASH-250")?.id,
           disposition: "created",
-          availability: "available",
+          source_available: true,
+          approval_state: "pending",
+          storefront_available: false,
         }),
         expect.objectContaining({
           integration_key: "00000000-0000-4000-8000-000000000902",
           odoo_variant_id: 902,
           medusa_variant_id: variantBySku.get("BODY-WASH-500")?.id,
           disposition: "created",
-          availability: "available",
+          source_available: true,
+          approval_state: "pending",
+          storefront_available: false,
         }),
       ]);
       expect(imported.catalog_import.catalog_mapping_ids.variants).toEqual(
@@ -919,12 +929,12 @@ medusaIntegrationTestRunner({
       expect(mappings).toContainEqual(
         expect.objectContaining({
           odoo_database_id: 921,
-          archived: true,
+          source_available: false,
         }),
       );
       expect(imported.catalog_import.variants[1]).toMatchObject({
         odoo_variant_id: 921,
-        availability: "unavailable",
+        source_available: false,
       });
     });
 
@@ -983,20 +993,33 @@ medusaIntegrationTestRunner({
         { headers: { ...operator.headers, "Idempotency-Key": "identity-cycle-changed" } },
       );
       const changed = CatalogImportResponseSchema.parse(changedResponse.data);
+      const initialVariantById = new Map(
+        initial.product.variants.map((variant) => [variant.id, variant]),
+      );
 
       expect(changed.catalog_import.disposition).toEqual("updated");
       expect(changed.product.id).toEqual(initial.product.id);
       expect(changed.product.title).toEqual("BODY WASH");
-      expect(changed.product.options).toEqual(initial.product.options);
+      expect(changed.product.options).toEqual([
+        expect.objectContaining({
+          id: initial.product.options[0]!.id,
+          title: "Volume",
+          values: expect.arrayContaining([{ value: "Small" }, { value: "Large" }]),
+        }),
+      ]);
       expect(changed.product.variants).toEqual(
         expect.arrayContaining([
           expect.objectContaining({
             id: initial.catalog_import.variants[0]!.medusa_variant_id,
+            title: initialVariantById.get(initial.catalog_import.variants[0]!.medusa_variant_id)!
+              .title,
             sku: "BODY-WASH-250-NEW",
             barcode: "8412345679901",
           }),
           expect.objectContaining({
             id: initial.catalog_import.variants[1]!.medusa_variant_id,
+            title: initialVariantById.get(initial.catalog_import.variants[1]!.medusa_variant_id)!
+              .title,
             sku: "BODY-WASH-500-NEW",
             barcode: "8412345679902",
           }),
@@ -1009,12 +1032,12 @@ medusaIntegrationTestRunner({
         expect.objectContaining({
           medusa_variant_id: initial.catalog_import.variants[0]!.medusa_variant_id,
           disposition: "updated",
-          availability: "available",
+          source_available: true,
         }),
         expect.objectContaining({
           medusa_variant_id: initial.catalog_import.variants[1]!.medusa_variant_id,
           disposition: "archived",
-          availability: "unavailable",
+          source_available: false,
         }),
       ]);
 
@@ -1052,7 +1075,7 @@ medusaIntegrationTestRunner({
         medusa_variant_id: initial.catalog_import.variants[1]!.medusa_variant_id,
         catalog_mapping_id: initial.catalog_import.variants[1]!.catalog_mapping_id,
         disposition: "reactivated",
-        availability: "available",
+        source_available: true,
       });
     });
 
@@ -1078,7 +1101,7 @@ medusaIntegrationTestRunner({
           expect.objectContaining({
             medusa_variant_id: variant.medusa_variant_id,
             disposition: "archived",
-            availability: "unavailable",
+            source_available: false,
           }),
         ),
       );
@@ -1086,7 +1109,7 @@ medusaIntegrationTestRunner({
       const archivedMappings = await catalogSync.listCatalogMappings({
         medusa_product_id: initial.product.id,
       });
-      expect(archivedMappings.every(({ archived: unavailable }) => unavailable)).toEqual(true);
+      expect(archivedMappings.every(({ source_available }) => !source_available)).toEqual(true);
       mockCatalogBatch(reactivatedTemplateCatalogBatch);
 
       const reactivatedResponse = await api.post(
@@ -1101,7 +1124,7 @@ medusaIntegrationTestRunner({
           expect.objectContaining({
             medusa_variant_id: variant.medusa_variant_id,
             disposition: "reactivated",
-            availability: "available",
+            source_available: true,
           }),
         ),
       );
@@ -1309,6 +1332,143 @@ medusaIntegrationTestRunner({
       expect(productResponse.status).toEqual(200);
       expect(cartResponse.status).toEqual(200);
       expect(odooCalls).toHaveLength(0);
+    });
+
+    it("rejects an unmapped Variant at the Cart boundary", async () => {
+      const storeRequest = { headers: { "x-publishable-api-key": probe.publishableKey } };
+      const productService = getContainer().resolve<any>(Modules.PRODUCT);
+      const product = await productService.retrieveProduct(probe.productId, {
+        relations: ["variants"],
+      });
+      const variantId = product.variants[0].id as string;
+      const cart = await api.post("/store/carts", { region_id: seeded.regionId }, storeRequest);
+
+      await expect(
+        api.post(
+          `/store/carts/${cart.data.cart.id}/line-items`,
+          { variant_id: variantId, quantity: 1 },
+          storeRequest,
+        ),
+      ).rejects.toMatchObject({
+        response: { status: 400, data: { code: "catalog_variant_unavailable" } },
+      });
+    });
+
+    it("keeps a new Variant pending until the next Product promotion", async () => {
+      const storeRequest = { headers: { "x-publishable-api-key": probe.publishableKey } };
+      mockCatalogBatch(dynamicInitialCatalogBatch);
+      const initialResponse = await api.post(
+        "/admin/odoo/catalog-imports",
+        {},
+        { headers: { ...operator.headers, "Idempotency-Key": "pending-variant-initial" } },
+      );
+      const productId = initialResponse.data.product.id as string;
+      const initialVariantId = initialResponse.data.product.variants[0].id as string;
+      await linkProductsToSalesChannelWorkflow(getContainer()).run({
+        input: { id: seeded.salesChannelId, add: [productId] },
+      });
+      await api.post(
+        `/admin/products/${productId}`,
+        {
+          title: "Variant Approval Product",
+          description: "Tests the local Variant availability projection.",
+          images: [{ url: "https://assets.mze.store/ground/variant-approval.jpg" }],
+        },
+        { headers: operator.headers },
+      );
+      await api.put(
+        `/admin/products/${productId}/authoring`,
+        { state: "ready" },
+        { headers: operator.headers },
+      );
+      await api.post(`/admin/products/${productId}/promote`, {}, { headers: operator.headers });
+
+      mockCatalogBatch(dynamicNewVariantCatalogBatch);
+      const updatedResponse = await api.post(
+        "/admin/odoo/catalog-imports",
+        {},
+        { headers: { ...operator.headers, "Idempotency-Key": "pending-variant-added" } },
+      );
+      const newVariantId = updatedResponse.data.product.variants.find(
+        ({ id }: { id: string }) => id !== initialVariantId,
+      ).id as string;
+      await api.post(
+        `/admin/products/${productId}/variants/${newVariantId}`,
+        { manage_inventory: false },
+        { headers: operator.headers },
+      );
+
+      const storeProduct = await api.get(
+        `/store/products/${productId}?region_id=${seeded.regionId}&fields=id,variants.id`,
+        storeRequest,
+      );
+      expect(storeProduct.data.product.variants).toEqual([
+        expect.objectContaining({ id: initialVariantId }),
+      ]);
+      await expect(
+        api.get(`/store/product-variants/${newVariantId}`, storeRequest),
+      ).rejects.toMatchObject({
+        response: { status: 400, data: { code: "catalog_variant_unavailable" } },
+      });
+      await expect(
+        api.post(
+          "/store/carts",
+          {
+            region_id: seeded.regionId,
+            items: [{ variant_id: newVariantId, quantity: 1 }],
+          },
+          storeRequest,
+        ),
+      ).rejects.toMatchObject({
+        response: { status: 400, data: { code: "catalog_variant_unavailable" } },
+      });
+
+      const cart = await api.post("/store/carts", { region_id: seeded.regionId }, storeRequest);
+      await expect(
+        api.post(
+          `/store/carts/${cart.data.cart.id}/line-items`,
+          { variant_id: newVariantId, quantity: 1 },
+          storeRequest,
+        ),
+      ).rejects.toMatchObject({
+        response: { status: 400, data: { code: "catalog_variant_unavailable" } },
+      });
+
+      const catalogSync = getContainer().resolve<CatalogSyncModuleService>(CATALOG_SYNC_MODULE);
+      const mappings = await catalogSync.listCatalogMappings({ medusa_product_id: productId });
+      expect(mappings).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            medusa_variant_id: initialVariantId,
+            approval_state: "approved",
+            storefront_available: true,
+          }),
+          expect.objectContaining({
+            medusa_variant_id: newVariantId,
+            approval_state: "pending",
+            storefront_available: false,
+          }),
+        ]),
+      );
+
+      await api.post(`/admin/products/${productId}/promote`, {}, { headers: operator.headers });
+      const approvedStoreProduct = await api.get(
+        `/store/products/${productId}?region_id=${seeded.regionId}&fields=id,variants.id`,
+        storeRequest,
+      );
+      expect(approvedStoreProduct.data.product.variants).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ id: initialVariantId }),
+          expect.objectContaining({ id: newVariantId }),
+        ]),
+      );
+      await expect(
+        api.post(
+          `/store/carts/${cart.data.cart.id}/line-items`,
+          { variant_id: newVariantId, quantity: 1 },
+          storeRequest,
+        ),
+      ).resolves.toMatchObject({ status: 200 });
     });
   },
 });

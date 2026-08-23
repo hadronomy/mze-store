@@ -1,5 +1,5 @@
 import { model } from "@medusajs/framework/utils";
-import { CATALOG_SYNC_STATES, ODOO_CATALOG_MODELS } from "~/modules/catalog-sync/types";
+import { CATALOG_VARIANT_APPROVAL_STATES, ODOO_CATALOG_MODELS } from "~/modules/catalog-sync/types";
 import CatalogAttributeMapping from "./catalog-attribute-mapping";
 import CatalogVariantAttributeValue from "./catalog-variant-attribute-value";
 
@@ -18,8 +18,9 @@ const CatalogMapping = model
     medusa_product_id: model.text(),
     medusa_variant_id: model.text().nullable(),
     last_sync_record_id: model.text(),
-    sync_state: model.enum([...CATALOG_SYNC_STATES]),
-    archived: model.boolean().default(false),
+    source_available: model.boolean().default(false),
+    approval_state: model.enum([...CATALOG_VARIANT_APPROVAL_STATES]).default("pending"),
+    storefront_available: model.boolean().default(false),
     last_synced_at: model.dateTime(),
     catalog_attribute_mappings: model.hasMany(() => CatalogAttributeMapping, {
       mappedBy: "template_catalog_mapping",

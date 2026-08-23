@@ -30,6 +30,7 @@ export async function PUT(
     product_authoring: {
       id: result.productId,
       state: result.state,
+      blocked_reason: result.blockedReason,
       seo_title: result.seoTitle,
       seo_description: result.seoDescription,
       colour: result.colour,

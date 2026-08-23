@@ -8,10 +8,13 @@ import {
 } from "@medusajs/framework/utils";
 import type {
   CatalogBatch,
+  OdooBridgeClient,
+  OdooBridgeError,
+  OdooBridgeGateway,
   Options as OdooBridgeOptions,
   SourceRevision,
 } from "@mze-store/odoo-bridge";
-import { createOdooCatalogSource } from "./catalog-source";
+import { createOdooBridge, decodeOdooIntegrationKey } from "@mze-store/odoo-bridge";
 import { catalogError } from "./errors";
 import CatalogAttributeMapping from "~/modules/catalog-sync/models/catalog-attribute-mapping";
 import CatalogAttributeValueMapping from "~/modules/catalog-sync/models/catalog-attribute-value-mapping";
@@ -30,17 +33,22 @@ import type {
   CatalogProjectionCommit,
   CatalogProjectionMappingRef,
   CatalogProjectionReceipt,
-  CatalogSource,
+  CatalogAvailabilityProjection,
+  CatalogStorefrontAvailabilitySnapshot,
+  CatalogSyncFailure,
   CatalogSyncModuleOptions,
   CatalogSyncOutcome,
   CatalogSyncSource,
   CatalogSyncStart,
   CatalogValueSnapshot,
   CatalogProjectionStatus,
-  MedusaErrorType,
+  CatalogProjectionRecords,
+  CatalogVariantApprovalSnapshot,
+  CatalogVariantAvailability,
 } from "./types";
 
 const OPERATION_ID_INDEX = "IDX_sync_record_operation_id_unique";
+const IN_PROGRESS = "in_progress" as const;
 const SUCCEEDED = "succeeded" as const;
 const CATALOG_IDENTITY_INDEXES = [
   "IDX_catalog_mapping_integration_key_unique",
@@ -56,19 +64,10 @@ const CATALOG_IDENTITY_INDEXES = [
   "IDX_catalog_variant_attribute_value_unique",
 ] as const;
 
-export type CatalogAttributeMappingRecord = InferTypeOf<typeof CatalogAttributeMapping>;
-export type CatalogAttributeValueMappingRecord = InferTypeOf<typeof CatalogAttributeValueMapping>;
-export type CatalogMappingRecord = InferTypeOf<typeof CatalogMapping>;
-export type CatalogVariantAttributeValueRecord = InferTypeOf<typeof CatalogVariantAttributeValue>;
-export type SyncRecordRecord = InferTypeOf<typeof SyncRecord>;
-
-export type CatalogProjectionRecords = Readonly<{
-  template: CatalogMappingRecord;
-  mappings: readonly CatalogMappingRecord[];
-  attributes: readonly CatalogAttributeMappingRecord[];
-  values: readonly CatalogAttributeValueMappingRecord[];
-  selections: readonly CatalogVariantAttributeValueRecord[];
-}>;
+type CatalogAttributeMappingRecord = InferTypeOf<typeof CatalogAttributeMapping>;
+type CatalogAttributeValueMappingRecord = InferTypeOf<typeof CatalogAttributeValueMapping>;
+type CatalogMappingRecord = InferTypeOf<typeof CatalogMapping>;
+type SyncRecordRecord = InferTypeOf<typeof SyncRecord>;
 
 export default class CatalogSyncModuleService extends MedusaService({
   CatalogAttributeMapping,
@@ -77,35 +76,42 @@ export default class CatalogSyncModuleService extends MedusaService({
   CatalogVariantAttributeValue,
   SyncRecord,
 }) {
-  readonly #source: CatalogSource;
-  readonly #ownsSource: boolean;
+  readonly #gateway: OdooBridgeGateway;
+  readonly #ownedClient: OdooBridgeClient | null;
 
   constructor(container: MedusaContainer, options: CatalogSyncModuleOptions) {
     super(container);
-    if (options.source) {
-      this.#source = options.source;
-      this.#ownsSource = false;
+    if (options.gateway) {
+      this.#gateway = options.gateway;
+      this.#ownedClient = null;
     } else {
       // Build the bridge eagerly so invalid Odoo options stop the process at
       // boot instead of failing during the first remote read. The wrapper
       // resolves fetch per call, so a test can still replace globalThis.fetch
       // after construction.
-      this.#source = createOdooCatalogSource(withResolvedFetch(options.odoo));
-      this.#ownsSource = true;
+      const created = createOdooBridge(withResolvedFetch(options.odoo));
+      if (created._tag === "Failure") {
+        throw catalogError(
+          "catalog_bridge_configuration_invalid",
+          `[${created.failure._tag}] ${created.failure.message}`,
+        );
+      }
+      this.#gateway = created.success;
+      this.#ownedClient = created.success;
     }
   }
 
   readonly __hooks = {
     onApplicationShutdown: async (): Promise<void> => {
-      if (!this.#ownsSource) {
+      if (!this.#ownedClient) {
         return;
       }
-      await this.#source.close();
+      await this.#ownedClient.close();
     },
   };
 
   async startSync(input: BeginCatalogSyncInput): Promise<CatalogSyncStart> {
-    const resumed = resumeStart(
+    const resumed = await this.#resumeStart(
       await this.#findSyncRecord(input.operationId),
       input.requestFingerprint,
     );
@@ -128,7 +134,7 @@ export default class CatalogSyncModuleService extends MedusaService({
       }
 
       const concurrent = await this.#findSyncRecord(input.operationId);
-      const racedResume = resumeStart(concurrent, input.requestFingerprint);
+      const racedResume = await this.#resumeStart(concurrent, input.requestFingerprint);
       if (!racedResume) {
         throw thrown;
       }
@@ -139,7 +145,16 @@ export default class CatalogSyncModuleService extends MedusaService({
   async readNextCatalogItem(
     options: Readonly<{ cursor?: SourceRevision | null; signal?: AbortSignal }> = {},
   ): Promise<CatalogBatch> {
-    return this.#source.readNextCatalogItem(options);
+    const result = await this.#gateway.readCatalogBatch({
+      cursor: options.cursor ?? null,
+      limit: 1,
+      signal: options.signal,
+    });
+    if (result._tag === "Failure") {
+      throw bridgeReadError(result.failure);
+    }
+
+    return result.success;
   }
 
   @InjectTransactionManager()
@@ -147,8 +162,17 @@ export default class CatalogSyncModuleService extends MedusaService({
     syncRecordId: string,
     source: CatalogSyncSource,
     @MedusaContext() sharedContext: Context = {},
-  ): Promise<void> {
+  ): Promise<string | null> {
     await this.#requireInProgressRecord(syncRecordId, sharedContext);
+    const [template] = await this.listCatalogMappings(
+      {
+        odoo_model: "product.template",
+        odoo_database_id: source.sourceRevision.productId,
+      },
+      { take: 1 },
+      sharedContext,
+    );
+    const productId = template?.medusa_product_id ?? null;
     await this.updateSyncRecords(
       {
         id: syncRecordId,
@@ -157,9 +181,12 @@ export default class CatalogSyncModuleService extends MedusaService({
         source_revision_product_id: source.sourceRevision.productId,
         next_cursor_changed_at: source.nextCursor?.changedAt ?? null,
         next_cursor_product_id: source.nextCursor?.productId ?? null,
+        medusa_product_id: productId,
       },
       sharedContext,
     );
+
+    return productId;
   }
 
   @InjectTransactionManager()
@@ -214,6 +241,62 @@ export default class CatalogSyncModuleService extends MedusaService({
   }
 
   @InjectTransactionManager()
+  async failSyncIfActive(
+    syncRecordId: string,
+    failure: CatalogSyncFailure,
+    @MedusaContext() sharedContext: Context = {},
+  ): Promise<void> {
+    const [record] = await this.listSyncRecords({ id: syncRecordId }, {}, sharedContext);
+    if (!record) {
+      throw catalogError(
+        "catalog_projection_result_invalid",
+        `Catalog Sync Record ${syncRecordId} does not exist.`,
+      );
+    }
+    if (record.state === "failed" || record.state === "succeeded") {
+      return;
+    }
+    if (record.state !== "in_progress") {
+      throw catalogError(
+        "catalog_operation_conflict",
+        `Catalog synchronization operation ${record.operation_id} is already ${record.state}.`,
+      );
+    }
+
+    await this.updateSyncRecords(
+      {
+        id: record.id,
+        state: "failed",
+        error_type: failure.type,
+        error_code: failure.code,
+        error_message: failure.message,
+        finished_at: new Date(),
+      },
+      sharedContext,
+    );
+  }
+
+  async getSyncProductId(syncRecordId: string): Promise<string | null> {
+    const [record] = await this.listSyncRecords({ id: syncRecordId });
+    if (!record) {
+      throw catalogError(
+        "catalog_projection_result_invalid",
+        `Catalog Sync Record ${syncRecordId} does not exist.`,
+      );
+    }
+
+    return record.medusa_product_id;
+  }
+
+  async shouldProjectSyncFailure(syncRecordId: string, productId: string): Promise<boolean> {
+    const [latest] = await this.listSyncRecords(
+      { medusa_product_id: productId },
+      { order: { started_at: "DESC", created_at: "DESC", id: "DESC" }, take: 1 },
+    );
+    return latest?.id === syncRecordId && latest.state === "failed";
+  }
+
+  @InjectTransactionManager()
   async commitProjection(
     change: CatalogProjectionChange,
     @MedusaContext() sharedContext: Context = {},
@@ -240,6 +323,9 @@ export default class CatalogSyncModuleService extends MedusaService({
     }
     if (receipt.createdValueIds.length) {
       await this.deleteCatalogAttributeValueMappings([...receipt.createdValueIds], sharedContext);
+    }
+    if (receipt.createdAttributeIds.length) {
+      await this.deleteCatalogAttributeMappings([...receipt.createdAttributeIds], sharedContext);
     }
     if (receipt.createdMappingIds.length) {
       await this.deleteCatalogMappings([...receipt.createdMappingIds], sharedContext);
@@ -275,19 +361,198 @@ export default class CatalogSyncModuleService extends MedusaService({
     }
   }
 
-  // Answers the three catalog questions a promotion gate needs in one read:
-  // is the Product mapped, is its source archived, and did every mapping's
-  // last sync succeed?
-  async getCatalogProjectionStatus(productId: string): Promise<CatalogProjectionStatus> {
+  async getCatalogProjectionStatus(
+    productId: string,
+    options: Readonly<{ resolvingSyncRecordId?: string }> = {},
+  ): Promise<CatalogProjectionStatus> {
     const mappings = await this.listCatalogMappings({ medusa_product_id: productId });
     const template = mappings.find(({ odoo_model }) => odoo_model === "product.template");
+    const syncRecordIds = [
+      ...new Set(mappings.map(({ last_sync_record_id }) => last_sync_record_id)),
+    ];
+    const syncRecords = syncRecordIds.length
+      ? await this.listSyncRecords({ id: syncRecordIds })
+      : [];
+    const stateById = new Map(syncRecords.map((record) => [record.id, record.state]));
+    const [latestTargetedSync] = await this.listSyncRecords(
+      { medusa_product_id: productId },
+      { order: { started_at: "DESC", created_at: "DESC", id: "DESC" }, take: 1 },
+    );
+    const isResolved = (syncRecordId: string, state: SyncRecordRecord["state"] | undefined) =>
+      state === SUCCEEDED ||
+      (syncRecordId === options.resolvingSyncRecordId && state === IN_PROGRESS);
 
     return {
       mapped: Boolean(template),
-      templateArchived: template?.archived ?? null,
-      allSyncsSucceeded:
-        mappings.length > 0 && mappings.every(({ sync_state }) => sync_state === "succeeded"),
+      sourceAvailable: template?.source_available ?? null,
+      syncResolved:
+        mappings.length > 0 &&
+        mappings.every(({ last_sync_record_id }) =>
+          isResolved(last_sync_record_id, stateById.get(last_sync_record_id)),
+        ) &&
+        (latestTargetedSync === undefined ||
+          isResolved(latestTargetedSync.id, latestTargetedSync.state)),
     };
+  }
+
+  async approveVariants(productId: string): Promise<readonly CatalogVariantApprovalSnapshot[]> {
+    const variants = await this.listCatalogMappings({
+      medusa_product_id: productId,
+      odoo_model: "product.product",
+    });
+    const snapshots = variants.map((variant) => ({
+      id: variant.id,
+      approvalState: variant.approval_state,
+      storefrontAvailable: variant.storefront_available,
+    }));
+    if (variants.length) {
+      await this.updateCatalogMappings(
+        variants.map(({ id }) => ({
+          id,
+          approval_state: "approved" as const,
+          storefront_available: false,
+        })),
+      );
+    }
+
+    return snapshots;
+  }
+
+  async restoreVariantApprovals(
+    snapshots: readonly CatalogVariantApprovalSnapshot[],
+  ): Promise<void> {
+    if (!snapshots.length) {
+      return;
+    }
+
+    await this.updateCatalogMappings(
+      snapshots.map((snapshot) => ({
+        id: snapshot.id,
+        approval_state: snapshot.approvalState,
+        storefront_available: snapshot.storefrontAvailable,
+      })),
+    );
+  }
+
+  async projectAvailability(
+    productId: string,
+    authoringPublished: boolean,
+    options: Readonly<{ resolvingSyncRecordId?: string }> = {},
+  ): Promise<CatalogAvailabilityProjection> {
+    const mappings = await this.listCatalogMappings({ medusa_product_id: productId });
+    const previous = mappings.map(({ id, storefront_available }) => ({
+      id,
+      storefrontAvailable: storefront_available,
+    }));
+    const template = mappings.find(({ odoo_model }) => odoo_model === "product.template");
+    if (!template) {
+      return { productAvailable: false, unavailableVariantIds: [], previous };
+    }
+    const status = await this.getCatalogProjectionStatus(productId, options);
+    const hasStorefrontVariant = mappings.some(
+      (mapping) =>
+        mapping.odoo_model === "product.product" &&
+        mapping.source_available &&
+        mapping.approval_state === "approved",
+    );
+    const productAvailable =
+      authoringPublished &&
+      status.syncResolved &&
+      status.sourceAvailable === true &&
+      hasStorefrontVariant;
+    const unavailableVariantIds: string[] = [];
+
+    await this.updateCatalogMappings(
+      mappings.map((mapping) => {
+        const storefrontAvailable =
+          mapping.odoo_model === "product.template"
+            ? productAvailable
+            : productAvailable && mapping.source_available && mapping.approval_state === "approved";
+        if (
+          mapping.odoo_model === "product.product" &&
+          mapping.medusa_variant_id &&
+          !storefrontAvailable
+        ) {
+          unavailableVariantIds.push(mapping.medusa_variant_id);
+        }
+
+        return { id: mapping.id, storefront_available: storefrontAvailable };
+      }),
+    );
+
+    return { productAvailable, unavailableVariantIds, previous };
+  }
+
+  async restoreAvailability(
+    snapshots: readonly CatalogStorefrontAvailabilitySnapshot[],
+  ): Promise<void> {
+    if (!snapshots.length) {
+      return;
+    }
+
+    await this.updateCatalogMappings(
+      snapshots.map(({ id, storefrontAvailable }) => ({
+        id,
+        storefront_available: storefrontAvailable,
+      })),
+    );
+  }
+
+  async assertVariantsAvailable(variantIds: readonly string[]): Promise<void> {
+    if (!variantIds.length) {
+      return;
+    }
+    const mappings = await this.listCatalogMappings({ medusa_variant_id: [...variantIds] });
+    const mappingByVariantId = new Map(
+      mappings.flatMap((mapping) =>
+        mapping.medusa_variant_id === null ? [] : [[mapping.medusa_variant_id, mapping] as const],
+      ),
+    );
+    const unavailableVariantId = variantIds.find(
+      (variantId) => !mappingByVariantId.get(variantId)?.storefront_available,
+    );
+    if (unavailableVariantId) {
+      throw catalogError(
+        "catalog_variant_unavailable",
+        `The Variant ${unavailableVariantId} is not available for purchase.`,
+      );
+    }
+  }
+
+  async listUnavailableVariantIds(): Promise<readonly string[]> {
+    const mappings = await this.listCatalogMappings({
+      odoo_model: "product.product",
+      storefront_available: false,
+    });
+    return mappings.flatMap(({ medusa_variant_id }) =>
+      medusa_variant_id === null ? [] : [medusa_variant_id],
+    );
+  }
+
+  async getVariantAvailability(productId: string): Promise<readonly CatalogVariantAvailability[]> {
+    const mappings = await this.listCatalogMappings({
+      medusa_product_id: productId,
+      odoo_model: "product.product",
+    });
+    return mappings.flatMap((mapping) =>
+      mapping.medusa_variant_id === null
+        ? []
+        : [
+            {
+              medusaVariantId: mapping.medusa_variant_id,
+              sourceAvailable: mapping.source_available,
+              approvalState: mapping.approval_state,
+              storefrontAvailable: mapping.storefront_available,
+            },
+          ],
+    );
+  }
+
+  async findMappingsBySyncRecord(
+    syncRecordId: string,
+  ): Promise<readonly CatalogProjectionMappingRef[]> {
+    const mappings = await this.listCatalogMappings({ last_sync_record_id: syncRecordId });
+    return mappings.map(toMappingRef);
   }
 
   async findCatalogProjection(input: {
@@ -393,7 +658,7 @@ export default class CatalogSyncModuleService extends MedusaService({
           variant_creation_mode: attribute.variantCreationMode,
           source_label: attribute.sourceLabel,
           medusa_product_option_id: attribute.medusaProductOptionId,
-          last_sync_record_id: change.syncRecordId,
+          last_sync_record_id: change.sync.recordId,
           last_synced_at: now,
         })),
         sharedContext,
@@ -410,7 +675,7 @@ export default class CatalogSyncModuleService extends MedusaService({
             odoo_template_attribute_value_id: value.odooTemplateAttributeValueId,
             source_label: value.sourceLabel,
             medusa_product_option_value_id: value.medusaProductOptionValueId,
-            last_sync_record_id: change.syncRecordId,
+            last_sync_record_id: change.sync.recordId,
             last_synced_at: now,
           }));
         }),
@@ -441,7 +706,7 @@ export default class CatalogSyncModuleService extends MedusaService({
               variant_catalog_mapping_id: mapping.id,
               catalog_attribute_mapping_id: attribute.id,
               catalog_attribute_value_mapping_id: value.id,
-              last_sync_record_id: change.syncRecordId,
+              last_sync_record_id: change.sync.recordId,
               last_synced_at: now,
             };
           });
@@ -453,7 +718,8 @@ export default class CatalogSyncModuleService extends MedusaService({
         mappings: mappings.map(toMappingRef),
         receipt: {
           createdMappingIds: mappings.map(({ id }) => id),
-          createdValueIds: [],
+          createdAttributeIds: attributes.map(({ id }) => id),
+          createdValueIds: values.map(({ id }) => id),
           createdSelectionIds: selections.map(({ id }) => id),
           previousMappings: [],
           previousAttributes: [],
@@ -508,13 +774,13 @@ export default class CatalogSyncModuleService extends MedusaService({
       [
         {
           id: change.template.mappingId,
-          source_revision_changed_at: change.sourceRevision.changedAt,
-          source_revision_product_id: change.sourceRevision.productId,
-          source_fingerprint: change.sourceFingerprint,
+          source_revision_changed_at: change.sync.sourceRevision.changedAt,
+          source_revision_product_id: change.sync.sourceRevision.productId,
+          source_fingerprint: change.sync.sourceFingerprint,
           source_label: change.template.sourceLabel,
-          archived: change.template.archived,
-          last_sync_record_id: change.syncRecordId,
-          sync_state: SUCCEEDED,
+          source_available: change.template.sourceAvailable,
+          storefront_available: false,
+          last_sync_record_id: change.sync.recordId,
           last_synced_at: now,
         },
         ...change.variants.flatMap((variant) =>
@@ -522,15 +788,15 @@ export default class CatalogSyncModuleService extends MedusaService({
             ? [
                 {
                   id: variant.mappingId,
-                  source_revision_changed_at: change.sourceRevision.changedAt,
-                  source_revision_product_id: change.sourceRevision.productId,
-                  source_fingerprint: change.sourceFingerprint,
+                  source_revision_changed_at: change.sync.sourceRevision.changedAt,
+                  source_revision_product_id: change.sync.sourceRevision.productId,
+                  source_fingerprint: change.sync.sourceFingerprint,
                   source_label: variant.sourceLabel,
                   source_internal_reference: variant.sourceInternalReference,
                   source_barcode: variant.sourceBarcode,
-                  archived: variant.archived,
-                  last_sync_record_id: change.syncRecordId,
-                  sync_state: SUCCEEDED,
+                  source_available: variant.sourceAvailable,
+                  storefront_available: false,
+                  last_sync_record_id: change.sync.recordId,
                   last_synced_at: now,
                 },
               ]
@@ -552,7 +818,7 @@ export default class CatalogSyncModuleService extends MedusaService({
       change.attributes.map((attribute) => ({
         id: attribute.mappingId,
         source_label: attribute.sourceLabel,
-        last_sync_record_id: change.syncRecordId,
+        last_sync_record_id: change.sync.recordId,
         last_synced_at: now,
       })),
       sharedContext,
@@ -566,7 +832,7 @@ export default class CatalogSyncModuleService extends MedusaService({
                     {
                       id: value.mappingId,
                       source_label: value.sourceLabel,
-                      last_sync_record_id: change.syncRecordId,
+                      last_sync_record_id: change.sync.recordId,
                       last_synced_at: now,
                     },
                   ]
@@ -595,7 +861,7 @@ export default class CatalogSyncModuleService extends MedusaService({
                       odoo_template_attribute_value_id: value.odooTemplateAttributeValueId,
                       source_label: value.sourceLabel,
                       medusa_product_option_value_id: value.medusaProductOptionValueId,
-                      last_sync_record_id: change.syncRecordId,
+                      last_sync_record_id: change.sync.recordId,
                       last_synced_at: now,
                     },
                   ]
@@ -640,7 +906,7 @@ export default class CatalogSyncModuleService extends MedusaService({
                 variant_catalog_mapping_id: mapping.id,
                 catalog_attribute_mapping_id: attribute.id,
                 catalog_attribute_value_mapping_id: value.id,
-                last_sync_record_id: change.syncRecordId,
+                last_sync_record_id: change.sync.recordId,
                 last_synced_at: now,
               };
             });
@@ -653,6 +919,7 @@ export default class CatalogSyncModuleService extends MedusaService({
       mappings: allMappings.map(toMappingRef),
       receipt: {
         createdMappingIds: createdMappingRows.map(({ id }) => id),
+        createdAttributeIds: [],
         createdValueIds: createdValues.map(({ id }) => id),
         createdSelectionIds: createdSelections.map(({ id }) => id),
         previousMappings: previousMappings.map(toMappingSnapshot),
@@ -672,7 +939,7 @@ export default class CatalogSyncModuleService extends MedusaService({
         change.mappingIds.map((id) => ({
           id,
           last_sync_record_id: change.syncRecordId,
-          sync_state: SUCCEEDED,
+          storefront_available: false,
           last_synced_at: now,
         })),
         sharedContext,
@@ -720,6 +987,51 @@ export default class CatalogSyncModuleService extends MedusaService({
     return record;
   }
 
+  async #resumeStart(
+    record: SyncRecordRecord | undefined,
+    requestFingerprint: string,
+  ): Promise<CatalogSyncStart | undefined> {
+    if (!record) {
+      return undefined;
+    }
+
+    assertSameRequest(record, requestFingerprint);
+    if (record.state === "succeeded") {
+      return { tag: "replayed", result: decodeStoredResult(record) };
+    }
+    if (record.state === "failed") {
+      const failure = recordedFailure(record);
+      return {
+        tag: "failed",
+        syncRecordId: record.id,
+        failure: {
+          type: failure.type,
+          code: failure.code ?? null,
+          message: failure.message,
+        },
+      };
+    }
+    if (record.state === "in_progress") {
+      await this.updateSyncRecords({
+        id: record.id,
+        state: "in_progress",
+        attempts: record.attempts + 1,
+        result: null,
+        error_type: null,
+        error_code: null,
+        error_message: null,
+        started_at: new Date(),
+        finished_at: null,
+      });
+      return { tag: "started", syncRecordId: record.id };
+    }
+
+    throw catalogError(
+      "catalog_operation_in_progress",
+      `Catalog synchronization operation ${record.operation_id} is already ${record.state}.`,
+    );
+  }
+
   async #requireInProgressRecord(
     syncRecordId: string,
     sharedContext: Context,
@@ -753,25 +1065,29 @@ function withResolvedFetch(options: OdooBridgeOptions): OdooBridgeOptions {
   };
 }
 
-function resumeStart(
-  record: SyncRecordRecord | undefined,
-  requestFingerprint: string,
-): CatalogSyncStart | undefined {
-  if (!record) {
-    return undefined;
-  }
-
-  assertSameRequest(record, requestFingerprint);
-  switch (record.state) {
-    case "succeeded":
-      return { tag: "replayed", result: decodeStoredResult(record) };
-    case "failed":
-      throw recordedFailure(record);
+function bridgeReadError(error: OdooBridgeError): MedusaError {
+  const message = `[${error._tag}] ${error.message}`;
+  switch (error._tag) {
+    case "OdooBridgeCallAborted":
+      return catalogError("catalog_import_cancelled", message);
+    case "AuthenticationFailed":
+      return catalogError("catalog_source_authentication_failed", message);
+    case "PermissionDenied":
+      return catalogError("catalog_source_permission_denied", message);
+    case "OdooRequestRejected":
+      return catalogError("catalog_source_request_rejected", message);
+    case "RequestTimedOut":
+      return catalogError("catalog_source_timed_out", message);
+    case "TransportFailed":
+      return catalogError("catalog_source_transport_failed", message);
+    case "UnexpectedStatus":
+      return catalogError("catalog_source_unexpected_status", message);
+    case "AmbiguousCatalogIdentity":
+    case "InvalidCatalogBatchInput":
+    case "InvalidCatalogBatchResponse":
+      return catalogError("catalog_source_rejected", message);
     default:
-      throw catalogError(
-        "catalog_operation_in_progress",
-        `Catalog synchronization operation ${record.operation_id} is already ${record.state}.`,
-      );
+      return catalogError("catalog_source_unavailable", message);
   }
 }
 
@@ -795,11 +1111,12 @@ function recordedFailure(record: SyncRecordRecord): MedusaError {
     );
   }
 
-  const knownTypes: readonly string[] = Object.values(MedusaError.Types);
-  const type = knownTypes.includes(record.error_type)
-    ? (record.error_type as MedusaErrorType)
-    : MedusaError.Types.UNEXPECTED_STATE;
-  return new MedusaError(type, record.error_message, record.error_code ?? undefined);
+  const type = Object.values(MedusaError.Types).find((value) => value === record.error_type);
+  return new MedusaError(
+    type ?? MedusaError.Types.UNEXPECTED_STATE,
+    record.error_message,
+    record.error_code ?? undefined,
+  );
 }
 
 function assertSameRequest(record: SyncRecordRecord, requestFingerprint: string): void {
@@ -839,6 +1156,7 @@ function invalidProjection(message: string): MedusaError {
 function emptyReceipt(): CatalogProjectionReceipt {
   return {
     createdMappingIds: [],
+    createdAttributeIds: [],
     createdValueIds: [],
     createdSelectionIds: [],
     previousMappings: [],
@@ -860,24 +1178,25 @@ function requireRow<Row>(
 
 function toCreateMappingRow(
   seed: CatalogMappingSeed,
-  change: { syncRecordId: string; sourceFingerprint: string; sourceRevision: SourceRevision },
+  change: { sync: { recordId: string; sourceFingerprint: string; sourceRevision: SourceRevision } },
   now: Date,
 ) {
   return {
     odoo_model: seed.odooModel,
     odoo_database_id: seed.odooDatabaseId,
     odoo_integration_key: seed.odooIntegrationKey,
-    source_revision_changed_at: change.sourceRevision.changedAt,
-    source_revision_product_id: change.sourceRevision.productId,
-    source_fingerprint: change.sourceFingerprint,
+    source_revision_changed_at: change.sync.sourceRevision.changedAt,
+    source_revision_product_id: change.sync.sourceRevision.productId,
+    source_fingerprint: change.sync.sourceFingerprint,
     source_label: seed.sourceLabel,
     source_internal_reference: seed.sourceInternalReference,
     source_barcode: seed.sourceBarcode,
     medusa_product_id: seed.medusaProductId,
     medusa_variant_id: seed.medusaVariantId,
-    last_sync_record_id: change.syncRecordId,
-    sync_state: SUCCEEDED,
-    archived: seed.archived,
+    last_sync_record_id: change.sync.recordId,
+    source_available: seed.sourceAvailable,
+    approval_state: "pending" as const,
+    storefront_available: false,
     last_synced_at: now,
   };
 }
@@ -900,7 +1219,7 @@ function toMappingRef(mapping: CatalogMappingRecord): CatalogProjectionMappingRe
   return {
     id: mapping.id,
     odooModel: mapping.odoo_model,
-    odooIntegrationKey: mapping.odoo_integration_key,
+    odooIntegrationKey: decodeOdooIntegrationKey(mapping.odoo_integration_key),
     medusaProductId: mapping.medusa_product_id,
     medusaVariantId: mapping.medusa_variant_id,
   };
@@ -915,7 +1234,9 @@ function toMappingSnapshot(mapping: CatalogMappingRecord): CatalogMappingSnapsho
     source_label: mapping.source_label,
     source_internal_reference: mapping.source_internal_reference,
     source_barcode: mapping.source_barcode,
-    archived: mapping.archived,
+    source_available: mapping.source_available,
+    approval_state: mapping.approval_state,
+    storefront_available: mapping.storefront_available,
     last_sync_record_id: mapping.last_sync_record_id,
     last_synced_at: toIsoTime(mapping.last_synced_at),
   };
@@ -958,12 +1279,23 @@ function isExpectedUniqueConflict(
 export type CatalogSyncModule = Pick<
   CatalogSyncModuleService,
   | "assertCatalogIdentities"
+  | "approveVariants"
+  | "assertVariantsAvailable"
   | "commitProjection"
   | "findCatalogProjection"
+  | "findMappingsBySyncRecord"
+  | "failSyncIfActive"
   | "finishSync"
   | "getCatalogProjectionStatus"
+  | "getSyncProductId"
+  | "getVariantAvailability"
+  | "listUnavailableVariantIds"
+  | "projectAvailability"
   | "readNextCatalogItem"
   | "revertProjection"
   | "recordSyncSource"
+  | "shouldProjectSyncFailure"
+  | "restoreVariantApprovals"
+  | "restoreAvailability"
   | "startSync"
 >;

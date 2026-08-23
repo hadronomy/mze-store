@@ -1,7 +1,14 @@
 import type { AuthenticatedMedusaRequest, MedusaResponse } from "@medusajs/framework/http";
-import { ContainerRegistrationKeys, MedusaError } from "@medusajs/framework/utils";
+import { ContainerRegistrationKeys, ProductStatus } from "@medusajs/framework/utils";
+import { z } from "@medusajs/framework/zod";
 import { operationIdFromRequest } from "~/api/admin/idempotency";
-import { synchronizeCatalogItem } from "~/catalog/synchronize-catalog-item";
+import { synchronizeCatalogItemWorkflow } from "~/catalog/synchronize-catalog-item";
+import {
+  CATALOG_SYNC_MODULE,
+  catalogError,
+  type CatalogSyncModule,
+  type CatalogVariantAvailability,
+} from "~/modules/catalog-sync";
 import type { CatalogImportRequest } from "~/modules/catalog-sync/schema";
 
 const PRODUCT_FIELDS = [
@@ -24,36 +31,74 @@ const PRODUCT_FIELDS = [
   "variants.prices.currency_code",
 ] as const;
 
+const ImportedProductSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  description: z.string().nullable(),
+  status: z.enum([
+    ProductStatus.DRAFT,
+    ProductStatus.PROPOSED,
+    ProductStatus.PUBLISHED,
+    ProductStatus.REJECTED,
+  ]),
+  options: z.array(
+    z.object({
+      id: z.string(),
+      title: z.string(),
+      is_exclusive: z.boolean(),
+      metadata: z.record(z.string(), z.unknown()).nullable(),
+      values: z.array(z.object({ id: z.string(), value: z.string() })),
+    }),
+  ),
+  variants: z.array(
+    z.object({
+      id: z.string(),
+      title: z.string(),
+      sku: z.string().nullable(),
+      barcode: z.string().nullable(),
+      prices: z.array(
+        z.object({
+          id: z.string(),
+          amount: z.number(),
+          currency_code: z.string(),
+        }),
+      ),
+    }),
+  ),
+});
+
 export async function POST(
   req: AuthenticatedMedusaRequest<CatalogImportRequest>,
   res: MedusaResponse,
 ): Promise<void> {
   const operationId = operationIdFromRequest(req, "catalog-import");
-  const disconnect = new AbortController();
-  const abort = () => disconnect.abort();
-  req.once("aborted", abort);
-  res.once("close", abort);
-  const imported = await synchronizeCatalogItem(req.scope, {
-    operationId,
-    cursor: req.validatedBody.cursor ?? null,
-    signal: disconnect.signal,
-  }).finally(() => {
-    req.off("aborted", abort);
-    res.off("close", abort);
+  const { result: imported } = await synchronizeCatalogItemWorkflow(req.scope).run({
+    input: {
+      operationId,
+      cursor: req.validatedBody.cursor ?? null,
+    },
+    context: { transactionId: operationId },
   });
+  const catalogSync = req.scope.resolve<CatalogSyncModule>(CATALOG_SYNC_MODULE);
+  const availabilityByVariantId = new Map(
+    (await catalogSync.getVariantAvailability(imported.productId)).map((availability) => [
+      availability.medusaVariantId,
+      availability,
+    ]),
+  );
   const query = req.scope.resolve(ContainerRegistrationKeys.QUERY);
   const { data: products } = await query.graph({
     entity: "product",
     fields: [...PRODUCT_FIELDS],
     filters: { id: imported.productId },
   });
-  const [product] = products;
+  const decoded = ImportedProductSchema.array().safeParse(products);
+  const product = decoded.success ? decoded.data[0] : undefined;
 
   if (!product) {
-    throw new MedusaError(
-      MedusaError.Types.UNEXPECTED_STATE,
-      `Imported Product ${imported.productId} could not be refetched.`,
+    throw catalogError(
       "catalog_product_refetch_failed",
+      `Imported Product ${imported.productId} could not be refetched.`,
     );
   }
 
@@ -68,18 +113,43 @@ export async function POST(
         variants: imported.variants.map(({ catalogMappingId }) => catalogMappingId),
       },
       variants: imported.variants.map((variant) => ({
+        ...toVariantAvailabilityResponse(
+          requireVariantAvailability(availabilityByVariantId, variant.medusaVariantId),
+        ),
         integration_key: variant.integrationKey,
         odoo_variant_id: variant.odooVariantId,
         medusa_variant_id: variant.medusaVariantId,
         catalog_mapping_id: variant.catalogMappingId,
         disposition: variant.disposition,
-        availability: variant.availability,
       })),
       source_revision: toSourceRevisionResponse(imported.sourceRevision),
       next_cursor:
         imported.nextCursor === null ? null : toSourceRevisionResponse(imported.nextCursor),
     },
   });
+}
+
+function requireVariantAvailability(
+  availabilityByVariantId: ReadonlyMap<string, CatalogVariantAvailability>,
+  variantId: string,
+): CatalogVariantAvailability {
+  const availability = availabilityByVariantId.get(variantId);
+  if (!availability) {
+    throw catalogError(
+      "catalog_projection_result_invalid",
+      `The Catalog result has no availability projection for Variant ${variantId}.`,
+    );
+  }
+
+  return availability;
+}
+
+function toVariantAvailabilityResponse(availability: CatalogVariantAvailability) {
+  return {
+    source_available: availability.sourceAvailable,
+    approval_state: availability.approvalState,
+    storefront_available: availability.storefrontAvailable,
+  };
 }
 
 function toSourceRevisionResponse(revision: { changedAt: string; productId: number }) {

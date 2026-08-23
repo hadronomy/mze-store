@@ -1,4 +1,5 @@
 import type { AuthenticatedMedusaRequest, MedusaResponse } from "@medusajs/framework/http";
+import { operationIdFromRequest } from "~/api/admin/idempotency";
 import { promoteAuthoringWorkflow } from "~/workflows/authoring-promote";
 
 export async function POST(req: AuthenticatedMedusaRequest, res: MedusaResponse): Promise<void> {
@@ -8,7 +9,11 @@ export async function POST(req: AuthenticatedMedusaRequest, res: MedusaResponse)
     return;
   }
 
-  const { result } = await promoteAuthoringWorkflow(req.scope).run({ input: { productId } });
+  const operationId = operationIdFromRequest(req, `product-authoring:promote:${productId}`);
+  const { result } = await promoteAuthoringWorkflow(req.scope).run({
+    input: { productId },
+    context: { transactionId: operationId },
+  });
 
   res.status(200).json({
     product: {

@@ -18,15 +18,30 @@ export const OdooIntegrationKeySchema = Schema.String.check(Schema.isUUID()).pip
 );
 export type OdooIntegrationKey = Schema.Schema.Type<typeof OdooIntegrationKeySchema>;
 
+/** Decode an Odoo Integration Key read from durable application storage. */
+export function decodeOdooIntegrationKey(input: string): OdooIntegrationKey {
+  return Schema.decodeUnknownSync(OdooIntegrationKeySchema)(input);
+}
+
 export const OdooProductIdSchema = PositiveInt.pipe(
   Schema.brand("@mze-store/odoo-bridge/OdooProductId"),
 );
 export type OdooProductId = Schema.Schema.Type<typeof OdooProductIdSchema>;
 
+/** Decode an Odoo Product ID read from durable application storage. */
+export function decodeOdooProductId(input: number): OdooProductId {
+  return Schema.decodeUnknownSync(OdooProductIdSchema)(input);
+}
+
 export const OdooVariantIdSchema = PositiveInt.pipe(
   Schema.brand("@mze-store/odoo-bridge/OdooVariantId"),
 );
 export type OdooVariantId = Schema.Schema.Type<typeof OdooVariantIdSchema>;
+
+/** Decode an Odoo Variant ID read from durable application storage. */
+export function decodeOdooVariantId(input: number): OdooVariantId {
+  return Schema.decodeUnknownSync(OdooVariantIdSchema)(input);
+}
 
 export const OdooAttributeIdSchema = PositiveInt.pipe(
   Schema.brand("@mze-store/odoo-bridge/OdooAttributeId"),
@@ -266,6 +281,11 @@ export const CatalogBatchSchema = Schema.Struct({
 
 export type CatalogBatch = Schema.Schema.Type<typeof CatalogBatchSchema>;
 export type CatalogBatchEncoded = Schema.Codec.Encoded<typeof CatalogBatchSchema>;
+
+/** Decode a Catalog Batch at a test, fixture, or durable storage boundary. */
+export function decodeCatalogBatch(input: CatalogBatchEncoded): CatalogBatch {
+  return Schema.decodeUnknownSync(CatalogBatchSchema)(input);
+}
 
 export const BridgeContractCheckSchema = Schema.Struct({
   contractVersion: Schema.Literal(ODOO_CATALOG_CONTRACT_VERSION),

@@ -11,6 +11,9 @@ const AUTHORING_ERROR_TYPES = {
   authoring_editorial_incomplete: MedusaError.Types.INVALID_DATA,
   authoring_media_missing: MedusaError.Types.INVALID_DATA,
   authoring_sync_unresolved: MedusaError.Types.INVALID_DATA,
+  authoring_source_unavailable: MedusaError.Types.INVALID_DATA,
+  authoring_blocked_reason_invalid: MedusaError.Types.INVALID_DATA,
+  authoring_promotion_required: MedusaError.Types.INVALID_DATA,
   authoring_state_conflict: MedusaError.Types.INVALID_DATA,
   authoring_product_unknown: MedusaError.Types.NOT_FOUND,
 } as const satisfies Record<AuthoringErrorCode, MedusaError["type"]>;

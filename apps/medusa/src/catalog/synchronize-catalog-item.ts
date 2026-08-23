@@ -1,5 +1,15 @@
-import type { ILockingModule, Logger, MedusaContainer } from "@medusajs/framework/types";
-import { ContainerRegistrationKeys, MedusaError, Modules } from "@medusajs/framework/utils";
+import type {
+  ILockingModule,
+  IProductModuleService,
+  Logger,
+  MedusaContainer,
+} from "@medusajs/framework/types";
+import {
+  ContainerRegistrationKeys,
+  MedusaError,
+  Modules,
+  ProductStatus,
+} from "@medusajs/framework/utils";
 import { z } from "@medusajs/framework/zod";
 import type {
   CatalogAttribute,
@@ -10,16 +20,32 @@ import type {
   SourceRevision,
 } from "@mze-store/odoo-bridge";
 import { decodeSourceRevision } from "@mze-store/odoo-bridge";
+import { acquireLockStep, updateProductsWorkflow } from "@medusajs/medusa/core-flows";
+import type { StepExecutionContext } from "@medusajs/framework/workflows-sdk";
+import {
+  StepResponse,
+  WorkflowResponse,
+  createStep,
+  createWorkflow,
+  transform,
+  when,
+} from "@medusajs/framework/workflows-sdk";
 import stringify from "fast-json-stable-stringify";
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import {
   CATALOG_SYNC_MODULE,
   catalogError,
   type CatalogIdentity,
+  type CatalogProjectionReceipt,
+  type CatalogStorefrontAvailabilitySnapshot,
   type CatalogSyncModule,
 } from "~/modules/catalog-sync";
 import type { CatalogSynchronizationResult } from "~/modules/catalog-sync";
-import type { CatalogProjectionRecords } from "~/modules/catalog-sync/service";
+import type { CatalogProjectionRecords } from "~/modules/catalog-sync/types";
+import {
+  PRODUCT_AUTHORING_MODULE,
+  type ProductAuthoringModuleService,
+} from "~/modules/product-authoring";
 import {
   createCatalogProductWorkflow,
   type PreparedCatalogImport,
@@ -29,11 +55,11 @@ import {
   type CurrentCatalogProduct,
 } from "~/workflows/catalog-product-update";
 import { isCatalogTemplateUnavailable, isCatalogVariantUnavailable } from "./catalog-projection";
+import { recordCatalogStepFailure } from "./record-catalog-step-failure";
 
 export type SynchronizeCatalogItemInput = Readonly<{
   operationId: string;
   cursor?: Readonly<{ changedAt: string; productId: number }> | null;
-  signal?: AbortSignal;
 }>;
 
 export type SynchronizeCatalogItemResult = CatalogSynchronizationResult &
@@ -56,142 +82,663 @@ const SerializedWorkflowErrorSchema = z.object({
   code: z.string().optional(),
 });
 
-export async function synchronizeCatalogItem(
-  container: MedusaContainer,
-  input: SynchronizeCatalogItemInput,
-): Promise<SynchronizeCatalogItemResult> {
-  // The cursor is untrusted request input; decode it once at this boundary so
-  // every downstream consumer receives the bridge's validated Source Revision.
+const CurrentCatalogProductSchema = z.object({
+  id: z.string(),
+  status: z.enum([
+    ProductStatus.DRAFT,
+    ProductStatus.PROPOSED,
+    ProductStatus.PUBLISHED,
+    ProductStatus.REJECTED,
+  ]),
+  options: z.array(
+    z.object({
+      id: z.string(),
+      title: z.string(),
+      values: z.array(z.object({ id: z.string(), value: z.string() })),
+    }),
+  ),
+});
+
+type StartedCatalogSynchronization = Readonly<{
+  tag: "started";
+  syncRecordId: string;
+  cursor: SourceRevision | null;
+}>;
+
+type BegunCatalogSynchronization =
+  | StartedCatalogSynchronization
+  | Readonly<{ tag: "replayed"; result: CatalogSynchronizationResult }>;
+
+type CatalogSynchronizationPlan =
+  | Readonly<{ tag: "create"; prepared: PreparedCatalogImport }>
+  | Readonly<{
+      tag: "update";
+      prepared: PreparedCatalogImport &
+        Readonly<{ existing: CatalogProjectionRecords; product: CurrentCatalogProduct }>;
+    }>
+  | Readonly<{
+      tag: "unchanged";
+      prepared: PreparedCatalogImport;
+      existing: CatalogProjectionRecords;
+      result: CatalogSynchronizationResult;
+    }>;
+
+type CatalogSyncFailureReceipt = Readonly<{
+  operationId: string;
+  lockOwnerId: string;
+  syncRecordId: string | null;
+}>;
+
+type BeginCatalogSynchronizationInput = Readonly<{
+  request: SynchronizeCatalogItemInput;
+  lockOwnerId: string;
+}>;
+
+type RefreshCatalogAvailabilityInput = Readonly<{
+  productId: string;
+  syncRecordId: string;
+}>;
+
+type RefreshCatalogAvailabilityResult = Readonly<{
+  productId: string;
+  productAvailable: boolean;
+}>;
+
+type SelectCatalogSynchronizationResultInput = Readonly<{
+  begun: BegunCatalogSynchronization;
+  created?: CatalogSynchronizationResult;
+  updated?: CatalogSynchronizationResult;
+  unchanged?: CatalogSynchronizationResult;
+}>;
+
+function decodeCursor(input: SynchronizeCatalogItemInput): SourceRevision | null {
+  // The cursor is untrusted request input. Decode it once so every later step
+  // receives the bridge's validated Source Revision.
   const cursor = input.cursor
     ? decodeSourceRevision({
         write_date: input.cursor.changedAt,
         id: input.cursor.productId,
       })
     : null;
+
+  return cursor;
+}
+
+async function beginCatalogSynchronization(
+  { request, lockOwnerId }: BeginCatalogSynchronizationInput,
+  { container }: StepExecutionContext,
+): Promise<StepResponse<BegunCatalogSynchronization, CatalogSyncFailureReceipt>> {
+  const cursor = decodeCursor(request);
   const requestFingerprint = fingerprint({
     operation: "catalog.synchronize",
     cursor,
   });
-  const locking = container.resolve<ILockingModule>(Modules.LOCKING);
+  const catalogSync = container.resolve<CatalogSyncModule>(CATALOG_SYNC_MODULE);
+  const begun = await catalogSync.startSync({
+    operationId: request.operationId,
+    requestFingerprint,
+  });
+  if (begun.tag === "failed") {
+    try {
+      await demoteFailedCatalogProduct(container, catalogSync, begun.syncRecordId, lockOwnerId);
+    } catch (thrown) {
+      const error =
+        thrown instanceof Error ? thrown : new Error("The failure projection returned no Error.");
+      logFailureRecoveryError(container, begun.syncRecordId, error);
+    }
+    throw new MedusaError(
+      begun.failure.type,
+      begun.failure.message,
+      begun.failure.code ?? undefined,
+    );
+  }
+  if (begun.tag === "replayed") {
+    return new StepResponse(
+      { tag: "replayed", result: begun.result },
+      { operationId: request.operationId, lockOwnerId, syncRecordId: null },
+    );
+  }
 
-  return locking.execute(
-    `catalog-import:${input.operationId}`,
-    async () => {
-      const catalogSync = container.resolve<CatalogSyncModule>(CATALOG_SYNC_MODULE);
-      const begun = await catalogSync.startSync({
-        operationId: input.operationId,
-        requestFingerprint,
-      });
-      if (begun.tag === "replayed") {
-        return { ...begun.result, disposition: "replayed" as const };
-      }
-      const syncRecordId = begun.syncRecordId;
-
-      try {
-        const batch = await catalogSync.readNextCatalogItem({ cursor, signal: input.signal });
-        const prepared = prepareCatalogSynchronization(syncRecordId, batch);
-        await catalogSync.recordSyncSource(syncRecordId, toImportSource(prepared));
-
-        return await locking.execute(
-          `catalog-product:${prepared.item.template.integrationKey}`,
-          async () => {
-            const identities = [
-              toIdentity(prepared.item.template),
-              ...prepared.item.variants.map(toIdentity),
-            ];
-            const existing = await catalogSync.findCatalogProjection({
-              templateIntegrationKey: prepared.item.template.integrationKey,
-              templateDatabaseId: prepared.item.template.id,
-            });
-
-            if (existing) {
-              await catalogSync.assertCatalogIdentities(identities, {
-                allowedMappingIds: existing.mappings.map(({ id }) => id),
-              });
-              validateExistingProjection(prepared.item, existing);
-
-              if (
-                existing.template.source_fingerprint === prepared.sourceFingerprint &&
-                catalogSourceSnapshotMatches(prepared.item, existing)
-              ) {
-                await catalogSync.commitProjection({
-                  tag: "touch",
-                  syncRecordId,
-                  mappingIds: existing.mappings.map(({ id }) => id),
-                  attributeIds: existing.attributes.map(({ id }) => id),
-                  valueIds: existing.values.map(({ id }) => id),
-                  selectionIds: existing.selections.map(({ id }) => id),
-                });
-                const result = unchangedCatalogSynchronization(prepared, existing);
-                await finishSucceeded(catalogSync, prepared, result);
-
-                return { ...result, disposition: "unchanged" as const };
-              }
-
-              const product = await fetchCurrentCatalogProduct(
-                container,
-                existing.template.medusa_product_id,
-              );
-              const { result } = await updateCatalogProductWorkflow(container).run({
-                input: { ...prepared, existing, product },
-                context: { transactionId: input.operationId },
-              });
-              await finishSucceeded(catalogSync, prepared, result);
-
-              return { ...result, disposition: "updated" as const };
-            }
-
-            await catalogSync.assertCatalogIdentities(identities);
-            const { result } = await createCatalogProductWorkflow(container).run({
-              input: prepared,
-              context: { transactionId: input.operationId },
-            });
-            await finishSucceeded(catalogSync, prepared, result);
-
-            return { ...result, disposition: "created" as const };
-          },
-          { timeout: 30 },
-        );
-      } catch (thrown) {
-        const serializedError = SerializedWorkflowErrorSchema.safeParse(thrown);
-        const error =
-          thrown instanceof Error
-            ? thrown
-            : serializedError.success
-              ? serializedError.data.type
-                ? new MedusaError(
-                    serializedError.data.type,
-                    serializedError.data.message,
-                    serializedError.data.code,
-                  )
-                : new Error(serializedError.data.message)
-              : new Error("The Catalog synchronization threw a value that was not an Error.");
-        await recordFailure(container, catalogSync, syncRecordId, error);
-        throw error;
-      }
-    },
-    { timeout: 30 },
+  return new StepResponse(
+    { tag: "started", syncRecordId: begun.syncRecordId, cursor },
+    { operationId: request.operationId, lockOwnerId, syncRecordId: begun.syncRecordId },
   );
 }
 
-function toIdentity(source: CatalogTemplate | CatalogVariant): CatalogIdentity {
-  return {
-    odooModel: source.model,
-    odooDatabaseId: source.id,
-    odooIntegrationKey: source.integrationKey,
-  };
+async function compensateCatalogSynchronization(
+  receipt: CatalogSyncFailureReceipt | undefined,
+  { container }: StepExecutionContext,
+): Promise<void> {
+  if (!receipt?.syncRecordId) {
+    return;
+  }
+  const catalogSync = container.resolve<CatalogSyncModule>(CATALOG_SYNC_MODULE);
+  await recordFailure(
+    container,
+    catalogSync,
+    receipt.syncRecordId,
+    catalogError(
+      "catalog_import_failed",
+      "The Catalog synchronization failed before it completed.",
+    ),
+  );
+  try {
+    await demoteFailedCatalogProduct(
+      container,
+      catalogSync,
+      receipt.syncRecordId,
+      receipt.lockOwnerId,
+    );
+  } catch (thrown) {
+    const error =
+      thrown instanceof Error ? thrown : new Error("The failure projection returned no Error.");
+    logFailureRecoveryError(container, receipt.syncRecordId, error);
+  } finally {
+    await releaseFailedCatalogLocks(container, receipt);
+  }
 }
 
-async function finishSucceeded(
-  catalogSync: CatalogSyncModule,
+async function prepareStartedCatalogSynchronization(
+  begun: BegunCatalogSynchronization,
+  { container }: StepExecutionContext,
+): Promise<StepResponse<PreparedCatalogImport>> {
+  if (begun.tag !== "started") {
+    throw new Error("A replayed Catalog synchronization cannot read Odoo again.");
+  }
+  const catalogSync = container.resolve<CatalogSyncModule>(CATALOG_SYNC_MODULE);
+  try {
+    const batch = await catalogSync.readNextCatalogItem({ cursor: begun.cursor });
+    const prepared = prepareCatalogSynchronization(begun.syncRecordId, batch);
+    await catalogSync.recordSyncSource(begun.syncRecordId, toImportSource(prepared));
+    validateCatalogItem(prepared.item);
+    return new StepResponse(prepared);
+  } catch (thrown) {
+    const decoded = SerializedWorkflowErrorSchema.safeParse(thrown);
+    const error =
+      thrown instanceof Error
+        ? thrown
+        : decoded.success
+          ? serializedWorkflowErrorToError(decoded.data)
+          : new Error("The Catalog synchronization threw a value that was not an Error.");
+    await recordFailure(container, catalogSync, begun.syncRecordId, error);
+    throw error;
+  }
+}
+
+async function planCatalogSynchronization(
   prepared: PreparedCatalogImport,
-  result: CatalogSynchronizationResult,
+  { container }: StepExecutionContext,
+): Promise<StepResponse<CatalogSynchronizationPlan>> {
+  const catalogSync = container.resolve<CatalogSyncModule>(CATALOG_SYNC_MODULE);
+  try {
+    const identities = [
+      toIdentity(prepared.item.template),
+      ...prepared.item.variants.map(toIdentity),
+    ];
+    const existing = await catalogSync.findCatalogProjection({
+      templateIntegrationKey: prepared.item.template.integrationKey,
+      templateDatabaseId: prepared.item.template.id,
+    });
+    if (!existing) {
+      await catalogSync.assertCatalogIdentities(identities);
+      return new StepResponse({ tag: "create", prepared });
+    }
+
+    await catalogSync.assertCatalogIdentities(identities, {
+      allowedMappingIds: existing.mappings.map(({ id }) => id),
+    });
+    validateExistingProjection(prepared.item, existing);
+    if (
+      existing.template.source_fingerprint === prepared.sourceFingerprint &&
+      catalogSourceSnapshotMatches(prepared.item, existing)
+    ) {
+      return new StepResponse({
+        tag: "unchanged",
+        prepared,
+        existing,
+        result: unchangedCatalogSynchronization(prepared, existing),
+      });
+    }
+
+    const product = await fetchCurrentCatalogProduct(
+      container,
+      existing.template.medusa_product_id,
+    );
+    return new StepResponse({
+      tag: "update",
+      prepared: { ...prepared, existing, product },
+    });
+  } catch (thrown) {
+    const decoded = SerializedWorkflowErrorSchema.safeParse(thrown);
+    const error =
+      thrown instanceof Error
+        ? thrown
+        : decoded.success
+          ? serializedWorkflowErrorToError(decoded.data)
+          : new Error("The Catalog synchronization threw a value that was not an Error.");
+    await recordFailure(container, catalogSync, prepared.syncRecordId, error);
+    throw error;
+  }
+}
+
+async function touchUnchangedCatalogProjection(
+  plan: CatalogSynchronizationPlan,
+  { container }: StepExecutionContext,
+): Promise<StepResponse<CatalogSynchronizationResult, CatalogProjectionReceipt>> {
+  if (plan.tag !== "unchanged") {
+    throw new Error("Only an unchanged Catalog plan can touch its projection.");
+  }
+  const catalogSync = container.resolve<CatalogSyncModule>(CATALOG_SYNC_MODULE);
+  try {
+    const commit = await catalogSync.commitProjection({
+      tag: "touch",
+      syncRecordId: plan.prepared.syncRecordId,
+      mappingIds: plan.existing.mappings.map(({ id }) => id),
+      attributeIds: plan.existing.attributes.map(({ id }) => id),
+      valueIds: plan.existing.values.map(({ id }) => id),
+      selectionIds: plan.existing.selections.map(({ id }) => id),
+    });
+    return new StepResponse(plan.result, commit.receipt);
+  } catch (thrown) {
+    throw await recordCatalogStepFailure(
+      container,
+      plan.prepared.syncRecordId,
+      thrown instanceof Error
+        ? thrown
+        : new Error("The Catalog projection step threw a value that was not an Error."),
+    );
+  }
+}
+
+async function revertTouchedCatalogProjection(
+  receipt: CatalogProjectionReceipt | undefined,
+  { container }: StepExecutionContext,
 ): Promise<void> {
+  if (!receipt) {
+    return;
+  }
+  const catalogSync = container.resolve<CatalogSyncModule>(CATALOG_SYNC_MODULE);
+  await catalogSync.revertProjection(receipt);
+}
+
+function selectCatalogSynchronizationResult(
+  input: SelectCatalogSynchronizationResultInput,
+): StepResponse<SynchronizeCatalogItemResult> {
+  if (input.begun.tag === "replayed") {
+    return new StepResponse({ ...input.begun.result, disposition: "replayed" });
+  }
+  if (input.created) {
+    return new StepResponse({ ...input.created, disposition: "created" });
+  }
+  if (input.updated) {
+    return new StepResponse({ ...input.updated, disposition: "updated" });
+  }
+  if (input.unchanged) {
+    return new StepResponse({ ...input.unchanged, disposition: "unchanged" });
+  }
+
+  throw catalogError(
+    "catalog_projection_result_invalid",
+    "The Catalog synchronization produced no branch result.",
+  );
+}
+
+async function projectCatalogAvailability(
+  { productId, syncRecordId }: RefreshCatalogAvailabilityInput,
+  { container }: StepExecutionContext,
+): Promise<
+  StepResponse<RefreshCatalogAvailabilityResult, readonly CatalogStorefrontAvailabilitySnapshot[]>
+> {
+  const authoring = container.resolve<ProductAuthoringModuleService>(PRODUCT_AUTHORING_MODULE);
+  const catalogSync = container.resolve<CatalogSyncModule>(CATALOG_SYNC_MODULE);
+  try {
+    const record = await authoring.getAuthoring(productId);
+    const projection = await catalogSync.projectAvailability(
+      productId,
+      record?.state === "published",
+      { resolvingSyncRecordId: syncRecordId },
+    );
+    return new StepResponse(
+      { productId, productAvailable: projection.productAvailable },
+      projection.previous,
+    );
+  } catch (thrown) {
+    throw await recordCatalogStepFailure(
+      container,
+      syncRecordId,
+      thrown instanceof Error
+        ? thrown
+        : new Error("The availability step threw a value that was not an Error."),
+    );
+  }
+}
+
+async function restoreCatalogAvailability(
+  previous: readonly CatalogStorefrontAvailabilitySnapshot[] | undefined,
+  { container }: StepExecutionContext,
+): Promise<void> {
+  if (!previous) {
+    return;
+  }
+  const catalogSync = container.resolve<CatalogSyncModule>(CATALOG_SYNC_MODULE);
+  await catalogSync.restoreAvailability(previous);
+}
+
+const projectCatalogAvailabilityStep = createStep(
+  "project-synchronized-catalog-availability",
+  projectCatalogAvailability,
+  restoreCatalogAvailability,
+);
+
+const refreshCatalogAvailabilityWorkflow = createWorkflow<
+  RefreshCatalogAvailabilityInput,
+  string,
+  []
+>("refresh-catalog-availability", function (input) {
+  const projection = projectCatalogAvailabilityStep(input);
+  const update = transform(projection, ({ productId, productAvailable }) => ({
+    products: [
+      {
+        id: productId,
+        status: productAvailable ? ProductStatus.PUBLISHED : ProductStatus.DRAFT,
+      },
+    ],
+  }));
+  const products = updateProductsWorkflow.runAsStep({ input: update });
+  return new WorkflowResponse(
+    transform({ products, projection }, ({ projection }) => projection.productId),
+  );
+});
+
+async function finishSucceededCatalogSynchronization(
+  {
+    prepared,
+    result,
+  }: Readonly<{
+    prepared: PreparedCatalogImport;
+    result: SynchronizeCatalogItemResult;
+    refreshed: string;
+  }>,
+  { container }: StepExecutionContext,
+): Promise<StepResponse<SynchronizeCatalogItemResult>> {
+  const catalogSync = container.resolve<CatalogSyncModule>(CATALOG_SYNC_MODULE);
   await catalogSync.finishSync(prepared.syncRecordId, {
     tag: "succeeded",
     sourceFingerprint: prepared.sourceFingerprint,
     result,
   });
+  return new StepResponse(result);
+}
+
+async function releaseCatalogLocks(
+  {
+    ownerId,
+  }: Readonly<{
+    ownerId: string;
+    result: SynchronizeCatalogItemResult;
+    finished?: SynchronizeCatalogItemResult;
+  }>,
+  { container }: StepExecutionContext,
+): Promise<StepResponse<string>> {
+  const locking = container.resolve<ILockingModule>(Modules.LOCKING);
+  try {
+    await locking.releaseAll({ ownerId });
+    return new StepResponse(ownerId);
+  } catch (thrown) {
+    const message =
+      thrown instanceof Error ? thrown.message : "The lock provider returned no Error.";
+    throw catalogError(
+      "catalog_lock_release_failed",
+      `Could not release Catalog synchronization locks: ${message}`,
+    );
+  }
+}
+
+function createCatalogLockOwner(input: SynchronizeCatalogItemInput): StepResponse<string> {
+  return new StepResponse(`${input.operationId}:${randomUUID()}`);
+}
+
+const beginCatalogSynchronizationStep = createStep<
+  BeginCatalogSynchronizationInput,
+  BegunCatalogSynchronization,
+  CatalogSyncFailureReceipt
+>("begin-catalog-synchronization", beginCatalogSynchronization, compensateCatalogSynchronization);
+
+const prepareStartedCatalogSynchronizationStep = createStep(
+  "prepare-started-catalog-synchronization",
+  prepareStartedCatalogSynchronization,
+);
+
+const planCatalogSynchronizationStep = createStep(
+  "plan-catalog-synchronization",
+  planCatalogSynchronization,
+);
+
+const touchUnchangedCatalogProjectionStep = createStep(
+  "touch-unchanged-catalog-projection",
+  touchUnchangedCatalogProjection,
+  revertTouchedCatalogProjection,
+);
+
+const selectCatalogSynchronizationResultStep = createStep(
+  "select-catalog-synchronization-result",
+  async (input: SelectCatalogSynchronizationResultInput, { container }) => {
+    try {
+      return selectCatalogSynchronizationResult(input);
+    } catch (thrown) {
+      if (input.begun.tag === "started") {
+        throw await recordCatalogStepFailure(
+          container,
+          input.begun.syncRecordId,
+          thrown instanceof Error
+            ? thrown
+            : new Error("The Catalog result step threw a value that was not an Error."),
+        );
+      }
+      throw thrown;
+    }
+  },
+);
+
+const finishSucceededCatalogSynchronizationStep = createStep(
+  "finish-succeeded-catalog-synchronization",
+  finishSucceededCatalogSynchronization,
+);
+
+const releaseCatalogLocksStep = createStep(
+  "release-catalog-synchronization-locks",
+  releaseCatalogLocks,
+);
+
+const createCatalogLockOwnerStep = createStep(
+  "create-catalog-synchronization-lock-owner",
+  createCatalogLockOwner,
+);
+
+export const synchronizeCatalogItemWorkflow = createWorkflow<
+  SynchronizeCatalogItemInput,
+  SynchronizeCatalogItemResult,
+  []
+>("synchronize-catalog-item", function (input) {
+  const lockOwnerId = createCatalogLockOwnerStep(input);
+  const operationLock = transform(
+    { input, lockOwnerId },
+    ({ input: { operationId }, lockOwnerId }) => ({
+      key: `catalog-import:${operationId}`,
+      ownerId: lockOwnerId,
+      timeout: 30,
+      ttl: 120,
+      executeOnSubWorkflow: true,
+    }),
+  );
+  const acquiredOperationLock = acquireLockStep(operationLock).config({
+    name: "acquire-catalog-operation-lock",
+  });
+  const begun = beginCatalogSynchronizationStep(
+    transform({ input, lockOwnerId, acquiredOperationLock }, ({ input, lockOwnerId }) => ({
+      request: input,
+      lockOwnerId,
+    })),
+  );
+  const prepared = when(
+    "prepare-new-catalog-synchronization",
+    { begun },
+    ({ begun }) => begun.tag === "started",
+  ).then(() => prepareStartedCatalogSynchronizationStep(begun));
+
+  const productLock = when("lock-catalog-product", { prepared }, ({ prepared }) =>
+    Boolean(prepared),
+  ).then(() => {
+    const lock = transform({ lockOwnerId, prepared }, ({ lockOwnerId, prepared }) => {
+      if (!prepared) {
+        throw new Error("The Catalog Product lock needs a prepared synchronization.");
+      }
+      return {
+        key: `catalog-product:${prepared.item.template.integrationKey}`,
+        ownerId: lockOwnerId,
+        timeout: 30,
+        ttl: 120,
+        executeOnSubWorkflow: true,
+      };
+    });
+    return acquireLockStep(lock).config({ name: "acquire-catalog-product-lock" });
+  });
+
+  const plan = when("plan-new-catalog-synchronization", { prepared }, ({ prepared }) =>
+    Boolean(prepared),
+  ).then(() => {
+    const planInput = transform({ prepared, productLock }, ({ prepared }) => {
+      if (!prepared) {
+        throw new Error("The Catalog planner needs a prepared synchronization.");
+      }
+      return prepared;
+    });
+    return planCatalogSynchronizationStep(planInput);
+  });
+
+  const created = when(
+    "create-catalog-product",
+    { plan },
+    ({ plan }) => plan?.tag === "create",
+  ).then(() => {
+    const createInput = transform({ plan }, ({ plan }) => {
+      if (plan?.tag !== "create") {
+        throw new Error("The Catalog create branch received another plan.");
+      }
+      return plan.prepared;
+    });
+    return createCatalogProductWorkflow.runAsStep({ input: createInput });
+  });
+
+  const updated = when(
+    "update-catalog-product",
+    { plan },
+    ({ plan }) => plan?.tag === "update",
+  ).then(() => {
+    const updateInput = transform({ plan }, ({ plan }) => {
+      if (plan?.tag !== "update") {
+        throw new Error("The Catalog update branch received another plan.");
+      }
+      return plan.prepared;
+    });
+    return updateCatalogProductWorkflow.runAsStep({ input: updateInput });
+  });
+
+  const unchanged = when(
+    "touch-unchanged-catalog-product",
+    { plan },
+    ({ plan }) => plan?.tag === "unchanged",
+  ).then(() => {
+    const unchangedPlan = transform({ plan }, ({ plan }) => {
+      if (!plan) {
+        throw new Error("The unchanged Catalog branch needs a plan.");
+      }
+      return plan;
+    });
+    return touchUnchangedCatalogProjectionStep(unchangedPlan);
+  });
+
+  const result = selectCatalogSynchronizationResultStep({
+    begun,
+    created,
+    updated,
+    unchanged,
+  });
+
+  const authoringLock = when(
+    "lock-catalog-authoring-product",
+    { begun },
+    ({ begun }) => begun.tag === "started",
+  ).then(() => {
+    const lock = transform({ lockOwnerId, result }, ({ lockOwnerId, result }) => ({
+      key: `product-authoring:${result.productId}`,
+      ownerId: lockOwnerId,
+      timeout: 30,
+      ttl: 120,
+      executeOnSubWorkflow: true,
+    }));
+    return acquireLockStep(lock).config({ name: "acquire-catalog-authoring-lock" });
+  });
+
+  const refreshed = when(
+    "refresh-new-catalog-availability",
+    { begun },
+    ({ begun }) => begun.tag === "started",
+  ).then(() => {
+    const refreshInput = transform({ result, authoringLock }, ({ result }) => ({
+      productId: result.productId,
+      syncRecordId: result.syncRecordId,
+    }));
+    return refreshCatalogAvailabilityWorkflow.runAsStep({ input: refreshInput });
+  });
+
+  const finished = when(
+    "finish-new-catalog-synchronization",
+    { begun },
+    ({ begun }) => begun.tag === "started",
+  ).then(() => {
+    const finishInput = transform(
+      { prepared, result, refreshed },
+      ({ prepared, result, refreshed }) => {
+        if (!prepared || !refreshed) {
+          throw new Error("A started Catalog synchronization needs projection before completion.");
+        }
+        return { prepared, result, refreshed };
+      },
+    );
+    return finishSucceededCatalogSynchronizationStep(finishInput);
+  });
+
+  const locks = transform(
+    { lockOwnerId, result, finished },
+    ({ lockOwnerId, result, finished }) => ({
+      ownerId: lockOwnerId,
+      result,
+      finished,
+    }),
+  );
+  const released = releaseCatalogLocksStep(locks);
+
+  return new WorkflowResponse(
+    transform({ result, released }, ({ result, released }) => {
+      void released;
+      return result;
+    }),
+  );
+});
+
+function toIdentity(source: CatalogTemplate | CatalogVariant): CatalogIdentity {
+  return source.model === "product.template"
+    ? {
+        odooModel: source.model,
+        odooDatabaseId: source.id,
+        odooIntegrationKey: source.integrationKey,
+      }
+    : {
+        odooModel: source.model,
+        odooDatabaseId: source.id,
+        odooIntegrationKey: source.integrationKey,
+      };
 }
 
 function validateExistingProjection(item: CatalogItem, existing: CatalogProjectionRecords): void {
@@ -288,7 +835,7 @@ function catalogSourceSnapshotMatches(
 ): boolean {
   if (
     existing.template.source_label !== item.template.name ||
-    existing.template.archived !== isCatalogTemplateUnavailable(item.template)
+    existing.template.source_available !== !isCatalogTemplateUnavailable(item.template)
   ) {
     return false;
   }
@@ -305,7 +852,7 @@ function catalogSourceSnapshotMatches(
       mapping.source_label !== variant.name ||
       mapping.source_internal_reference !== variant.internalReference ||
       mapping.source_barcode !== variant.barcode ||
-      mapping.archived !== isCatalogVariantUnavailable(item, variant)
+      mapping.source_available !== !isCatalogVariantUnavailable(item, variant)
     ) {
       return false;
     }
@@ -357,7 +904,8 @@ function unchangedCatalogSynchronization(
       medusaVariantId: mapping.medusa_variant_id,
       catalogMappingId: mapping.id,
       disposition: "unchanged" as const,
-      availability: mapping.archived ? ("unavailable" as const) : ("available" as const),
+      sourceAvailable: mapping.source_available,
+      approvalState: mapping.approval_state,
     };
   });
 
@@ -379,10 +927,18 @@ async function fetchCurrentCatalogProduct(
   const query = container.resolve(ContainerRegistrationKeys.QUERY);
   const { data } = await query.graph({
     entity: "product",
-    fields: ["id", "options.id", "options.title", "options.values.id", "options.values.value"],
+    fields: [
+      "id",
+      "status",
+      "options.id",
+      "options.title",
+      "options.values.id",
+      "options.values.value",
+    ],
     filters: { id: productId },
   });
-  const [product] = data as CurrentCatalogProduct[];
+  const decoded = CurrentCatalogProductSchema.array().safeParse(data);
+  const product = decoded.success ? decoded.data[0] : undefined;
   if (!product) {
     throw catalogError(
       "catalog_projection_result_invalid",
@@ -390,7 +946,7 @@ async function fetchCurrentCatalogProduct(
     );
   }
 
-  return product;
+  return product satisfies CurrentCatalogProduct;
 }
 
 function prepareCatalogSynchronization(
@@ -405,8 +961,6 @@ function prepareCatalogSynchronization(
   }
 
   const item = batch.items[0]!;
-  validateCatalogItem(item);
-
   return {
     syncRecordId,
     item,
@@ -543,16 +1097,16 @@ async function recordFailure(
   error: Error,
 ): Promise<void> {
   try {
-    await catalogSync.finishSync(syncRecordId, {
-      tag: "failed",
-      failure: MedusaError.isMedusaError(error)
+    await catalogSync.failSyncIfActive(
+      syncRecordId,
+      MedusaError.isMedusaError(error)
         ? { type: error.type, code: error.code ?? null, message: error.message }
         : {
             type: MedusaError.Types.UNEXPECTED_STATE,
             code: "catalog_import_failed",
             message: "The Catalog synchronization failed because of an internal error.",
           },
-    });
+    );
   } catch (recordError) {
     const logger = container.resolve<Logger>(ContainerRegistrationKeys.LOGGER);
     const message =
@@ -561,6 +1115,70 @@ async function recordFailure(
         : "The failure recorder threw a value that was not an Error.";
     logger.error(`Could not record failure for Catalog Sync Record ${syncRecordId}: ${message}`);
   }
+}
+
+async function releaseFailedCatalogLocks(
+  container: MedusaContainer,
+  receipt: CatalogSyncFailureReceipt,
+): Promise<void> {
+  try {
+    const locking = container.resolve<ILockingModule>(Modules.LOCKING);
+    await locking.releaseAll({ ownerId: receipt.lockOwnerId });
+  } catch (thrown) {
+    const logger = container.resolve<Logger>(ContainerRegistrationKeys.LOGGER);
+    const message =
+      thrown instanceof Error ? thrown.message : "The lock provider returned no Error.";
+    logger.error(`Could not release failed Catalog synchronization locks: ${message}`);
+  }
+}
+
+async function demoteFailedCatalogProduct(
+  container: MedusaContainer,
+  catalogSync: CatalogSyncModule,
+  syncRecordId: string,
+  lockOwnerId: string,
+): Promise<void> {
+  const productId = await catalogSync.getSyncProductId(syncRecordId);
+  if (!productId) {
+    return;
+  }
+
+  const locking = container.resolve<ILockingModule>(Modules.LOCKING);
+  const authoringLock = `product-authoring:${productId}`;
+  await locking.release(authoringLock, { ownerId: lockOwnerId });
+  await locking.execute(
+    authoringLock,
+    async () => {
+      if (!(await catalogSync.shouldProjectSyncFailure(syncRecordId, productId))) {
+        return;
+      }
+      await catalogSync.projectAvailability(productId, false);
+      const productModule = container.resolve<IProductModuleService>(Modules.PRODUCT);
+      await productModule.updateProducts(productId, { status: ProductStatus.DRAFT });
+    },
+    { timeout: 30 },
+  );
+}
+
+function logFailureRecoveryError(
+  container: MedusaContainer,
+  syncRecordId: string,
+  error: Error,
+): void {
+  const logger = container.resolve<Logger>(ContainerRegistrationKeys.LOGGER);
+  logger.error(
+    `Could not project failure for Catalog Sync Record ${syncRecordId}: ${error.message}`,
+  );
+}
+
+function serializedWorkflowErrorToError(
+  value: z.infer<typeof SerializedWorkflowErrorSchema>,
+): Error {
+  if (!value.type) {
+    return new Error(value.message);
+  }
+
+  return new MedusaError(value.type, value.message, value.code);
 }
 
 function sourceRejected(message: string): MedusaError {

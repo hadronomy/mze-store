@@ -1,20 +1,29 @@
+import type { ProductTypes } from "@medusajs/framework/types";
 import type { StepExecutionContext } from "@medusajs/framework/workflows-sdk";
 import {
   StepResponse,
   createStep,
   createWorkflow,
   WorkflowResponse,
+  transform,
 } from "@medusajs/framework/workflows-sdk";
-import { ContainerRegistrationKeys, Modules, ProductStatus } from "@medusajs/framework/utils";
+import { ContainerRegistrationKeys, ProductStatus } from "@medusajs/framework/utils";
 import { z } from "@medusajs/framework/zod";
-import type { IProductModuleService } from "@medusajs/framework/types";
+import {
+  acquireLockStep,
+  releaseLockStep,
+  updateProductsWorkflow,
+} from "@medusajs/medusa/core-flows";
 import {
   CATALOG_SYNC_MODULE,
   type CatalogSyncModule,
   type CatalogProjectionStatus,
+  type CatalogStorefrontAvailabilitySnapshot,
+  type CatalogVariantApprovalSnapshot,
 } from "~/modules/catalog-sync";
 import {
   PRODUCT_AUTHORING_MODULE,
+  type ProductAuthoringRecordView,
   authoringError,
   type ProductAuthoringModuleService,
 } from "~/modules/product-authoring";
@@ -25,8 +34,18 @@ export interface PromoteAuthoringInput {
 
 interface PromotionChecks {
   readonly productId: string;
-  readonly previousStatus: string;
+  readonly previousStatus: ProductStatus;
+  readonly authoringWasPublished: boolean;
 }
+
+interface PromotionAvailability extends PromotionChecks {
+  readonly productAvailable: boolean;
+}
+
+export type PromotedAuthoringProduct = Readonly<{
+  id: string;
+  status: typeof ProductStatus.PUBLISHED;
+}>;
 
 // Decodes the Query projection once at this boundary so every promotion
 // check below runs against typed values.
@@ -34,7 +53,12 @@ const ProductProjectionSchema = z.object({
   id: z.string(),
   title: z.string().nullable(),
   description: z.string().nullable(),
-  status: z.string(),
+  status: z.enum([
+    ProductStatus.DRAFT,
+    ProductStatus.PROPOSED,
+    ProductStatus.PUBLISHED,
+    ProductStatus.REJECTED,
+  ]),
   images: z.array(z.object({ id: z.string() })),
   variants: z.array(
     z.object({
@@ -52,7 +76,7 @@ const validatePromotion = createStep(
   ): Promise<StepResponse<PromotionChecks>> => {
     const authoring = container.resolve<ProductAuthoringModuleService>(PRODUCT_AUTHORING_MODULE);
     const record = await authoring.requireRecord(productId);
-    if (record.state !== "ready") {
+    if (record.state !== "ready" && record.state !== "published") {
       throw authoringError(
         "authoring_state_conflict",
         `The Product ${productId} must be ready before promotion; it is ${record.state}.`,
@@ -68,10 +92,23 @@ const validatePromotion = createStep(
         `The Product ${productId} has no Catalog Mapping to an Odoo template.`,
       );
     }
-    if (!projection.allSyncsSucceeded) {
+    if (!projection.syncResolved) {
       throw authoringError(
         "authoring_sync_unresolved",
         `The Product ${productId} has a Catalog Mapping whose last sync did not succeed.`,
+      );
+    }
+    if (projection.sourceAvailable === false) {
+      throw authoringError(
+        "authoring_source_unavailable",
+        `The Odoo Product source for ${productId} is unavailable.`,
+      );
+    }
+    const variants = await catalogSync.getVariantAvailability(productId);
+    if (!variants.some(({ sourceAvailable }) => sourceAvailable)) {
+      throw authoringError(
+        "authoring_source_unavailable",
+        `The Odoo Product source for ${productId} has no saleable Variant.`,
       );
     }
 
@@ -127,7 +164,54 @@ const validatePromotion = createStep(
       }
     }
 
-    return new StepResponse({ productId, previousStatus: product.status });
+    return new StepResponse({
+      productId,
+      previousStatus: product.status,
+      authoringWasPublished: record.state === "published",
+    });
+  },
+);
+
+const approveCatalogVariants = createStep<
+  PromotionChecks,
+  PromotionChecks,
+  readonly CatalogVariantApprovalSnapshot[]
+>(
+  "approve-catalog-variants",
+  async (checks, { container }) => {
+    const catalogSync = container.resolve<CatalogSyncModule>(CATALOG_SYNC_MODULE);
+    const previous = await catalogSync.approveVariants(checks.productId);
+    return new StepResponse(checks, previous);
+  },
+  async (previous, { container }) => {
+    if (!previous) {
+      return;
+    }
+    const catalogSync = container.resolve<CatalogSyncModule>(CATALOG_SYNC_MODULE);
+    await catalogSync.restoreVariantApprovals(previous);
+  },
+);
+
+const projectCatalogAvailability = createStep<
+  PromotionChecks,
+  PromotionAvailability,
+  readonly CatalogStorefrontAvailabilitySnapshot[]
+>(
+  "project-catalog-availability",
+  async (checks, { container }) => {
+    const catalogSync = container.resolve<CatalogSyncModule>(CATALOG_SYNC_MODULE);
+    const projection = await catalogSync.projectAvailability(checks.productId, true);
+    return new StepResponse(
+      { ...checks, productAvailable: projection.productAvailable },
+      projection.previous,
+    );
+  },
+  async (previous, { container }) => {
+    if (!previous) {
+      return;
+    }
+    const catalogSync = container.resolve<CatalogSyncModule>(CATALOG_SYNC_MODULE);
+    await catalogSync.restoreAvailability(previous);
   },
 );
 
@@ -136,59 +220,67 @@ const markPublished = createStep(
   async (
     checks: PromotionChecks,
     { container }: StepExecutionContext,
-  ): Promise<StepResponse<void, string>> => {
+  ): Promise<StepResponse<PromotionChecks, ProductAuthoringRecordView>> => {
     const authoring = container.resolve<ProductAuthoringModuleService>(PRODUCT_AUTHORING_MODULE);
+    const previous = await authoring.getAuthoring(checks.productId);
+    if (!previous) {
+      await authoring.requireRecord(checks.productId);
+      throw new Error("The Authoring record lookup returned no value.");
+    }
     await authoring.markPublished(checks.productId);
 
-    return new StepResponse(undefined, checks.productId);
+    return new StepResponse(checks, previous);
   },
-  async (productId, { container }) => {
-    if (!productId) {
+  async (previous, { container }) => {
+    if (!previous) {
       return;
     }
 
     const authoring = container.resolve<ProductAuthoringModuleService>(PRODUCT_AUTHORING_MODULE);
-    await authoring.editAuthoring({ productId, state: "ready" });
+    await authoring.restoreAuthoring(previous);
   },
 );
 
-const projectPublishedStatus = createStep(
-  "project-published-status",
-  async (
-    checks: PromotionChecks,
-    { container }: StepExecutionContext,
-  ): Promise<StepResponse<{ id: string; status: string }, PromotionChecks>> => {
-    const productModule = container.resolve<IProductModuleService>(Modules.PRODUCT);
-    const product = await productModule.updateProducts(checks.productId, {
-      status: ProductStatus.PUBLISHED,
-    });
+export const promoteAuthoringWorkflow = createWorkflow<
+  PromoteAuthoringInput,
+  PromotedAuthoringProduct,
+  []
+>("promote-authoring-product", function (input: PromoteAuthoringInput) {
+  const lock = transform(input, ({ productId }) => ({
+    key: `product-authoring:${productId}`,
+    timeout: 5,
+    ttl: 30,
+  }));
+  acquireLockStep(lock);
 
-    return new StepResponse({ id: product.id, status: String(product.status) }, checks);
-  },
-  async (checks, { container }) => {
-    if (!checks) {
-      return;
+  const checks = validatePromotion(input);
+  const approved = approveCatalogVariants(checks);
+  const published = markPublished(approved);
+  const availability = projectCatalogAvailability(published);
+  const update = transform(availability, ({ productId, productAvailable }) => {
+    if (!productAvailable) {
+      throw authoringError(
+        "authoring_source_unavailable",
+        `The Odoo Product source for ${productId} has no saleable Variant.`,
+      );
     }
 
-    const productModule = container.resolve<IProductModuleService>(Modules.PRODUCT);
-    const status =
-      checks.previousStatus === "published"
-        ? ProductStatus.PUBLISHED
-        : checks.previousStatus === "rejected"
-          ? ProductStatus.REJECTED
-          : checks.previousStatus === "proposed"
-            ? ProductStatus.PROPOSED
-            : ProductStatus.DRAFT;
-    await productModule.updateProducts(checks.productId, { status });
-  },
-);
+    return { products: [{ id: productId, status: ProductStatus.PUBLISHED }] };
+  });
+  const products = updateProductsWorkflow.runAsStep({ input: update });
+  releaseLockStep(transform(lock, ({ key }) => ({ key })));
 
-export const promoteAuthoringWorkflow = createWorkflow(
-  "promote-authoring-product",
-  function (input: PromoteAuthoringInput) {
-    const checks = validatePromotion(input);
-    markPublished(checks);
+  return new WorkflowResponse(
+    transform(products, (updated: ProductTypes.ProductDTO[]): PromotedAuthoringProduct => {
+      const product = updated[0];
+      if (!product) {
+        throw authoringError(
+          "authoring_product_unmapped",
+          "The Product workflow returned no Product.",
+        );
+      }
 
-    return new WorkflowResponse(projectPublishedStatus(checks));
-  },
-);
+      return { id: product.id, status: ProductStatus.PUBLISHED };
+    }),
+  );
+});

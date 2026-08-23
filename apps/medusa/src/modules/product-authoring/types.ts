@@ -1,8 +1,8 @@
 export const PRODUCT_AUTHORING_MODULE = "product_authoring" as const;
 
 // The Authoring State vocabulary from issue #131. `published` records the
-// Operator's intent; the Product Module `status` is a pure availability
-// projection of (state === published && !sourceArchived) applied on resync.
+// Operator's intent. Product status projects that intent with the current
+// source and Sync Record state.
 export const AUTHORING_STATES = ["imported", "authoring", "ready", "published", "blocked"] as const;
 
 export type AuthoringState = (typeof AUTHORING_STATES)[number];
@@ -13,12 +13,20 @@ export const OPERATOR_AUTHORING_STATES = ["authoring", "ready", "blocked"] as co
 
 export type OperatorAuthoringState = (typeof OPERATOR_AUTHORING_STATES)[number];
 
+export type EnsureAuthoringInput = Readonly<{
+  productId: string;
+  initialState: "imported" | "published";
+}>;
+
 export const AUTHORING_ERROR_CODES = [
   "authoring_product_unmapped",
   "authoring_price_invalid",
   "authoring_editorial_incomplete",
   "authoring_media_missing",
   "authoring_sync_unresolved",
+  "authoring_source_unavailable",
+  "authoring_blocked_reason_invalid",
+  "authoring_promotion_required",
   "authoring_state_conflict",
   "authoring_product_unknown",
 ] as const;
@@ -38,6 +46,7 @@ export type EditAuthoringInput = Readonly<{
 export type ProductAuthoringRecordView = Readonly<{
   productId: string;
   state: AuthoringState;
+  blockedReason: string | null;
   seoTitle: string | null;
   seoDescription: string | null;
   colour: string | null;
