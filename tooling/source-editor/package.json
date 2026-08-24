@@ -1,0 +1,115 @@
+{
+  "name": "mze-source-editor",
+  "displayName": "MZE Source Fixtures",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Editor support for @mze-store/test source fixtures.",
+  "categories": [
+    "Programming Languages"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/hadronomy/mze-store.git"
+  },
+  "publisher": "mze-store",
+  "type": "module",
+  "main": "./dist/extension.cjs",
+  "scripts": {
+    "test": "vp test --dir test",
+    "package:extension": "vp run build && vsce package --no-dependencies --out dist/mze-source-editor.vsix",
+    "install:extension": "vp run build && vsce package --no-dependencies --out dist/mze-source-editor.vsix && code --install-extension dist/mze-source-editor.vsix --force"
+  },
+  "devDependencies": {
+    "@mze-store/config": "workspace:*",
+    "@types/node": "catalog:",
+    "@types/vscode": "1.125.0",
+    "@volar/language-core": "2.4.28",
+    "@vscode/vsce": "3.9.2",
+    "typescript": "catalog:",
+    "vite-plus": "catalog:",
+    "vscode-languageclient": "10.1.0",
+    "vscode-languageserver": "10.1.0",
+    "vscode-languageserver-textdocument": "1.0.12"
+  },
+  "contributes": {
+    "grammars": [
+      {
+        "scopeName": "source.mze.src.js",
+        "path": "./syntaxes/src-js.json",
+        "injectTo": [
+          "source.js",
+          "source.js.jsx",
+          "source.ts",
+          "source.tsx"
+        ],
+        "embeddedLanguages": {
+          "meta.embedded.block.mze.src.js": "javascript"
+        }
+      },
+      {
+        "scopeName": "source.mze.src.ts",
+        "path": "./syntaxes/src-ts.json",
+        "injectTo": [
+          "source.js",
+          "source.js.jsx",
+          "source.ts",
+          "source.tsx"
+        ],
+        "embeddedLanguages": {
+          "meta.embedded.block.mze.src.ts": "typescript"
+        }
+      },
+      {
+        "scopeName": "source.mze.src.jsonc",
+        "path": "./syntaxes/src-jsonc.json",
+        "injectTo": [
+          "source.js",
+          "source.js.jsx",
+          "source.ts",
+          "source.tsx"
+        ],
+        "embeddedLanguages": {
+          "meta.embedded.block.mze.src.jsonc": "jsonc"
+        }
+      },
+      {
+        "scopeName": "source.mze.src.bash",
+        "path": "./syntaxes/src-bash.json",
+        "injectTo": [
+          "source.js",
+          "source.js.jsx",
+          "source.ts",
+          "source.tsx"
+        ],
+        "embeddedLanguages": {
+          "meta.embedded.block.mze.src.bash": "shellscript"
+        }
+      },
+      {
+        "scopeName": "source.mze.src.sql",
+        "path": "./syntaxes/src-sql.json",
+        "injectTo": [
+          "source.js",
+          "source.js.jsx",
+          "source.ts",
+          "source.tsx"
+        ],
+        "embeddedLanguages": {
+          "meta.embedded.block.mze.src.sql": "sql"
+        }
+      }
+    ]
+  },
+  "activationEvents": [
+    "onLanguage:javascript",
+    "onLanguage:javascriptreact",
+    "onLanguage:typescript",
+    "onLanguage:typescriptreact"
+  ],
+  "extensionKind": [
+    "workspace"
+  ],
+  "engines": {
+    "vscode": ">=1.125.0"
+  }
+}

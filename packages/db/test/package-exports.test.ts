@@ -2,6 +2,8 @@ import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { expect, test } from "vite-plus/test";
 
+import { src } from "@mze-store/test";
+
 const packageDirectory = fileURLToPath(new URL("../", import.meta.url));
 
 function runNode(source: string) {
@@ -16,7 +18,7 @@ function runNode(source: string) {
 
 test("the package root loads as built ESM", () => {
   expect(
-    runNode(`
+    runNode(src.js`
       const modulePath = import.meta.resolve("@mze-store/db");
       const { createDb } = await import(modulePath);
       process.stdout.write(JSON.stringify({
@@ -32,7 +34,7 @@ test("the package root loads as built ESM", () => {
 
 test("the schema entry loads as built ESM", () => {
   expect(
-    runNode(`
+    runNode(src.js`
       const modulePath = import.meta.resolve("@mze-store/db/schema");
       const { user } = await import(modulePath);
       process.stdout.write(JSON.stringify({
@@ -48,7 +50,7 @@ test("the schema entry loads as built ESM", () => {
 
 test("the auth schema entry loads as built ESM", () => {
   expect(
-    runNode(`
+    runNode(src.js`
       const modulePath = import.meta.resolve("@mze-store/db/schema/auth");
       const { user } = await import(modulePath);
       process.stdout.write(JSON.stringify({

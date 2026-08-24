@@ -1,0 +1,44 @@
+{
+  "$schema": "vscode://schemas/textmate-grammar",
+  "scopeName": "source.mze.src.js",
+  "injectionSelector": "L:source.js -comment, L:source.js.jsx -comment, L:source.ts -comment, L:source.tsx -comment",
+  "patterns": [
+    {
+      "include": "#source-block"
+    }
+  ],
+  "repository": {
+    "source-block": {
+      "begin": "(?<![\\w$.])(src)(\\.)(js)(\\s*)(`)",
+      "beginCaptures": {
+        "1": {
+          "name": "support.function.tagged-template.mze"
+        },
+        "2": {
+          "name": "punctuation.accessor.mze"
+        },
+        "3": {
+          "name": "entity.name.type.language.mze"
+        },
+        "5": {
+          "name": "punctuation.definition.string.template.begin.mze"
+        }
+      },
+      "contentName": "meta.embedded.block.mze.src.js",
+      "end": "(?<!\\\\)(?:\\\\\\\\)*\\K`",
+      "endCaptures": {
+        "0": {
+          "name": "punctuation.definition.string.template.end.mze"
+        }
+      },
+      "patterns": [
+        {
+          "include": "source.ts#template-substitution-element"
+        },
+        {
+          "include": "source.js"
+        }
+      ]
+    }
+  }
+}

@@ -2,6 +2,8 @@ import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { expect, test } from "vite-plus/test";
 
+import { src } from "@mze-store/test";
+
 const packageDirectory = fileURLToPath(new URL("../", import.meta.url));
 const environment = {
   ...process.env,
@@ -25,7 +27,7 @@ function runNode(source: string) {
 
 test("the package root loads as built ESM", () => {
   expect(
-    runNode(`
+    runNode(src.js`
       const modulePath = import.meta.resolve("@mze-store/auth");
       const { createAuth } = await import(modulePath);
       process.stdout.write(JSON.stringify({
@@ -41,7 +43,7 @@ test("the package root loads as built ESM", () => {
 
 test("the lazy instance entry loads as built ESM", () => {
   expect(
-    runNode(`
+    runNode(src.js`
       const modulePath = import.meta.resolve("@mze-store/auth/instance");
       const { getAuth } = await import(modulePath);
       process.stdout.write(JSON.stringify({
@@ -57,7 +59,7 @@ test("the lazy instance entry loads as built ESM", () => {
 
 test("the Better Auth CLI entry loads as built ESM", () => {
   expect(
-    runNode(`
+    runNode(src.js`
       const modulePath = import.meta.resolve("@mze-store/auth/auth");
       const { auth } = await import(modulePath);
       process.stdout.write(JSON.stringify({

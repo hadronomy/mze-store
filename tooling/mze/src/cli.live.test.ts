@@ -2,6 +2,8 @@ import { expect, it } from "@effect/vitest";
 import { NodeServices } from "@effect/platform-node";
 import { Effect, FileSystem, Layer, Path, Schedule, Schema } from "effect";
 
+import { src } from "@mze-store/test";
+
 import { ChildCommand } from "./child-command.ts";
 import { Output } from "./output.ts";
 
@@ -213,25 +215,22 @@ it.live("writes the complete doctor report to stdout", () =>
       const path = yield* Path.Path;
       const directory = yield* fs.makeTempDirectoryScoped({ prefix: "mze-doctor-stream-test-" });
       const executables = {
-        bun: ["#!/bin/sh", "printf '0.0.0\\n'"].join("\n"),
-        docker: [
-          "#!/bin/sh",
-          'if [ "$1" = "--version" ]; then',
-          "  printf 'Docker version test\\n'",
-          "else",
-          '  printf \'%s\\n\' \'[{"Health":"healthy","Service":"postgres"},{"Health":"healthy","Service":"redis"}]\'',
-          "fi",
-        ].join("\n"),
-        portless: [
-          "#!/bin/sh",
-          'if [ "$1" = "--version" ]; then',
-          "  printf 'portless 0.15.5\\n'",
-          'elif [ "$1" = "list" ]; then',
-          "  printf 'No active routes.\\n'",
-          "else",
-          "  printf 'ok\\n'",
-          "fi",
-        ].join("\n"),
+        bun: src.bash`#!/bin/sh
+          printf '0.0.0\\n'`,
+        docker: src.bash`#!/bin/sh
+          if [ "$1" = "--version" ]; then
+            printf 'Docker version test\\n'
+          else
+            printf '%s\\n' '[{"Health":"healthy","Service":"postgres"},{"Health":"healthy","Service":"redis"}]'
+          fi`,
+        portless: src.bash`#!/bin/sh
+          if [ "$1" = "--version" ]; then
+            printf 'portless 0.15.5\\n'
+          elif [ "$1" = "list" ]; then
+            printf 'No active routes.\\n'
+          else
+            printf 'ok\\n'
+          fi`,
       };
 
       for (const [name, source] of Object.entries(executables)) {
@@ -278,13 +277,11 @@ it.live(
         const docker = path.join(directory, "docker");
         yield* fs.writeFileString(
           docker,
-          [
-            "#!/bin/sh",
-            `"${process.execPath}" -e 'const { writeFileSync } = require("node:fs"); process.once("SIGTERM", () => { writeFileSync(process.env.MZE_GRANDCHILD_SIGNAL_FILE, "SIGTERM"); process.exit(0) }); setInterval(() => {}, 1000)' &`,
-            "trap 'printf SIGTERM > \"$MZE_SIGNAL_FILE\"; exit 0' TERM INT",
-            '(sleep 0.2; kill "-$MZE_TEST_SIGNAL" "$PPID") &',
-            "while :; do sleep 1; done",
-          ].join("\n"),
+          src.bash`#!/bin/sh
+            "${process.execPath}" -e 'const { writeFileSync } = require("node:fs"); process.once("SIGTERM", () => { writeFileSync(process.env.MZE_GRANDCHILD_SIGNAL_FILE, "SIGTERM"); process.exit(0) }); setInterval(() => {}, 1000)' &
+            trap 'printf SIGTERM > "$MZE_SIGNAL_FILE"; exit 0' TERM INT
+            (sleep 0.2; kill "-$MZE_TEST_SIGNAL" "$PPID") &
+            while :; do sleep 1; done`,
         );
         yield* fs.chmod(docker, 0o755);
         const waitUntil = (effect: Effect.Effect<boolean, unknown>) =>

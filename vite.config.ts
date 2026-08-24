@@ -13,6 +13,7 @@ const ignorePatterns = [
   "apps/medusa/.medusa/**",
   "packages/*/dist/**",
   "tooling/oxlint/dist/**",
+  "tooling/source-editor/dist/**",
   ".vite-hooks/**",
   "test-results/**",
   "playwright-report/**",
@@ -43,6 +44,8 @@ export default defineConfig({
     tsconfigPaths: true,
   },
   test: {
+    // Leave CPU headroom for tests that start Node, Git, and TypeScript language services.
+    maxWorkers: 2,
     exclude: [
       ...configDefaults.exclude,
       ...ignorePatterns,

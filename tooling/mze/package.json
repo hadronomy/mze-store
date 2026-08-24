@@ -11,6 +11,7 @@
     "@effect/tsgo": "0.36.5",
     "@effect/vitest": "4.0.0-rc.109",
     "@mze-store/config": "workspace:*",
+    "@mze-store/test": "workspace:*",
     "@typeonce/effect-machine": "0.15.0",
     "ansi-escapes": "7.3.0",
     "chalk": "6.0.0",

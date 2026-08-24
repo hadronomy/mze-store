@@ -5,6 +5,8 @@ import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 
+import { src } from "@mze-store/test";
+
 const execFileAsync = promisify(execFile);
 const measureScript = fileURLToPath(new URL("./measure-image.sh", import.meta.url));
 const policyScript = fileURLToPath(new URL("./enforce-image-policy.sh", import.meta.url));
@@ -140,18 +142,18 @@ it("measures the selected platform manifest when the digest is an image index", 
 
   await writeFile(
     docker,
-    `#!/usr/bin/env bash
-set -euo pipefail
-if [[ "$*" == "image inspect --format {{.Size}} ghcr.io/example/mze-store-medusa@${indexDigest}" ]]; then
-  echo 800000000
-elif [[ "$*" == "buildx imagetools inspect ghcr.io/example/mze-store-medusa@${indexDigest} --raw" ]]; then
-  printf '%s\\n' '{"manifests":[{"digest":"${amd64Digest}","platform":{"os":"linux","architecture":"amd64"}},{"digest":"${arm64Digest}","platform":{"os":"linux","architecture":"arm64"}}]}'
-elif [[ "$*" == "buildx imagetools inspect ghcr.io/example/mze-store-medusa@${arm64Digest} --raw" ]]; then
-  printf '%s\\n' '{"layers":[{"size":100},{"size":200}]}'
-else
-  exit 64
-fi
-`,
+    src.bash`#!/usr/bin/env bash
+      set -euo pipefail
+      if [[ "$*" == "image inspect --format {{.Size}} ghcr.io/example/mze-store-medusa@${indexDigest}" ]]; then
+        echo 800000000
+      elif [[ "$*" == "buildx imagetools inspect ghcr.io/example/mze-store-medusa@${indexDigest} --raw" ]]; then
+        printf '%s\\n' '{"manifests":[{"digest":"${amd64Digest}","platform":{"os":"linux","architecture":"amd64"}},{"digest":"${arm64Digest}","platform":{"os":"linux","architecture":"arm64"}}]}'
+      elif [[ "$*" == "buildx imagetools inspect ghcr.io/example/mze-store-medusa@${arm64Digest} --raw" ]]; then
+        printf '%s\\n' '{"layers":[{"size":100},{"size":200}]}'
+      else
+        exit 64
+      fi
+    `,
     { mode: 0o755 },
   );
 

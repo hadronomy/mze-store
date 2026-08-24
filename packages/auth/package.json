@@ -33,6 +33,7 @@
   },
   "devDependencies": {
     "@mze-store/config": "workspace:*",
+    "@mze-store/test": "workspace:*",
     "auth": "catalog:",
     "typescript": "catalog:",
     "zod": "catalog:"

@@ -6,6 +6,7 @@ import { promisify } from "node:util";
 
 import { afterAll, beforeAll, expect, test } from "@effect/vitest";
 
+import { src } from "@mze-store/test";
 import { getPreferredSpecifier } from "~/rules";
 
 const execFileAsync = promisify(execFile);
@@ -23,7 +24,7 @@ beforeAll(async () => {
   projectRoot = await mkdtemp(join(tmpdir(), "hadronomy-oxlint-"));
   await writeProjectFile(
     "tsconfig.base.json",
-    `{
+    src.jsonc`{
       // The rule must accept the same JSONC syntax as TypeScript.
       "compilerOptions": {
         "module": "ESNext",

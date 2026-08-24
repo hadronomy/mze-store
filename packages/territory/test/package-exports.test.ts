@@ -2,6 +2,8 @@ import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { expect, test } from "vite-plus/test";
 
+import { src } from "@mze-store/test";
+
 const packageDirectory = fileURLToPath(new URL("../", import.meta.url));
 
 function runNode(moduleType: "module" | "commonjs", source: string) {
@@ -18,7 +20,7 @@ test("the package root loads as built ESM", () => {
   expect(
     runNode(
       "module",
-      `
+      src.js`
         const modulePath = import.meta.resolve("@mze-store/territory");
         const { createProvinceCodeSchema } = await import(modulePath);
         process.stdout.write(JSON.stringify({
@@ -37,7 +39,7 @@ test("the package root loads as built CommonJS", () => {
   expect(
     runNode(
       "commonjs",
-      `
+      src.js`
         const modulePath = require.resolve("@mze-store/territory");
         const { createProvinceCodeSchema } = require(modulePath);
         process.stdout.write(JSON.stringify({
@@ -56,7 +58,7 @@ test("the Spain entry loads as built ESM", () => {
   expect(
     runNode(
       "module",
-      `
+      src.js`
         const modulePath = import.meta.resolve("@mze-store/territory/spain");
         const Spain = await import(modulePath);
         process.stdout.write(JSON.stringify({
@@ -79,7 +81,7 @@ test("the Spain entry loads as built CommonJS", () => {
   expect(
     runNode(
       "commonjs",
-      `
+      src.js`
         const modulePath = require.resolve("@mze-store/territory/spain");
         const Spain = require(modulePath);
         process.stdout.write(JSON.stringify({

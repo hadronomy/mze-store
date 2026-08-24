@@ -5,12 +5,14 @@ import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 
+import { src } from "@mze-store/test";
+
 const execFileAsync = promisify(execFile);
 const normalizationScript = fileURLToPath(
   new URL("./normalize-storefront-output.mjs", import.meta.url),
 );
 
-const serverFixture = `//#region #nitro/virtual/public-assets-data
+const serverFixture = src.js`//#region #nitro/virtual/public-assets-data
 var public_assets_data_default = {
 \t"/assets/z.js": {
 \t\t"mtime": "2026-08-13T22:40:57.063Z",
@@ -21,8 +23,7 @@ var public_assets_data_default = {
 \t\t"path": "../public/assets/a.js"
 \t}
 };
-//#endregion
-`;
+//#endregion`;
 
 it("normalizes Nitro build dates and public asset metadata", async () => {
   const directory = await mkdtemp(`${tmpdir()}/mze-storefront-output-`);
