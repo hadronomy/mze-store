@@ -1,9 +1,6 @@
 import { describe, expect, test } from "vite-plus/test";
 
-import {
-  createSourceLanguageService,
-  type SourceDocument,
-} from "../../src/server/language-service.ts";
+import { createSourceLanguageService, type SourceDocument } from "~/server/language-service";
 
 const fileName = "/workspace/fixture.test.ts";
 

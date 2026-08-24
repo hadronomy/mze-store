@@ -6,7 +6,7 @@ import {
   scanSourceBlocks,
   sourceOffsetToVirtual,
   virtualOffsetToSource,
-} from "../../src/core/index.ts";
+} from "~/core/index";
 
 const sourceImport = 'import { src } from "@mze-store/test";\n';
 
@@ -109,6 +109,19 @@ describe("scanSourceBlocks", () => {
     );
   });
 
+  test("dedents literal segments on both sides of a substitution", () => {
+    const text = `${sourceImport}src.ts\`
+  const answer = \${value};
+  return answer;
+\``;
+    const [block] = scanSourceBlocks(text, "fixture.ts");
+
+    expect(block?.virtualText).toBe(
+      "const answer = __mze_source_substitution_0__;\nreturn answer;",
+    );
+    expect(block?.substitutionRanges).toHaveLength(1);
+  });
+
   test("scans multiple blocks and supports JSONC, Bash, and SQL tags", () => {
     const text = [
       sourceImport.trimEnd(),
@@ -156,5 +169,30 @@ describe("scanSourceBlocks", () => {
     expect(mapVirtualRange(block!, { start: 0, end: block!.virtualText.length })).toEqual(
       sourceRange,
     );
+  });
+
+  test("applies the same common indentation as the runtime helper", () => {
+    const text = [
+      sourceImport.trimEnd(),
+      "const fixture = src.ts`",
+      "  const nested = " + "\\" + "`",
+      "    value",
+      "  " + "\\" + "`;",
+      "`;",
+    ].join("\n");
+    const [block] = scanSourceBlocks(text, "fixture.ts");
+
+    expect(block?.virtualText).toBe("const nested = `\n  value\n`;");
+
+    const sourceStart = text.indexOf("const nested");
+    const removedIndentation = sourceStart - 2;
+    expect(virtualOffsetToSource(block!, 0)).toBe(sourceStart);
+    expect(sourceOffsetToVirtual(block!, removedIndentation + 1)).toBe(0);
+    expect(sourceOffsetToVirtual(block!, sourceStart)).toBe(0);
+
+    const sourceValue = text.lastIndexOf("value");
+    const virtualValue = block?.virtualText.indexOf("value");
+    expect(virtualOffsetToSource(block!, virtualValue!)).toBe(sourceValue);
+    expect(sourceOffsetToVirtual(block!, sourceValue)).toBe(virtualValue);
   });
 });

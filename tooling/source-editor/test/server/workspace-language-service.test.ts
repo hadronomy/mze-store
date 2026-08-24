@@ -4,7 +4,7 @@ import { join } from "node:path";
 
 import { expect, test } from "vite-plus/test";
 
-import { createWorkspaceLanguageService } from "../../src/server/workspace-language-service.ts";
+import { createWorkspaceLanguageService } from "~/server/workspace-language-service";
 
 test("uses the nearest project configuration for each host document", async () => {
   const directory = await mkdtemp(join(tmpdir(), "mze-source-project-"));

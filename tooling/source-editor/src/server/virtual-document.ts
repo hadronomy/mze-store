@@ -6,7 +6,7 @@ import {
 } from "@volar/language-core";
 import ts from "typescript";
 
-import { sourceOffsetToVirtual, type SourceBlock, virtualOffsetToSource } from "../core/index.ts";
+import { sourceOffsetToVirtual, type SourceBlock, virtualOffsetToSource } from "~/core/index";
 
 const literalFeatures: CodeInformation = Object.freeze({
   verification: true,

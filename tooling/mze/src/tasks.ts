@@ -162,7 +162,13 @@ export const test = (cwd: string, target: "e2e" | "workspace") =>
   target === "e2e"
     ? run(cwd, "playwright", ["test", "--config=e2e/playwright.config.ts"])
     : Effect.gen(function* () {
-        yield* vpRun(cwd, ["--filter", "@mze-store/oxlint", "build"]);
+        yield* vpRun(cwd, [
+          "--filter",
+          "@mze-store/oxlint",
+          "--filter",
+          "@mze-store/test",
+          "build",
+        ]);
         const environment = yield* Services.start(cwd);
         yield* run(cwd, "vp", ["test"], environment);
         yield* run(cwd, "vp", ["run", "--filter", "medusa", "test"], environment);

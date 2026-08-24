@@ -25,7 +25,7 @@
         }
       },
       "contentName": "meta.embedded.block.mze.src.bash",
-      "end": "(?<!\\\\)`",
+      "end": "(?<!\\\\)(?:\\\\\\\\)*\\K`",
       "endCaptures": {
         "0": {
           "name": "punctuation.definition.string.template.end.mze"

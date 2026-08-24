@@ -5,6 +5,9 @@
     "erasableSyntaxOnly": true,
     "lib": ["ES2024"],
     "noEmit": true,
+    "paths": {
+      "~/*": ["./src/*"]
+    },
     "rewriteRelativeImportExtensions": true,
     "types": ["node", "vscode"]
   },

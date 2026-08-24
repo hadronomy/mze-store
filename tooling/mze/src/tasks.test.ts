@@ -144,7 +144,7 @@ it.effect("stops at the first failed phase and never starts the rest", () => {
   }).pipe(Effect.provide(Layer.provide(Output.layer("json"), capture.layer)));
 });
 
-it.effect("passes the worktree service environment to Medusa tests", () =>
+it.effect("builds test exports and passes the service environment to all tests", () =>
   Effect.gen(function* () {
     const calls = yield* Ref.make<Array<ChildCommand.Spec>>([]);
     const commands = ChildCommand.Service.of({
@@ -169,9 +169,17 @@ it.effect("passes the worktree service environment to Medusa tests", () =>
       (spec) =>
         spec.executable === "vp" && spec.arguments.length === 1 && spec.arguments[0] === "test",
     );
+    const testPackageBuild = recorded.find(
+      (spec) =>
+        spec.executable === "vp" &&
+        spec.arguments.includes("@mze-store/test") &&
+        spec.arguments.includes("build"),
+    );
     const medusa = recorded.find(
       (spec) => spec.executable === "vp" && spec.arguments.includes("medusa"),
     );
+    expect(testPackageBuild).toBeDefined();
+    expect(recorded.indexOf(testPackageBuild!)).toBeLessThan(recorded.indexOf(workspace!));
     expect(workspace?.environment).toEqual(medusa?.environment);
     expect(medusa?.environment).toMatchObject({
       DB_HOST: "localhost",

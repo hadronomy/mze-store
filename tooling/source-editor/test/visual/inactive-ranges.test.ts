@@ -1,9 +1,6 @@
 import { describe, expect, test } from "vite-plus/test";
 
-import {
-  getInactiveLiteralRanges,
-  type SourceBlockRanges,
-} from "../../src/extension/inactive-ranges.ts";
+import { getInactiveLiteralRanges, type SourceBlockRanges } from "~/extension/inactive-ranges";
 
 const block = (start: number, end: number): SourceBlockRanges => ({
   bodyRange: { start, end },

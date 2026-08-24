@@ -7,6 +7,9 @@ const entries = {
 };
 
 export default defineConfig({
+  resolve: {
+    tsconfigPaths: true,
+  },
   pack: {
     entry: entries,
     deps: {

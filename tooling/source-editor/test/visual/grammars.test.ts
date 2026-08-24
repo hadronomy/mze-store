@@ -54,7 +54,11 @@ describe("src template grammars", () => {
 
       expect(sourceBlock.begin).toContain(`(${language.name})`);
       expect(sourceBlock.contentName).toBe(`meta.embedded.block.mze.src.${language.name}`);
-      expect(sourceBlock.end).toBe("(?<!\\\\)`");
+      expect(sourceBlock.end).toBe("(?<!\\\\)(?:\\\\\\\\)*\\K`");
+      const closingDelimiter = new RegExp(`${sourceBlock.end.replace("\\K", "")}$`, "u");
+      expect(closingDelimiter.test("value`")).toBe(true);
+      expect(closingDelimiter.test("value\\`")).toBe(false);
+      expect(closingDelimiter.test("value\\\\`")).toBe(true);
       expect(sourceBlock.patterns).toEqual([
         { include: "source.ts#template-substitution-element" },
         { include: language.embedded },

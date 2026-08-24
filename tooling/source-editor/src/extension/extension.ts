@@ -6,7 +6,7 @@ import {
   TransportKind,
 } from "vscode-languageclient/node";
 
-import { scanSourceBlocks } from "../core/index.ts";
+import { scanSourceBlocks } from "~/core/index";
 import {
   getInactiveLiteralRanges,
   type OffsetRange,

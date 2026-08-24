@@ -66,9 +66,9 @@ const simpleEscapes = new Map<string, string>([
 
 /**
  * Finds `src.<language>` tagged templates imported from `@mze-store/test`.
- * The returned virtual text is cooked and replaces each interpolation with a
- * stable identifier. Source ranges use UTF-16 offsets, like the TypeScript
- * and VS Code APIs.
+ * The returned virtual text is cooked, dedented like the runtime helper, and
+ * replaces each interpolation with a stable identifier. Source ranges use
+ * UTF-16 offsets, like the TypeScript and VS Code APIs.
  */
 export function scanSourceBlocks(text: string, fileName: string): SourceBlock[] {
   const scriptKind = scriptKindFor(fileName);
@@ -227,7 +227,7 @@ function removeTemplateDelimiter(
 }
 
 function addLiteral(literals: LiteralSegment[], start: number, end: number): void {
-  if (end > start) literals.push({ range: { start, end } });
+  literals.push({ range: { start, end } });
 }
 
 function buildBlock(
@@ -242,6 +242,11 @@ function buildBlock(
 
   const literalsByStart = [...segments.literals].sort(
     (left, right) => left.range.start - right.range.start,
+  );
+  const decodedLiterals = dedentLiterals(
+    literalsByStart.map((literal) =>
+      decodeLiteral(sourceText.slice(literal.range.start, literal.range.end), literal.range.start),
+    ),
   );
   const substitutionsByStart = [...segments.substitutions].sort(
     (left, right) => left.range.start - right.range.start,
@@ -271,13 +276,9 @@ function buildBlock(
     }
 
     if (literal === undefined) continue;
-    const decoded = decodeLiteral(
-      sourceText.slice(literal.range.start, literal.range.end),
-      literal.range.start,
-      virtualText.length,
-    );
+    const decoded = decodedLiterals[literalIndex]!;
+    literalRanges.push(...shiftVirtualRanges(decoded.mappings, virtualText.length));
     virtualText += decoded.text;
-    literalRanges.push(...decoded.mappings);
     literalIndex += 1;
   }
 
@@ -291,6 +292,149 @@ function buildBlock(
   };
 }
 
+/** Keep this transform in sync with the `ts-dedent` call in `@mze-store/test`. */
+function dedentLiterals(literals: readonly DecodedLiteral[]): DecodedLiteral[] {
+  if (literals.length === 0) return [];
+
+  const deletions = literals.map((): OffsetRange[] => []);
+  const values = literals.map((literal) => literal.text);
+  const lastIndex = values.length - 1;
+  const trailingLine = /\n[\t ]*$/.exec(values[lastIndex]!);
+  if (trailingLine?.index !== undefined) {
+    deletions[lastIndex]!.push({ start: trailingLine.index, end: values[lastIndex]!.length });
+    values[lastIndex] = values[lastIndex]!.slice(0, trailingLine.index);
+  }
+
+  const indentations = values.flatMap((value) =>
+    [...value.matchAll(/\n([\t ]+|(?!\s).)/g)].map(
+      (match) => match[0].match(/[\t ]/g)?.length ?? 0,
+    ),
+  );
+
+  if (indentations.length > 0) {
+    const indentation = Math.min(...indentations);
+    const pattern = new RegExp(`\\n[\\t ]{${indentation}}`, "g");
+    for (const [index, value] of values.entries()) {
+      for (const match of value.matchAll(pattern)) {
+        const start = (match.index ?? 0) + 1;
+        if (indentation > 0) deletions[index]!.push({ start, end: start + indentation });
+      }
+    }
+  }
+
+  if (values[0]!.startsWith("\n")) deletions[0]!.push({ start: 0, end: 1 });
+
+  return literals.map((literal, index) => applyDeletions(literal, deletions[index]!));
+}
+
+function applyDeletions(literal: DecodedLiteral, ranges: readonly OffsetRange[]): DecodedLiteral {
+  const deletions = normalizeRanges(ranges);
+  return {
+    mappings: compactMappings(remapAfterDeletions(literal.mappings, deletions)),
+    text: deletions.length === 0 ? literal.text : removeRanges(literal.text, deletions),
+  };
+}
+
+function normalizeRanges(ranges: readonly OffsetRange[]): OffsetRange[] {
+  const normalized: OffsetRange[] = [];
+
+  for (const range of ranges.toSorted((left, right) => left.start - right.start)) {
+    const previous = normalized.at(-1);
+    if (previous === undefined || range.start > previous.end) {
+      normalized.push(range);
+      continue;
+    }
+    normalized[normalized.length - 1] = {
+      start: previous.start,
+      end: Math.max(previous.end, range.end),
+    };
+  }
+
+  return normalized;
+}
+
+function removeRanges(text: string, ranges: readonly OffsetRange[]): string {
+  let result = "";
+  let cursor = 0;
+
+  for (const range of ranges) {
+    result += text.slice(cursor, range.start);
+    cursor = range.end;
+  }
+
+  return result + text.slice(cursor);
+}
+
+function remapAfterDeletions(
+  mappings: readonly SourceRangeMapping[],
+  deletions: readonly OffsetRange[],
+): SourceRangeMapping[] {
+  return mappings.map((mapping): SourceRangeMapping => {
+    const removed = deletions.some(
+      (deletion) => mapping.virtual.start >= deletion.start && mapping.virtual.end <= deletion.end,
+    );
+    const start = collapseOffset(mapping.virtual.start, deletions);
+    return {
+      source: mapping.source,
+      virtual: {
+        start,
+        end: removed ? start : collapseOffset(mapping.virtual.end, deletions),
+      },
+    };
+  });
+}
+
+function compactMappings(mappings: readonly SourceRangeMapping[]): SourceRangeMapping[] {
+  const compacted: SourceRangeMapping[] = [];
+
+  for (const mapping of mappings) {
+    const previous = compacted.at(-1);
+    const joinsEmptyRanges =
+      previous?.source.end === mapping.source.start &&
+      previous.virtual.start === previous.virtual.end &&
+      mapping.virtual.start === mapping.virtual.end &&
+      previous.virtual.end === mapping.virtual.start;
+    const joinsDirectRanges =
+      previous?.source.end === mapping.source.start &&
+      previous.virtual.end === mapping.virtual.start &&
+      previous.source.end - previous.source.start ===
+        previous.virtual.end - previous.virtual.start &&
+      mapping.source.end - mapping.source.start === mapping.virtual.end - mapping.virtual.start;
+
+    if (previous !== undefined && (joinsEmptyRanges || joinsDirectRanges)) {
+      compacted[compacted.length - 1] = {
+        source: { start: previous.source.start, end: mapping.source.end },
+        virtual: { start: previous.virtual.start, end: mapping.virtual.end },
+      };
+    } else {
+      compacted.push(mapping);
+    }
+  }
+
+  return compacted;
+}
+
+function collapseOffset(offset: number, deletions: readonly OffsetRange[]): number {
+  return deletions.reduce(
+    (collapsed, deletion) =>
+      collapsed - Math.max(0, Math.min(offset, deletion.end) - deletion.start),
+    offset,
+  );
+}
+
+function shiftVirtualRanges(
+  mappings: readonly SourceRangeMapping[],
+  offset: number,
+): SourceRangeMapping[] {
+  return mappings.map((mapping) => ({
+    source: mapping.source,
+    virtual: {
+      start: mapping.virtual.start + offset,
+      end: mapping.virtual.end + offset,
+    },
+  }));
+}
+
 function placeholderFor(index: number, sourceSlice: string): string {
   const base = `${placeholderPrefix}${index}__`;
   const lineBreaks = sourceSlice.match(/\r\n|\r|\n/g);
@@ -298,35 +442,19 @@ function placeholderFor(index: number, sourceSlice: string): string {
   return `${base}${lineBreaks.map(() => "\n").join("")}`;
 }
 
-function decodeLiteral(raw: string, sourceStart: number, virtualStart: number): DecodedLiteral {
+function decodeLiteral(raw: string, sourceStart: number): DecodedLiteral {
   let text = "";
   const mappings: SourceRangeMapping[] = [];
   let index = 0;
 
   const append = (rawStart: number, rawEnd: number, value: string): void => {
     const virtualRange = {
-      start: virtualStart + text.length,
-      end: virtualStart + text.length + value.length,
+      start: text.length,
+      end: text.length + value.length,
     };
     const sourceRange = { start: sourceStart + rawStart, end: sourceStart + rawEnd };
     if (sourceRange.start === sourceRange.end) return;
-    const previous = mappings[mappings.length - 1];
-    if (
-      value.length > 0 &&
-      previous !== undefined &&
-      previous.source.end === sourceRange.start &&
-      previous.virtual.end === virtualRange.start &&
-      previous.source.end - previous.source.start ===
-        previous.virtual.end - previous.virtual.start &&
-      rawEnd - rawStart === value.length
-    ) {
-      mappings[mappings.length - 1] = {
-        source: { start: previous.source.start, end: sourceRange.end },
-        virtual: { start: previous.virtual.start, end: virtualRange.end },
-      };
-    } else {
-      mappings.push({ source: sourceRange, virtual: virtualRange });
-    }
+    mappings.push({ source: sourceRange, virtual: virtualRange });
     text += value;
   };
 
@@ -407,6 +535,13 @@ function mapOffset(
   mappings: readonly SourceRangeMapping[],
   direction: "source" | "virtual",
 ): number | undefined {
+  for (const mapping of mappings) {
+    const from = mapping[direction];
+    if (from.start === offset && from.end > from.start) {
+      return mapping[direction === "source" ? "virtual" : "source"].start;
+    }
+  }
+
   for (const mapping of mappings) {
     const from = mapping[direction];
     const to = mapping[direction === "source" ? "virtual" : "source"];

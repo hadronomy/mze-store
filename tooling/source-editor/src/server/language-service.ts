@@ -5,7 +5,7 @@ import {
   mapVirtualRange,
   scanSourceBlocks,
   type SourceLanguage,
-} from "../core/index.ts";
+} from "~/core/index";
 import {
   createSourceVirtualDocument,
   mapHostOffset,
