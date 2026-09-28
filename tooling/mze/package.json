@@ -7,11 +7,11 @@
     "prepare": "effect-tsgo patch"
   },
   "devDependencies": {
-    "@effect/platform-node": "4.0.0-rc.109",
-    "@effect/tsgo": "0.36.5",
-    "@effect/vitest": "4.0.0-rc.109",
+    "@effect/platform-node": "4.0.0-rc.117",
+    "@effect/tsgo": "0.45.0",
+    "@effect/vitest": "4.0.0-rc.117",
     "@mze-store/config": "workspace:*",
-    "@typeonce/effect-machine": "0.15.0",
+    "@typeonce/effect-machine": "0.38.1",
     "ansi-escapes": "7.3.0",
     "chalk": "6.0.0",
     "effect": "4.0.0-rc.109",
