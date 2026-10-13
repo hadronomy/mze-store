@@ -30,7 +30,7 @@ jobs:
           persist-credentials: false
 
       - name: Set up Node
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: 24.18.1
           package-manager-cache: false
@@ -132,7 +132,7 @@ jobs:
 
       - name: Preserve application check metrics
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: application-check-metrics-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/application-check-metrics.json
@@ -151,7 +151,7 @@ jobs:
           persist-credentials: false
 
       - name: Set up Node
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: 24.18.1
           package-manager-cache: false
@@ -173,7 +173,7 @@ jobs:
 
       - name: Preserve Oxlint benchmark results
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: oxlint-benchmark-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/oxlint-benchmark.json
@@ -198,7 +198,7 @@ jobs:
           persist-credentials: false
 
       - name: Set up Node
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: 24.18.1
           package-manager-cache: false
@@ -313,10 +313,10 @@ jobs:
           persist-credentials: false
 
       - name: Set up Buildx
-        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
 
       - name: Build the pull-request image
-        uses: docker/bake-action@d3418bd7d0e9324001bca92fa8ba175ea7e6dc9b # v7.3.0
+        uses: docker/bake-action@018cb6412ab401ebaa809aa5f85966b74628600f # v7.4.0
         env:
           CACHE_ARCH: ${{ matrix.architecture }}
           CACHE_SCOPE: ${{ github.event.pull_request.number || github.ref_name }}
@@ -374,7 +374,7 @@ jobs:
           persist-credentials: false
 
       - name: Set up Buildx
-        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
 
       - name: Validate Compose
         run: docker compose config --quiet
@@ -570,7 +570,7 @@ jobs:
 
       - name: Preserve CI gate timing
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ci-gate-metrics-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/ci-gate-metrics.json
