@@ -24,7 +24,7 @@ jobs:
           persist-credentials: false
 
       - name: Set up Node
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: 24.18.1
           package-manager-cache: false
@@ -105,7 +105,7 @@ jobs:
 
       - name: Preserve application check metrics
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: application-check-metrics-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/application-check-metrics.json
@@ -174,7 +174,7 @@ jobs:
           persist-credentials: false
 
       - name: Set up Buildx
-        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
 
       - name: Record image metadata
         run: |
@@ -200,7 +200,7 @@ jobs:
             "$TARGET"
 
       - name: Preserve verified provenance inputs
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: provenance-inputs-${{ matrix.name }}-${{ matrix.architecture }}
           path: /tmp/release-evidence/provenance-inputs-${{ matrix.architecture }}.json
@@ -216,7 +216,7 @@ jobs:
 
       - name: Build the immutable candidate
         id: bake
-        uses: docker/bake-action@d3418bd7d0e9324001bca92fa8ba175ea7e6dc9b # v7.3.0
+        uses: docker/bake-action@018cb6412ab401ebaa809aa5f85966b74628600f # v7.4.0
         env:
           CACHE_ARCH: ${{ matrix.architecture }}
           PLATFORM: ${{ matrix.platform }}
@@ -256,7 +256,7 @@ jobs:
           upload-sarif: "true"
 
       - name: Upload the platform digest
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: digests-${{ matrix.name }}-${{ matrix.architecture }}
           path: /tmp/digests/*
@@ -290,7 +290,7 @@ jobs:
           persist-credentials: false
 
       - name: Set up Buildx
-        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
 
       - name: Log in to GHCR
         uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
@@ -300,21 +300,21 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Download platform digests
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           pattern: digests-${{ matrix.name }}-*
           path: /tmp/digests
           merge-multiple: true
 
       - name: Download verified provenance inputs
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           pattern: provenance-inputs-${{ matrix.name }}-*
           path: /tmp/release-evidence/provenance-inputs
           merge-multiple: true
 
       - name: Download platform policy evidence
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           pattern: image-evidence-release-${{ matrix.name }}-*
           path: /tmp/release-evidence/platforms
@@ -453,7 +453,7 @@ jobs:
           echo "RUN_STARTED_AT=$RUN_STARTED_AT" >>"$GITHUB_ENV"
 
       - name: Upload release evidence
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: release-evidence-${{ matrix.name }}-${{ github.sha }}
           path: |
