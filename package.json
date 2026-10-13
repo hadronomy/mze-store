@@ -56,23 +56,23 @@
     "doctor": "bun run --cwd apps/storefront doctor"
   },
   "devDependencies": {
-    "@axe-core/playwright": "4.12.1",
-    "@effect/vitest": "4.0.0-rc.109",
+    "@axe-core/playwright": "4.13.0",
+    "@effect/vitest": "4.0.3",
     "@mze-store/config": "workspace:*",
     "@mze-store/oxlint": "workspace:*",
     "@oxlint/plugins": "1.78.0",
-    "@playwright/test": "1.62.1",
+    "@playwright/test": "1.64.0",
     "@types/node": "catalog:",
     "effect": "4.0.0-rc.109",
-    "knip": "6.32.1",
-    "oxlint": "1.78.0",
-    "rolldown": "1.1.4",
-    "tsc-alias": "^1.9.1",
+    "knip": "6.41.0",
+    "oxlint": "1.87.0",
+    "rolldown": "1.2.13",
+    "tsc-alias": "^1.9.7",
     "typescript": "catalog:",
     "uuid": "catalog:",
     "varlock": "1.16.1",
     "vite-plus": "catalog:",
-    "yaml": "2.9.0"
+    "yaml": "2.9.1"
   },
   "overrides": {
     "vite": "npm:@voidzero-dev/vite-plus-core@0.2.6"
