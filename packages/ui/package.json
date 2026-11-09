@@ -45,7 +45,7 @@
   },
   "devDependencies": {
     "@mze-store/config": "workspace:*",
-    "@tailwindcss/postcss": "^4.3.2",
+    "@tailwindcss/postcss": "^4.3.5",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
     "tailwindcss": "catalog:",

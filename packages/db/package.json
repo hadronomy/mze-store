@@ -35,7 +35,7 @@
   "devDependencies": {
     "@mze-store/config": "workspace:*",
     "@types/pg": "^8.20.0",
-    "drizzle-kit": "^0.31.10",
+    "drizzle-kit": "^0.31.11",
     "typescript": "catalog:",
     "varlock": "1.16.1"
   }
